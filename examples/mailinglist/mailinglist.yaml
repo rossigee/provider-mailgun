@@ -1,0 +1,38 @@
+apiVersion: mailinglist.mailgun.crossplane.io/v1alpha1
+kind: MailingList
+metadata:
+  name: newsletter-list
+spec:
+  forProvider:
+    address: newsletter@mail.example.com
+    name: Newsletter Subscribers
+    description: Monthly newsletter mailing list
+    accessLevel: readonly
+    replyPreference: list
+    members:
+    - address: user1@example.com
+      name: User One
+      subscribed: true
+      vars:
+        segment: premium
+    - address: user2@example.com
+      name: User Two
+      subscribed: true
+      vars:
+        segment: basic
+  providerConfigRef:
+    name: default
+---
+apiVersion: mailinglist.mailgun.crossplane.io/v1alpha1
+kind: MailingList
+metadata:
+  name: support-list
+spec:
+  forProvider:
+    address: support@mail.example.com
+    name: Support Team
+    description: Support team internal mailing list
+    accessLevel: members
+    replyPreference: sender
+  providerConfigRef:
+    name: default

@@ -1,0 +1,35 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+
+  - repo: local
+    hooks:
+      - id: no-secrets-in-code
+        name: Check for common secret patterns
+        entry: |
+          bash -c '
+          if grep -r -i -E "(api[_-]?key|secret|password|token|credential).*(=|:).*(sk_|pk_|[a-f0-9]{32})" --include="*.go" --include="*.yaml" --include="*.yml" --include="*.py" --exclude=".pre-commit-config.yaml" .; then
+            echo "❌ Potential secrets detected in code"
+            exit 1
+          fi
+          '
+        language: system
+        pass_filenames: false
+
+      - id: mailgun-specific-checks
+        name: Check for Mailgun API keys
+        entry: |
+          bash -c '
+          if grep -r -E "key-[a-f0-9]{32}-[a-f0-9]{8}-[a-f0-9]{8}" --include="*.go" --include="*.yaml" --include="*.yml" --include="*.py" .; then
+            echo "❌ Mailgun API key pattern detected"
+            exit 1
+          fi
+          '
+        language: system
+        pass_filenames: false

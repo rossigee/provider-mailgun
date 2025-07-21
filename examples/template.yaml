@@ -1,0 +1,29 @@
+apiVersion: template.mailgun.crossplane.io/v1alpha1
+kind: Template
+metadata:
+  name: welcome-email-template
+spec:
+  forProvider:
+    domain: golder.org
+    name: welcome-email
+    description: Welcome email template for new users
+    engine: mustache
+    template: |
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <title>Welcome to {{company_name}}</title>
+      </head>
+      <body>
+          <h1>Welcome {{user_name}}!</h1>
+          <p>Thank you for joining {{company_name}}. We're excited to have you aboard!</p>
+          <p>Your account email: {{user_email}}</p>
+          <p>Get started by visiting: <a href="{{dashboard_url}}">{{dashboard_url}}</a></p>
+          <br>
+          <p>Best regards,<br>The {{company_name}} Team</p>
+      </body>
+      </html>
+    comment: Initial version of welcome email template
+    tag: v1.0
+  providerConfigRef:
+    name: mailgun-config

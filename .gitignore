@@ -1,0 +1,105 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+/provider
+*.test
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Go workspace file
+go.work
+
+# Build outputs
+_output/
+bin/
+.cache/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Secrets and credentials
+*.secret*
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+*secret*.yaml
+*secret*.yml
+*-credential*.yaml
+*-credential*.yml
+credential*.yaml
+!*smtpcredential*.yaml
+introspect*.py
+test-*.yaml
+*-smtp-*.yaml
+
+# API keys and tokens
+.env
+.env.local
+.env.*.local
+*.token
+*api-key*
+*apikey*
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.pid
+*.seed
+*.lock
+
+# Package files
+*.xpkg
+*.tar.gz
+*.zip
+
+# Test outputs and binaries
+coverage.txt
+coverage.html
+test-results/
+*.test
+domain.test
+template.test
+mailinglist.test
+webhook.test
+route.test
+Makefile.test
+
+# Deployment files (keep only in deployment/ or examples/)
+/*-deployment.yaml
+/*-secret.yaml
+/*-smtp*.yaml
+/mailgun-*.yaml
+/vaultwarden*.yaml
+/provider-*.yaml
+
+# Local development
+local/
+tmp/
+temp/
+
+# Kubernetes manifests with secrets
+**/kustomization.yaml
+**/secrets/

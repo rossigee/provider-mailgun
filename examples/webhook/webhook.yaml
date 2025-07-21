@@ -1,0 +1,42 @@
+apiVersion: webhook.mailgun.crossplane.io/v1alpha1
+kind: Webhook
+metadata:
+  name: delivery-webhook
+spec:
+  forProvider:
+    domainRef:
+      name: example-domain
+    eventType: delivered
+    url: https://api.myapp.com/webhooks/mailgun/delivered
+    username: webhook-user
+    password: secret-password
+  providerConfigRef:
+    name: default
+---
+apiVersion: webhook.mailgun.crossplane.io/v1alpha1
+kind: Webhook
+metadata:
+  name: open-tracking-webhook
+spec:
+  forProvider:
+    domainRef:
+      name: example-domain
+    eventType: opened
+    url: https://analytics.myapp.com/email/opened
+  providerConfigRef:
+    name: default
+---
+apiVersion: webhook.mailgun.crossplane.io/v1alpha1
+kind: Webhook
+metadata:
+  name: bounce-webhook
+spec:
+  forProvider:
+    domainRef:
+      name: example-domain
+    eventType: permanent_fail
+    url: https://api.myapp.com/webhooks/mailgun/bounce
+    username: webhook-user
+    password: secret-password
+  providerConfigRef:
+    name: default

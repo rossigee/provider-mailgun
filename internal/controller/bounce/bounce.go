@@ -1,0 +1,246 @@
+/*
+Copyright 2025 The Crossplane Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package bounce
+
+import (
+	"context"
+	"strings"
+
+	"github.com/pkg/errors"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/pkg/event"
+	"github.com/crossplane/crossplane-runtime/pkg/meta"
+	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/pkg/resource"
+
+	"github.com/crossplane-contrib/provider-mailgun/apis/bounce/v1alpha1"
+	apisv1beta1 "github.com/crossplane-contrib/provider-mailgun/apis/v1beta1"
+	clients "github.com/crossplane-contrib/provider-mailgun/internal/clients"
+)
+
+const (
+	errNotBounce    = "managed resource is not a Bounce custom resource"
+	errTrackPCUsage = "cannot track ProviderConfig usage"
+	errGetPC        = "cannot get ProviderConfig"
+	errGetCreds     = "cannot get credentials"
+
+	errNewClient = "cannot create new Service"
+)
+
+// Setup adds a controller that reconciles Bounce managed resources.
+func Setup(mgr ctrl.Manager, o controller.Options) error {
+	name := managed.ControllerName(v1alpha1.BounceKind)
+
+	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
+
+	r := managed.NewReconciler(mgr,
+		resource.ManagedKind(v1alpha1.BounceGroupVersionKind),
+		managed.WithExternalConnecter(&connector{
+			kube:         mgr.GetClient(),
+			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1beta1.ProviderConfigUsage{}),
+			newServiceFn: clients.NewClient,
+		}),
+		managed.WithLogger(o.Logger.WithValues("controller", name)),
+		managed.WithPollInterval(o.PollInterval),
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
+		managed.WithConnectionPublishers(cps...))
+
+	return ctrl.NewControllerManagedBy(mgr).
+		Named(name).
+		WithOptions(o.ForControllerRuntime()).
+		WithEventFilter(resource.DesiredStateChanged()).
+		For(&v1alpha1.Bounce{}).
+		Complete(r)
+}
+
+// A connector is expected to produce an ExternalClient when its Connect method
+// is called.
+type connector struct {
+	kube         client.Client
+	usage        resource.Tracker
+	newServiceFn func(config *clients.Config) clients.Client
+}
+
+// Connect typically produces an ExternalClient by:
+// 1. Tracking that the managed resource is using a ProviderConfig.
+// 2. Getting the managed resource's ProviderConfig.
+// 3. Getting the credentials specified by the ProviderConfig.
+// 4. Using the credentials to form a client.
+func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
+	cr, ok := mg.(*v1alpha1.Bounce)
+	if !ok {
+		return nil, errors.New(errNotBounce)
+	}
+
+	if err := c.usage.Track(ctx, mg); err != nil {
+		return nil, errors.Wrap(err, errTrackPCUsage)
+	}
+
+	pc := &apisv1beta1.ProviderConfig{}
+	if err := c.kube.Get(ctx, types.NamespacedName{Name: cr.GetProviderConfigReference().Name}, pc); err != nil {
+		return nil, errors.Wrap(err, errGetPC)
+	}
+
+	cd := pc.Spec.Credentials
+	_, err := resource.CommonCredentialExtractor(ctx, cd.Source, c.kube, cd.CommonCredentialSelectors)
+	if err != nil {
+		return nil, errors.Wrap(err, errGetCreds)
+	}
+
+	config, err := clients.GetConfig(ctx, c.kube, mg)
+	if err != nil {
+		return nil, errors.Wrap(err, errGetCreds)
+	}
+
+	svc := c.newServiceFn(config)
+
+	return &external{service: svc, kube: c.kube}, nil
+}
+
+// An ExternalClient observes, then either creates, updates, or deletes an
+// external resource to ensure it reflects the managed resource's desired state.
+type external struct {
+	service clients.Client
+	kube    client.Client
+}
+
+func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
+	cr, ok := mg.(*v1alpha1.Bounce)
+	if !ok {
+		return managed.ExternalObservation{}, errors.New(errNotBounce)
+	}
+
+	// Get domain name from domainRef
+	domainName, err := c.resolveDomainName(ctx, cr)
+	if err != nil {
+		return managed.ExternalObservation{}, errors.Wrap(err, "cannot resolve domain name")
+	}
+
+	// Use the address as the external name
+	externalName := meta.GetExternalName(cr)
+	if externalName == "" {
+		externalName = cr.Spec.ForProvider.Address
+		meta.SetExternalName(cr, externalName)
+	}
+
+	bounce, err := c.service.GetBounce(ctx, domainName, externalName)
+	if err != nil {
+		if clients.IsNotFound(err) {
+			return managed.ExternalObservation{
+				ResourceExists: false,
+			}, nil
+		}
+		return managed.ExternalObservation{}, errors.Wrap(err, "cannot get bounce")
+	}
+
+	cr.Status.AtProvider = v1alpha1.BounceObservation{
+		CreatedAt: &bounce.CreatedAt,
+	}
+
+	cr.Status.SetConditions(xpv1.Available())
+
+	return managed.ExternalObservation{
+		ResourceExists:          true,
+		ResourceUpToDate:        true,
+		ResourceLateInitialized: false,
+	}, nil
+}
+
+func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
+	cr, ok := mg.(*v1alpha1.Bounce)
+	if !ok {
+		return managed.ExternalCreation{}, errors.New(errNotBounce)
+	}
+
+	cr.Status.SetConditions(xpv1.Creating())
+
+	// Get domain name from domainRef
+	domainName, err := c.resolveDomainName(ctx, cr)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "cannot resolve domain name")
+	}
+
+	bounceSpec := &clients.BounceSpec{
+		Address: cr.Spec.ForProvider.Address,
+		Code:    cr.Spec.ForProvider.Code,
+		Error:   cr.Spec.ForProvider.Error,
+	}
+
+	bounce, err := c.service.CreateBounce(ctx, domainName, bounceSpec)
+	if err != nil {
+		return managed.ExternalCreation{}, errors.Wrap(err, "cannot create bounce")
+	}
+
+	meta.SetExternalName(cr, bounce.Address)
+
+	return managed.ExternalCreation{}, nil
+}
+
+func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
+	// Bounce entries cannot be updated in Mailgun API
+	// They can only be created or deleted
+	return managed.ExternalUpdate{}, nil
+}
+
+func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+	cr, ok := mg.(*v1alpha1.Bounce)
+	if !ok {
+		return errors.New(errNotBounce)
+	}
+
+	cr.Status.SetConditions(xpv1.Deleting())
+
+	// Get domain name from domainRef
+	domainName, err := c.resolveDomainName(ctx, cr)
+	if err != nil {
+		return errors.Wrap(err, "cannot resolve domain name")
+	}
+
+	externalName := meta.GetExternalName(cr)
+	if externalName == "" {
+		externalName = cr.Spec.ForProvider.Address
+	}
+
+	err = c.service.DeleteBounce(ctx, domainName, externalName)
+	if err != nil && !clients.IsNotFound(err) {
+		return errors.Wrap(err, "cannot delete bounce")
+	}
+
+	return nil
+}
+
+// resolveDomainName resolves the domain name from the domainRef
+func (c *external) resolveDomainName(ctx context.Context, cr *v1alpha1.Bounce) (string, error) {
+	// For now, we assume the domain reference name is the domain name
+	// In a more sophisticated implementation, we could resolve the actual Domain resource
+	domainRefName := cr.Spec.ForProvider.DomainRef.Name
+
+	// Extract domain name - if it contains dots, it's likely a domain name
+	// If not, we might need to look up the Domain resource
+	if strings.Contains(domainRefName, ".") {
+		return domainRefName, nil
+	}
+
+	// TODO: Look up the Domain resource and get its actual domain name
+	// For now, assume the ref name is the domain name
+	return domainRefName, nil
+}

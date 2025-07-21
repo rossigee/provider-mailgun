@@ -1,0 +1,204 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+# Mailgun Crossplane Provider
+
+## Architecture Overview
+
+This is a **Crossplane managed resource provider** for Mailgun integration, following standard Crossplane patterns:
+
+- **Core Resources**: Domain, MailingList, Route, and Webhook management with full CRUD operations
+- **External Client Pattern**: Mailgun API abstraction with interface-based design
+- **Cross-Resource References**: Webhooks reference Domains using Kubernetes-native `spec.domainRef`
+- **Provider Configuration**: Authentication via ProviderConfig with Kubernetes secret references
+
+**Key Directory Structure**:
+- `apis/` - CRD definitions (Domain, MailingList, Route, Webhook, etc.)
+- `internal/clients/` - Mailgun API client implementation
+- `internal/controller/` - Crossplane managed resource controllers
+- `examples/` - Complete usage examples and production setups
+- `package/` - Crossplane packaging and metadata
+
+## Development Commands
+
+### Essential Build Commands
+```bash
+# Code generation (ALWAYS run after API changes)
+make generate
+
+# Build and test
+make build
+make test
+
+# Local development
+make run              # Run provider out-of-cluster
+make install-crds     # Install CRDs into cluster
+
+# Packaging
+make docker-build
+make xpkg-build       # Build Crossplane package
+```
+
+## Critical Implementation Patterns
+
+### Standard Crossplane Resource Controller
+All controllers follow this pattern:
+```go
+func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error)
+func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error)
+func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error)
+func (c *external) Delete(ctx context.Context, mg resource.Managed) error
+```
+
+### Cross-Resource References
+Webhooks reference Domains using Crossplane's standard pattern:
+```yaml
+spec:
+  domainRef:
+    name: my-domain-resource
+```
+
+### Status Conditions
+Use Crossplane's standard conditions:
+- `xpv1.Available()` - Resource ready
+- `xpv1.Creating()` - Resource being created
+- `xpv1.Deleting()` - Resource being deleted
+
+### Error Handling
+- Always wrap errors with context using `errors.Wrap()`
+- Detect 404s to determine resource existence
+- Handle Mailgun API rate limits and failures gracefully
+
+## Mailgun Client Usage
+
+The Mailgun client (`internal/clients/mailgun.go`) provides abstracted access to Mailgun API:
+- **Domains**: CRUD operations, DNS record management, tracking settings
+- **MailingLists**: Creation, member management, access control
+- **Routes**: Email routing rule configuration
+- **Webhooks**: Event notification endpoint setup
+- **Authentication**: API key-based authentication via ProviderConfig
+
+## API Design Conventions
+
+### Field Validation
+Use kubebuilder validation tags extensively:
+```go
+// +kubebuilder:validation:Required
+// +kubebuilder:validation:Enum=US;EU
+// +kubebuilder:validation:Pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+```
+
+### Optional Fields
+Use pointer types for optional fields:
+```go
+Region       *string `json:"region,omitempty"`
+Description  *string `json:"description,omitempty"`
+```
+
+### Status Reporting
+Include observed state in status:
+```go
+type DomainObservation struct {
+    ID              string      `json:"id,omitempty"`
+    State           string      `json:"state,omitempty"`
+    RequiredDNSRecords []DNSRecord `json:"requiredDnsRecords,omitempty"`
+}
+```
+
+## Current Implementation Status
+
+**✅ Complete**:
+- ✅ Project structure and build configuration
+- ✅ API definitions for all four resource types (Domain, MailingList, Route, Webhook)
+- ✅ Mailgun client interface and HTTP client implementation
+- ✅ Provider configuration and main entry point
+- ✅ Example manifests for all resources
+- ✅ DeepCopy code generation for all API types
+- ✅ Crossplane managed resource methods generation
+- ✅ Domain controller implementation (functional)
+- ✅ MailingList controller implementation (functional)
+- ✅ Webhook controller implementation (functional)
+- ✅ Route controller implementation (functional)
+- ✅ Comprehensive test suite (34 tests, all passing)
+- ✅ Docker build infrastructure and CI/CD workflows
+- ✅ Docker image build process (Go 1.24.5 compatible)
+- ✅ Kubernetes deployment manifests for golder-secops cluster
+
+**✅ Production Deployment**:
+- Successfully deployed to golder-secops cluster
+- Docker image: `docker.io/rossigee/provider-mailgun:v0.1.0`
+- All controllers operational with comprehensive test coverage
+
+## Build and Deployment Process
+
+### ⚠️ Critical Build Requirements
+- **Go Version**: Go 1.24.5+ required (specified in go.mod)
+- **Docker Context**: Use `ulta-docker-engine-1` for optimal build performance
+- **Dockerfile**: Updated to use `golang:1.24.5` base image for latest bugfixes
+
+### Standard Build Commands
+```bash
+# Build provider binary directly (fastest method)
+go build -o provider cmd/provider/main.go
+
+# Run comprehensive test suite
+make test
+
+# Generate code (DeepCopy, managed resources, CRDs)
+make generate
+
+# Docker build (requires Go 1.23 compatible Dockerfile)
+docker build -t provider-mailgun:latest -f cluster/images/provider-mailgun/Dockerfile .
+
+# Build and push to multiple registries
+./build-and-push.sh
+```
+
+### Docker Build Process
+```bash
+# Switch to optimal Docker context
+docker context use ulta-docker-engine-1
+
+# Build image locally
+docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
+
+# Build and push to Harbor (internal registry)
+VERSION=v0.1.0 ./build-and-push.sh
+
+# Build and push to both Harbor and Docker Hub
+VERSION=v0.1.0 PUSH_EXTERNAL=true ./build-and-push.sh
+
+# Build with Crossplane package
+VERSION=v0.1.0 BUILD_PACKAGE=true ./build-and-push.sh
+```
+
+### Environment Variables for Registry Override
+- **`VERSION`** - Image version tag (default: `dev`)
+- **`PUSH_EXTERNAL`** - Push to Docker Hub (`true`/`false`)
+- **`BUILD_PACKAGE`** - Build Crossplane .xpkg package (`true`/`false`)
+- **`PLATFORMS`** - Build platforms (default: `linux/amd64,linux/arm64`)
+- **`XPKG_REG_ORGS`** - Override crossplane package registry (default: `xpkg.upbound.io/crossplane-contrib`)
+- **`REGISTRY`** - Used by custom Docker scripts (default: `harbor.golder.lan/library`)
+
+### Deployment to golder-secops Cluster
+The provider is deployed via Flux GitOps:
+- **Manifest**: `/home/rossg/clients/golder/infrastructure/flux-golder/clusters/golder-secops/crossplane-providers/provider-mailgun.yaml`
+- **Registry**: `harbor.golder.lan/library/provider-mailgun:dev`
+- **Runtime**: Uses shared `provider-runtime` DeploymentRuntimeConfig
+- **Secrets**: Uses `harbor-credentials` for image pull authentication
+
+## Resource Relationships
+
+- **Domains** are independent resources
+- **MailingLists** are associated with domains via email address
+- **Routes** apply to all domains or can be domain-specific via expression
+- **Webhooks** reference specific domains via `domainRef`
+
+## Regional Support
+
+The provider supports both Mailgun regions:
+- **US**: `https://api.mailgun.net/v3` (default)
+- **EU**: `https://api.eu.mailgun.net/v3`
+
+Configure via `region` field in ProviderConfig or explicit `apiBaseURL`.

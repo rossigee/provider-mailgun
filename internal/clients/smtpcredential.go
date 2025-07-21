@@ -1,0 +1,120 @@
+/*
+Copyright 2025 The Crossplane Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package clients
+
+import (
+	"context"
+	"fmt"
+	"strings"
+)
+
+// CreateSMTPCredential creates a new SMTP credential for a domain
+func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string, credential *SMTPCredentialSpec) (*SMTPCredential, error) {
+	path := fmt.Sprintf("/domains/%s/credentials", domain)
+
+	params := map[string]interface{}{
+		"login": credential.Login,
+	}
+	if credential.Password != nil {
+		params["password"] = *credential.Password
+	}
+
+	body := strings.NewReader(createFormData(params))
+	resp, err := c.makeRequest(ctx, "POST", path, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SMTP credential: %w", err)
+	}
+
+	var result SMTPCredential
+	if err := c.handleResponse(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to handle response: %w", err)
+	}
+
+	return &result, nil
+}
+
+// GetSMTPCredential retrieves an SMTP credential
+func (c *mailgunClient) GetSMTPCredential(ctx context.Context, domain, login string) (*SMTPCredential, error) {
+	// List all credentials and find the matching one
+	path := fmt.Sprintf("/domains/%s/credentials", domain)
+
+	resp, err := c.makeRequest(ctx, "GET", path, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get SMTP credentials: %w", err)
+	}
+
+	var result struct {
+		Items []SMTPCredential `json:"items"`
+	}
+	if err := c.handleResponse(resp, &result); err != nil {
+		return nil, fmt.Errorf("failed to handle response: %w", err)
+	}
+
+	// Find the credential with matching login
+	for _, cred := range result.Items {
+		if cred.Login == login {
+			return &cred, nil
+		}
+	}
+
+	return nil, fmt.Errorf("credential %s not found (404)", login)
+}
+
+// UpdateSMTPCredential updates the password for an SMTP credential
+func (c *mailgunClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*SMTPCredential, error) {
+	path := fmt.Sprintf("/domains/%s/credentials/%s", domain, login)
+
+	params := map[string]interface{}{
+		"password": password,
+	}
+
+	body := strings.NewReader(createFormData(params))
+	resp, err := c.makeRequest(ctx, "PUT", path, body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update SMTP credential: %w", err)
+	}
+
+	var result SMTPCredential
+	if err := c.handleResponse(resp, &result); err != nil {
+		// Some endpoints return empty response on success, so we handle that
+		return &SMTPCredential{
+			Login: login,
+			State: "active",
+		}, nil
+	}
+
+	return &result, nil
+}
+
+// DeleteSMTPCredential deletes an SMTP credential
+func (c *mailgunClient) DeleteSMTPCredential(ctx context.Context, domain, login string) error {
+	path := fmt.Sprintf("/domains/%s/credentials/%s", domain, login)
+
+	resp, err := c.makeRequest(ctx, "DELETE", path, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete SMTP credential: %w", err)
+	}
+
+	// For DELETE operations, we usually don't need to parse the response
+	var result interface{}
+	if err := c.handleResponse(resp, &result); err != nil {
+		// Many DELETE endpoints return empty responses, so we ignore parse errors
+		return nil
+	}
+
+	return nil
+}

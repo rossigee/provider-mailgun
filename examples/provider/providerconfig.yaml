@@ -1,0 +1,29 @@
+apiVersion: mailgun.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  # US region (default)
+  region: US
+  apiBaseURL: https://api.mailgun.net/v3
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: mailgun-secret
+      key: password
+---
+apiVersion: mailgun.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: eu-region
+spec:
+  # EU region
+  region: EU
+  apiBaseURL: https://api.eu.mailgun.net/v3
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: mailgun-secret
+      key: password

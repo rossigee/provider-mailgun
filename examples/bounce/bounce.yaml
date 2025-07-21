@@ -1,0 +1,13 @@
+apiVersion: bounce.mailgun.crossplane.io/v1alpha1
+kind: Bounce
+metadata:
+  name: example-bounce
+spec:
+  forProvider:
+    address: "bounced@example.com"
+    code: "550"
+    error: "5.1.1 User Unknown"
+    domainRef:
+      name: "example.com"
+  providerConfigRef:
+    name: default

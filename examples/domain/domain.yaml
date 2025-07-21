@@ -1,0 +1,31 @@
+apiVersion: domain.mailgun.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: example-domain
+spec:
+  forProvider:
+    name: mail.example.com
+    type: sending
+    forceDkimAuthority: false
+    dkimKeySize: 2048
+    spamAction: disabled
+    webScheme: https
+    wildcard: false
+    tracking:
+      click: true
+      open: true
+      unsubscribe: true
+  providerConfigRef:
+    name: default
+---
+apiVersion: domain.mailgun.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: receiving-domain
+spec:
+  forProvider:
+    name: incoming.example.com
+    type: receiving
+    spamAction: tag
+  providerConfigRef:
+    name: default

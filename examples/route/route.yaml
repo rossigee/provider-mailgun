@@ -1,0 +1,30 @@
+apiVersion: route.mailgun.crossplane.io/v1alpha1
+kind: Route
+metadata:
+  name: support-route
+spec:
+  forProvider:
+    priority: 10
+    description: Forward support emails to helpdesk
+    expression: match_recipient("support@.*")
+    actions:
+    - type: forward
+      destination: helpdesk@company.com
+    - type: store
+  providerConfigRef:
+    name: default
+---
+apiVersion: route.mailgun.crossplane.io/v1alpha1
+kind: Route
+metadata:
+  name: catch-all-route
+spec:
+  forProvider:
+    priority: 100
+    description: Catch all other emails and store them
+    expression: catch_all()
+    actions:
+    - type: store
+    - type: stop
+  providerConfigRef:
+    name: default

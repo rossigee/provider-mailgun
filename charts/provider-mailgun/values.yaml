@@ -1,0 +1,173 @@
+# Default values for provider-mailgun
+# This is a YAML-formatted file.
+
+# Provider image configuration
+image:
+  repository: crossplane/provider-mailgun
+  tag: "v0.1.0"
+  pullPolicy: IfNotPresent
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 2000
+  runAsGroup: 2000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# Pod security context
+podSecurityContext:
+  fsGroup: 2000
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Health check configuration
+healthChecks:
+  enabled: true
+  liveness:
+    path: /healthz
+    port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    path: /readyz
+    port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+# Metrics configuration
+metrics:
+  enabled: true
+  port: 8080
+  path: /metrics
+  serviceMonitor:
+    enabled: false
+    namespace: ""
+    labels: {}
+    interval: 30s
+    scrapeTimeout: 10s
+
+# Provider configuration
+provider:
+  # Package information
+  package:
+    repository: crossplane/provider-mailgun
+    version: "v0.1.0"
+
+  # Controller configuration
+  controller:
+    image:
+      repository: crossplane/provider-mailgun
+      tag: "v0.1.0"
+
+    # Number of controller replicas
+    replicas: 1
+
+    # Controller arguments
+    args:
+      - --leader-elect
+      - --sync-period=1h
+      - --poll-interval=10m
+      - --max-reconcile-rate=100
+      - --enable-external-secret-stores
+      - --enable-management-policies
+
+    # Environment variables
+    env: []
+      # - name: MAILGUN_API_ENDPOINT
+      #   value: "https://api.mailgun.net/v3"
+
+    # Volume mounts for certificates or config
+    volumeMounts: []
+      # - name: ca-certs
+      #   mountPath: /etc/ssl/certs
+      #   readOnly: true
+
+    volumes: []
+      # - name: ca-certs
+      #   configMap:
+      #     name: ca-certificates
+
+# RBAC configuration
+rbac:
+  # Create RBAC resources
+  create: true
+
+  # Permissions for controller
+  rules:
+    - apiGroups: [""]
+      resources: ["secrets"]
+      verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+    - apiGroups: [""]
+      resources: ["events"]
+      verbs: ["create", "patch"]
+    - apiGroups: ["apiextensions.k8s.io"]
+      resources: ["customresourcedefinitions"]
+      verbs: ["get", "list", "watch"]
+
+# Service account
+serviceAccount:
+  # Create a service account
+  create: true
+  # Name of the service account
+  name: ""
+  # Annotations for the service account
+  annotations: {}
+
+# Node selector
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# Network policies
+networkPolicy:
+  enabled: false
+  # egress:
+  #   - to:
+  #     - namespaceSelector:
+  #         matchLabels:
+  #           name: crossplane-system
+  #     ports:
+  #     - protocol: TCP
+  #       port: 443
+
+# Priority class
+priorityClassName: ""
+
+# Additional labels to add to all resources
+labels: {}
+
+# Additional annotations to add to all resources
+annotations: {}
+
+# Package manager configuration
+packageManager:
+  # Configuration for package installation
+  activeDeadlineSeconds: 600
+  revisionActivationPolicy: "Automatic"
+  revisionHistoryLimit: 1
+  skipDependencyResolution: false

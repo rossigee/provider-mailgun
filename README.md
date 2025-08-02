@@ -1,6 +1,6 @@
 # Provider Mailgun
 
-A Crossplane provider for managing Mailgun resources with namespace scoping support for multi-tenancy.
+A Crossplane provider for managing Mailgun resources with namespace scoping support for multi-tenancy and intelligent credential rotation.
 
 ## Features
 
@@ -8,7 +8,8 @@ A Crossplane provider for managing Mailgun resources with namespace scoping supp
 - **Cluster-scoped Resources**: Domains, Routes, Suppressions
 - **Multi-tenancy Support**: Teams can manage resources in isolated namespaces
 - **Complete Mailgun API Coverage**: Domains, routing, templates, credentials, suppressions
-- **Regional Support**: Both US and EU Mailgun regions
+- **Credential Rotation Strategy**: Handles write-only SMTP credentials with automatic rotation
+- **Unified Regional Support**: Single API key works across US and EU regions
 
 ## Supported Resources
 
@@ -30,16 +31,29 @@ A Crossplane provider for managing Mailgun resources with namespace scoping supp
 kubectl apply -f examples/provider/config.yaml
 ```
 
-2. Create a secret with your Mailgun API key:
+2. Create a secret with your unified Mailgun API key:
 ```bash
-kubectl create secret generic mailgun-secret \
-  --from-literal=password=your-api-key-here \
+kubectl create secret generic mailgun-credentials \
+  --from-literal=credentials=your-unified-api-key-here \
   -n crossplane-system
 ```
 
-3. Configure the provider:
-```bash
-kubectl apply -f examples/provider/providerconfig.yaml
+3. Configure the provider (single ProviderConfig for all regions):
+```yaml
+apiVersion: mailgun.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: mailgun
+  namespace: crossplane-system
+spec:
+  region: US  # Works for both US and EU with unified API key
+  apiBaseURL: https://api.mailgun.net/v3
+  credentials:
+    source: Secret
+    secretRef:
+      namespace: crossplane-system
+      name: mailgun-credentials
+      key: credentials
 ```
 
 4. Create your first domain:
@@ -59,12 +73,22 @@ kubectl apply -f examples/template.yaml
 
 ## Configuration
 
-The provider supports both US and EU regions:
+### Simplified Regional Configuration
 
-- **US Region**: `https://api.mailgun.net/v3` (default)
-- **EU Region**: `https://api.eu.mailgun.net/v3`
+The provider uses a unified API key that works across both US and EU regions:
 
-Set the `region` field in your ProviderConfig to specify the region.
+- **Unified ProviderConfig**: Single configuration handles all domains regardless of region
+- **API Key**: Works interchangeably between US (`https://api.mailgun.net/v3`) and EU (`https://api.eu.mailgun.net/v3`) endpoints
+- **Automatic Routing**: Provider determines appropriate endpoint based on domain configuration
+
+### SMTP Credential Rotation Strategy
+
+Due to Mailgun's write-only SMTP credentials API, the provider implements an intelligent rotation strategy:
+
+- **Initial Creation**: Creates new SMTP credentials and stores in Kubernetes Secret
+- **Subsequent Operations**: Checks for existing secrets to determine credential status
+- **Rotation**: Automatically deletes and recreates credentials when needed
+- **Secret Management**: Maintains connection details in writeConnectionSecretToRef
 
 ## Examples
 
@@ -72,7 +96,7 @@ See the `examples/` directory for complete usage examples of all supported resou
 
 ## Development
 
-This provider is built using the standard Crossplane provider framework.
+This provider is built using the standard Crossplane provider framework with enhanced SMTP credential management.
 
 ### Build Requirements
 - Go 1.24.5+ (specified in go.mod)
@@ -84,14 +108,14 @@ This provider is built using the standard Crossplane provider framework.
 # Build provider binary
 go build -o provider cmd/provider/main.go
 
-# Run tests
+# Run tests with rotation strategy coverage
 make test
 
-# Build Docker image
-docker build -t provider-mailgun:latest -f cluster/images/provider-mailgun/Dockerfile .
+# Build Crossplane package (.xpkg)
+crossplane xpkg build -f package/ --embed-runtime-image=ghcr.io/rossigee/provider-mailgun:v0.6.12
 
 # Build and push to registries
-VERSION=v0.1.0 ./build-and-push.sh
+VERSION=v0.6.12 ./build-and-push.sh
 ```
 
 ### Development Setup
@@ -109,6 +133,16 @@ make generate
 # Run out-of-cluster for development
 make run
 ```
+
+### Testing
+
+The provider includes comprehensive test coverage for:
+- **SMTP Credential Rotation**: Tests write-only credential handling
+- **Secret Management**: Kubernetes secret integration testing
+- **ProviderConfig Usage**: Namespace-scoped usage tracking
+- **Mock Client**: Complete Mailgun API simulation
+
+Current test coverage: **27.4%** with focus on critical paths.
 
 See `CLAUDE.md` for comprehensive development guidance.
 

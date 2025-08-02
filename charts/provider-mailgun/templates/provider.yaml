@@ -1,0 +1,31 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: {{ include "provider-mailgun.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "provider-mailgun.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  package: {{ .Values.provider.package.repository }}:{{ .Values.provider.package.version }}
+  {{- if .Values.packageManager.activeDeadlineSeconds }}
+  packagePullPolicy: IfNotPresent
+  activeDeadlineSeconds: {{ .Values.packageManager.activeDeadlineSeconds }}
+  {{- end }}
+  {{- if .Values.packageManager.revisionActivationPolicy }}
+  revisionActivationPolicy: {{ .Values.packageManager.revisionActivationPolicy }}
+  {{- end }}
+  {{- if .Values.packageManager.revisionHistoryLimit }}
+  revisionHistoryLimit: {{ .Values.packageManager.revisionHistoryLimit }}
+  {{- end }}
+  {{- if .Values.packageManager.skipDependencyResolution }}
+  skipDependencyResolution: {{ .Values.packageManager.skipDependencyResolution }}
+  {{- end }}
+  controllerConfigRef:
+    name: {{ include "provider-mailgun.fullname" . }}-config

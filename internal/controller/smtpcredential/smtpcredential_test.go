@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -224,8 +225,14 @@ func (m *MockSMTPCredentialClient) DeleteUnsubscribe(ctx context.Context, domain
 }
 
 func TestSMTPCredentialObserve(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, corev1.AddToScheme(scheme))
+	require.NoError(t, v1alpha1.SchemeBuilder.AddToScheme(scheme))
+	require.NoError(t, apisv1beta1.SchemeBuilder.AddToScheme(scheme))
+
 	type args struct {
-		mg resource.Managed
+		mg     resource.Managed
+		secret *corev1.Secret
 	}
 	type want struct {
 		o   managed.ExternalObservation
@@ -237,15 +244,35 @@ func TestSMTPCredentialObserve(t *testing.T) {
 		args   args
 		want   want
 	}{
-		"CredentialExists": {
-			reason: "Should return ResourceExists when credential exists",
+		"CredentialExistsWithSecret": {
+			reason: "Should return ResourceExists when secret exists (rotation strategy)",
 			args: args{
 				mg: &v1alpha1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-smtp",
+						Namespace: "test-namespace",
+					},
 					Spec: v1alpha1.SMTPCredentialSpec{
 						ForProvider: v1alpha1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "test@example.com",
 						},
+						ResourceSpec: xpv1.ResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.SecretReference{
+								Name:      "test-secret",
+								Namespace: "test-namespace",
+							},
+						},
+					},
+				},
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-secret",
+						Namespace: "test-namespace",
+					},
+					Data: map[string][]byte{
+						"smtp_username": []byte("test@example.com"),
+						"smtp_password": []byte("existing-password"),
 					},
 				},
 			},
@@ -257,22 +284,56 @@ func TestSMTPCredentialObserve(t *testing.T) {
 						"smtp_host":     []byte("smtp.mailgun.org"),
 						"smtp_port":     []byte("587"),
 						"smtp_username": []byte("test@example.com"),
-						"smtp_password": []byte("generated-password"),
 					},
 				},
 			},
 		},
-		"CredentialNotFound": {
-			reason: "Should return ResourceExists false when credential not found",
+		"CredentialNotFoundNoSecret": {
+			reason: "Should return ResourceExists false when no secret exists (rotation strategy)",
 			args: args{
 				mg: &v1alpha1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-smtp",
+						Namespace: "test-namespace",
+					},
 					Spec: v1alpha1.SMTPCredentialSpec{
 						ForProvider: v1alpha1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "notfound@example.com",
 						},
+						ResourceSpec: xpv1.ResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.SecretReference{
+								Name:      "missing-secret",
+								Namespace: "test-namespace",
+							},
+						},
 					},
 				},
+				secret: nil, // No secret exists
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists: false,
+				},
+			},
+		},
+		"NoSecretConfigured": {
+			reason: "Should return ResourceExists false when no secret is configured",
+			args: args{
+				mg: &v1alpha1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "test-smtp",
+						Namespace: "test-namespace",
+					},
+					Spec: v1alpha1.SMTPCredentialSpec{
+						ForProvider: v1alpha1.SMTPCredentialParameters{
+							Domain: "example.com",
+							Login:  "test@example.com",
+						},
+						// No WriteConnectionSecretToReference configured
+					},
+				},
+				secret: nil,
 			},
 			want: want{
 				o: managed.ExternalObservation{
@@ -284,22 +345,20 @@ func TestSMTPCredentialObserve(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			// Setup mock client
+			// Setup fake Kubernetes client
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme)
+			if tc.args.secret != nil {
+				fakeClient = fakeClient.WithObjects(tc.args.secret)
+			}
+			kubeClient := fakeClient.Build()
+
+			// Setup mock Mailgun client
 			mockClient := &MockSMTPCredentialClient{}
 
-			// Pre-populate with test credential for "exists" test
-			if name == "CredentialExists" {
-				mockClient.credentials = map[string]*clients.SMTPCredential{
-					"example.com/test@example.com": {
-						Login:     "test@example.com",
-						Password:  "generated-password",
-						CreatedAt: "2025-01-01T00:00:00Z",
-						State:     "active",
-					},
-				}
+			e := &external{
+				service: mockClient,
+				kube:    kubeClient,
 			}
-
-			e := &external{service: mockClient}
 			got, err := e.Observe(context.Background(), tc.args.mg)
 
 			if tc.want.err != nil {
@@ -311,7 +370,12 @@ func TestSMTPCredentialObserve(t *testing.T) {
 				assert.Equal(t, tc.want.o.ResourceUpToDate, got.ResourceUpToDate)
 
 				if tc.want.o.ConnectionDetails != nil {
-					assert.Equal(t, tc.want.o.ConnectionDetails, got.ConnectionDetails)
+					// Check that connection details match (excluding password which isn't returned in observe)
+					for key, expectedValue := range tc.want.o.ConnectionDetails {
+						if key != "smtp_password" { // Password isn't returned by observe
+							assert.Equal(t, expectedValue, got.ConnectionDetails[key])
+						}
+					}
 				}
 			}
 		})
@@ -355,11 +419,47 @@ func TestSMTPCredentialCreate(t *testing.T) {
 				},
 			},
 		},
+		"SuccessfulCreateWithRotation": {
+			reason: "Should successfully create SMTP credential with rotation (delete existing first)",
+			args: args{
+				mg: &v1alpha1.SMTPCredential{
+					Spec: v1alpha1.SMTPCredentialSpec{
+						ForProvider: v1alpha1.SMTPCredentialParameters{
+							Domain: "example.com",
+							Login:  "existing@example.com",
+						},
+					},
+				},
+			},
+			want: want{
+				o: managed.ExternalCreation{
+					ConnectionDetails: managed.ConnectionDetails{
+						"smtp_host":     []byte("smtp.mailgun.org"),
+						"smtp_port":     []byte("587"),
+						"smtp_username": []byte("existing@example.com"),
+						"smtp_password": []byte("generated-password"),
+					},
+				},
+			},
+		},
 	}
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockSMTPCredentialClient{}
+
+			// Pre-populate with existing credential for rotation test
+			if name == "SuccessfulCreateWithRotation" {
+				mockClient.credentials = map[string]*clients.SMTPCredential{
+					"example.com/existing@example.com": {
+						Login:     "existing@example.com",
+						Password:  "old-password",
+						CreatedAt: "2025-01-01T00:00:00Z",
+						State:     "active",
+					},
+				}
+			}
+
 			e := &external{service: mockClient}
 
 			got, err := e.Create(context.Background(), tc.args.mg)
@@ -370,6 +470,14 @@ func TestSMTPCredentialCreate(t *testing.T) {
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, tc.want.o, got)
+
+				// For rotation test, verify the old credential was deleted and new one created
+				if name == "SuccessfulCreateWithRotation" {
+					key := "example.com/existing@example.com"
+					newCred, exists := mockClient.credentials[key]
+					assert.True(t, exists, "New credential should exist after rotation")
+					assert.Equal(t, "generated-password", newCred.Password, "Should have new password")
+				}
 			}
 		})
 	}

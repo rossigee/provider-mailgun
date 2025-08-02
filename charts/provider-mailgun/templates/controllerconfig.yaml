@@ -1,0 +1,92 @@
+apiVersion: pkg.crossplane.io/v1alpha1
+kind: ControllerConfig
+metadata:
+  name: {{ include "provider-mailgun.fullname" . }}-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "provider-mailgun.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  image: {{ .Values.provider.controller.image.repository }}:{{ .Values.provider.controller.image.tag }}
+  replicas: {{ .Values.provider.controller.replicas }}
+
+  {{- if .Values.provider.controller.args }}
+  args:
+    {{- toYaml .Values.provider.controller.args | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.provider.controller.env }}
+  env:
+    {{- toYaml .Values.provider.controller.env | nindent 4 }}
+  {{- end }}
+
+  ports:
+    - name: metrics
+      containerPort: {{ .Values.metrics.port }}
+      protocol: TCP
+
+  {{- if .Values.healthChecks.enabled }}
+  livenessProbe:
+    httpGet:
+      path: {{ .Values.healthChecks.liveness.path }}
+      port: {{ .Values.healthChecks.liveness.port }}
+    initialDelaySeconds: {{ .Values.healthChecks.liveness.initialDelaySeconds }}
+    periodSeconds: {{ .Values.healthChecks.liveness.periodSeconds }}
+    timeoutSeconds: {{ .Values.healthChecks.liveness.timeoutSeconds }}
+    failureThreshold: {{ .Values.healthChecks.liveness.failureThreshold }}
+
+  readinessProbe:
+    httpGet:
+      path: {{ .Values.healthChecks.readiness.path }}
+      port: {{ .Values.healthChecks.readiness.port }}
+    initialDelaySeconds: {{ .Values.healthChecks.readiness.initialDelaySeconds }}
+    periodSeconds: {{ .Values.healthChecks.readiness.periodSeconds }}
+    timeoutSeconds: {{ .Values.healthChecks.readiness.timeoutSeconds }}
+    failureThreshold: {{ .Values.healthChecks.readiness.failureThreshold }}
+  {{- end }}
+
+  resources:
+    {{- toYaml .Values.resources | nindent 4 }}
+
+  securityContext:
+    {{- toYaml .Values.securityContext | nindent 4 }}
+
+  podSecurityContext:
+    {{- toYaml .Values.podSecurityContext | nindent 4 }}
+
+  {{- if .Values.provider.controller.volumeMounts }}
+  volumeMounts:
+    {{- toYaml .Values.provider.controller.volumeMounts | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.provider.controller.volumes }}
+  volumes:
+    {{- toYaml .Values.provider.controller.volumes | nindent 4 }}
+  {{- end }}
+
+  {{- with .Values.nodeSelector }}
+  nodeSelector:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  {{- with .Values.tolerations }}
+  tolerations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  {{- with .Values.affinity }}
+  affinity:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+
+  {{- if .Values.priorityClassName }}
+  priorityClassName: {{ .Values.priorityClassName }}
+  {{- end }}
+
+  serviceAccountName: {{ include "provider-mailgun.serviceAccountName" . }}

@@ -1,0 +1,79 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "provider-mailgun.fullname" . }}
+  labels:
+    {{- include "provider-mailgun.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+rules:
+  # Core Crossplane permissions
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch"]
+
+  # Custom Resource Definitions
+  - apiGroups: ["apiextensions.k8s.io"]
+    resources: ["customresourcedefinitions"]
+    verbs: ["get", "list", "watch"]
+
+  # Crossplane core resources
+  - apiGroups: ["pkg.crossplane.io"]
+    resources: ["*"]
+    verbs: ["*"]
+
+  # Provider-specific resources
+  - apiGroups: ["mailgun.crossplane.io"]
+    resources: ["*"]
+    verbs: ["*"]
+
+  # External secrets (if enabled)
+  - apiGroups: ["external-secrets.io"]
+    resources: ["secretstores", "clustersecretstores"]
+    verbs: ["get", "list", "watch"]
+
+  # Management policies
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+
+  {{- if .Values.rbac.rules }}
+  # Additional custom rules
+  {{- toYaml .Values.rbac.rules | nindent 2 }}
+  {{- end }}
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "provider-mailgun.fullname" . }}
+  labels:
+    {{- include "provider-mailgun.labels" . | nindent 4 }}
+    {{- with .Values.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+  {{- with .Values.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "provider-mailgun.fullname" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ include "provider-mailgun.serviceAccountName" . }}
+    namespace: {{ .Release.Namespace }}
+{{- end }}

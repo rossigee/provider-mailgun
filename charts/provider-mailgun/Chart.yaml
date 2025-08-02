@@ -1,0 +1,21 @@
+apiVersion: v2
+name: provider-mailgun
+description: A Helm chart for Crossplane Provider Mailgun
+type: application
+version: 0.1.0
+appVersion: "v0.1.0"
+home: https://github.com/crossplane-contrib/provider-mailgun
+sources:
+  - https://github.com/crossplane-contrib/provider-mailgun
+maintainers:
+  - name: Crossplane Community
+    url: https://crossplane.io
+keywords:
+  - crossplane
+  - provider
+  - mailgun
+  - email
+  - cloud-native
+annotations:
+  crossplane.io/provider: "true"
+  crossplane.io/provider-group: "mailgun.crossplane.io"

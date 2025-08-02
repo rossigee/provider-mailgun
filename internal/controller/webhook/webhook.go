@@ -43,7 +43,6 @@ const (
 	errGetCreds       = "cannot get credentials"
 	errResolveDomain  = "cannot resolve domain reference"
 
-	errNewClient = "cannot create new Service"
 )
 
 // Setup adds a controller that reconciles Webhook managed resources.

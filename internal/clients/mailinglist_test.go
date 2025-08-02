@@ -78,7 +78,7 @@ func TestCreateMailingList(t *testing.T) {
 				assert.Equal(t, "/v3/lists", r.URL.Path)
 
 				// Verify request body
-				r.ParseForm()
+				_ = r.ParseForm()
 				assert.Equal(t, tt.listSpec.Address, r.FormValue("address"))
 				if tt.listSpec.Name != nil {
 					assert.Equal(t, *tt.listSpec.Name, r.FormValue("name"))
@@ -91,7 +91,7 @@ func TestCreateMailingList(t *testing.T) {
 				response := map[string]interface{}{
 					"list": tt.expectedList,
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 			}))
 			defer server.Close()
 
@@ -157,9 +157,9 @@ func TestGetMailingList(t *testing.T) {
 					response := map[string]interface{}{
 						"list": tt.expectedList,
 					}
-					json.NewEncoder(w).Encode(response)
+					_ = json.NewEncoder(w).Encode(response)
 				} else {
-					w.Write([]byte("List not found"))
+					_, _ = w.Write([]byte("List not found"))
 				}
 			}))
 			defer server.Close()
@@ -197,7 +197,7 @@ func TestUpdateMailingList(t *testing.T) {
 		assert.Equal(t, "/v3/lists/update@example.com", r.URL.Path)
 
 		// Verify request body
-		r.ParseForm()
+		_ = r.ParseForm()
 		assert.Equal(t, "Updated List", r.FormValue("name"))
 		assert.Equal(t, "Updated description", r.FormValue("description"))
 		assert.Equal(t, "members", r.FormValue("access_level"))
@@ -213,7 +213,7 @@ func TestUpdateMailingList(t *testing.T) {
 				"reply_preference": "sender",
 			},
 		}
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -264,9 +264,9 @@ func TestDeleteMailingList(t *testing.T) {
 					response := map[string]interface{}{
 						"message": "List has been deleted",
 					}
-					json.NewEncoder(w).Encode(response)
+					_ = json.NewEncoder(w).Encode(response)
 				} else {
-					w.Write([]byte("List not found"))
+					_, _ = w.Write([]byte("List not found"))
 				}
 			}))
 			defer server.Close()

@@ -201,7 +201,7 @@ func (c *mailgunClient) makeRequest(ctx context.Context, method, path string, bo
 
 // Helper method to handle API responses
 func (c *mailgunClient) handleResponse(resp *http.Response, target interface{}) error {
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		body, _ := io.ReadAll(resp.Body)

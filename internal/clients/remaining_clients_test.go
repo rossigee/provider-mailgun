@@ -96,9 +96,9 @@ func TestRouteOperations(t *testing.T) {
 							"created_at":  "2025-01-01T00:00:00Z",
 						},
 					}
-					json.NewEncoder(w).Encode(response)
+					_ = json.NewEncoder(w).Encode(response)
 				} else {
-					json.NewEncoder(w).Encode(map[string]string{"message": "success"})
+					_ = json.NewEncoder(w).Encode(map[string]string{"message": "success"})
 				}
 			}))
 			defer server.Close()
@@ -182,9 +182,9 @@ func TestWebhookOperations(t *testing.T) {
 							"created_at": "2025-01-01T00:00:00Z",
 						},
 					}
-					json.NewEncoder(w).Encode(response)
+					_ = json.NewEncoder(w).Encode(response)
 				} else {
-					json.NewEncoder(w).Encode(map[string]string{"message": "success"})
+					_ = json.NewEncoder(w).Encode(map[string]string{"message": "success"})
 				}
 			}))
 			defer server.Close()
@@ -257,7 +257,8 @@ func TestSMTPCredentialOperations(t *testing.T) {
 				assert.Equal(t, tt.path, r.URL.Path)
 
 				w.WriteHeader(tt.status)
-				if tt.method == "GET" {
+				switch tt.method {
+				case "GET":
 					// GetSMTPCredential returns a list of credentials
 					response := map[string]interface{}{
 						"items": []map[string]interface{}{
@@ -269,8 +270,8 @@ func TestSMTPCredentialOperations(t *testing.T) {
 							},
 						},
 					}
-					json.NewEncoder(w).Encode(response)
-				} else if tt.method == "POST" {
+					_ = json.NewEncoder(w).Encode(response)
+				case "POST":
 					// CreateSMTPCredential returns single credential
 					response := map[string]interface{}{
 						"login":      "test@example.com",
@@ -278,9 +279,9 @@ func TestSMTPCredentialOperations(t *testing.T) {
 						"created_at": "2025-01-01T00:00:00Z",
 						"state":      "active",
 					}
-					json.NewEncoder(w).Encode(response)
-				} else {
-					json.NewEncoder(w).Encode(map[string]string{"message": "success"})
+					_ = json.NewEncoder(w).Encode(response)
+				default:
+					_ = json.NewEncoder(w).Encode(map[string]string{"message": "success"})
 				}
 			}))
 			defer server.Close()
@@ -366,9 +367,9 @@ func TestTemplateOperations(t *testing.T) {
 							"created_at":  "2025-01-01T00:00:00Z",
 						},
 					}
-					json.NewEncoder(w).Encode(response)
+					_ = json.NewEncoder(w).Encode(response)
 				} else {
-					json.NewEncoder(w).Encode(map[string]string{"message": "success"})
+					_ = json.NewEncoder(w).Encode(map[string]string{"message": "success"})
 				}
 			}))
 			defer server.Close()
@@ -436,7 +437,7 @@ func TestErrorHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.response))
+				_, _ = w.Write([]byte(tt.response))
 			}))
 			defer server.Close()
 

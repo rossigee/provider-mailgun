@@ -103,3 +103,4 @@ temp/
 # Kubernetes manifests with secrets
 **/kustomization.yaml
 **/secrets/
+golangci-lint-*/

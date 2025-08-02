@@ -126,7 +126,7 @@ func (c *RetryConfig) IsRetryableError(err error) bool {
 
 	// Check for network errors
 	if netErr, ok := err.(net.Error); ok {
-		if netErr.Timeout() || netErr.Temporary() {
+		if netErr.Timeout() {
 			return true
 		}
 	}

@@ -42,7 +42,6 @@ const (
 	errGetPC        = "cannot get ProviderConfig"
 	errGetCreds     = "cannot get credentials"
 
-	errNewClient = "cannot create new Service"
 )
 
 // Setup adds a controller that reconciles Domain managed resources.
@@ -343,10 +342,14 @@ func isDomainUpToDate(domain *clients.Domain, desired *clients.DomainSpec) bool 
 	if desired.WebScheme != nil {
 		// WebScheme comparison would require additional API calls to get tracking settings
 		// For now, we assume it's up to date
+		// TODO: Implement WebScheme comparison when tracking settings API is added
+		_ = desired.WebScheme // prevent unused variable warning
 	}
 	if desired.Wildcard != nil {
 		// Wildcard comparison would require additional API calls
 		// For now, we assume it's up to date
+		// TODO: Implement Wildcard comparison when subdomain API is added
+		_ = desired.Wildcard // prevent unused variable warning
 	}
 
 	return true

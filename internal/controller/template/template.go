@@ -182,10 +182,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	// Check if resource is up to date
-	upToDate := true
-	if cr.Spec.ForProvider.Description != nil && *cr.Spec.ForProvider.Description != template.Description {
-		upToDate = false
-	}
+	upToDate := cr.Spec.ForProvider.Description == nil || *cr.Spec.ForProvider.Description == template.Description
 
 	cr.SetConditions(xpv1.Available())
 

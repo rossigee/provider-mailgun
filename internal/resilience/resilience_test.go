@@ -105,7 +105,9 @@ func TestIsRetryableError(t *testing.T) {
 			isTemporary: true,
 		}
 
-		assert.True(t, config.IsRetryableError(tempErr))
+		// Note: As of Go 1.18+, Temporary() is deprecated and shouldn't be used
+		// We only retry timeout errors, not temporary errors
+		assert.False(t, config.IsRetryableError(tempErr))
 
 		// Test regular network error (neither timeout nor temporary)
 		// But this will still be retryable because "connection refused" is in RetryableErrors list
@@ -410,12 +412,12 @@ func TestCircuitBreaker(t *testing.T) {
 		ctx := context.Background()
 
 		// Open circuit
-		cb.Execute(ctx, func() error { return fmt.Errorf("failure") })
+		_ = cb.Execute(ctx, func() error { return fmt.Errorf("failure") })
 		assert.Equal(t, CircuitOpen, cb.GetState())
 
 		// Wait and transition to half-open
 		time.Sleep(2 * time.Millisecond)
-		cb.Execute(ctx, func() error { return nil })
+		_ = cb.Execute(ctx, func() error { return nil })
 		assert.Equal(t, CircuitHalfOpen, cb.GetState())
 
 		// Execute 3 successful operations to close circuit
@@ -432,11 +434,11 @@ func TestCircuitBreaker(t *testing.T) {
 		ctx := context.Background()
 
 		// Open circuit
-		cb.Execute(ctx, func() error { return fmt.Errorf("failure") })
+		_ = cb.Execute(ctx, func() error { return fmt.Errorf("failure") })
 
 		// Wait and get to half-open
 		time.Sleep(2 * time.Millisecond)
-		cb.Execute(ctx, func() error { return nil })
+		_ = cb.Execute(ctx, func() error { return nil })
 		assert.Equal(t, CircuitHalfOpen, cb.GetState())
 
 		// Fail in half-open state

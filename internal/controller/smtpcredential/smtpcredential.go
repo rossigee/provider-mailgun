@@ -47,7 +47,6 @@ const (
 	errGetPC             = "cannot get ProviderConfig"
 	errGetCreds          = "cannot get credentials"
 
-	errNewClient = "cannot create new Service"
 )
 
 // Setup adds a controller that reconciles SMTPCredential managed resources.

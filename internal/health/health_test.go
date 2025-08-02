@@ -256,7 +256,7 @@ func TestCreateMailgunHealthCheck(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.URL.Path == "/v3/domains/health-check-non-existent-domain.test" {
 				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte(`{"message": "Domain not found"}`))
+				_, _ = w.Write([]byte(`{"message": "Domain not found"}`))
 				return
 			}
 			w.WriteHeader(http.StatusInternalServerError)
@@ -285,7 +285,7 @@ func TestCreateMailgunHealthCheck(t *testing.T) {
 			hj, ok := w.(http.Hijacker)
 			if ok {
 				conn, _, _ := hj.Hijack()
-				conn.Close()
+				_ = conn.Close()
 			}
 		}))
 		server.Close() // Close immediately to simulate connection failure

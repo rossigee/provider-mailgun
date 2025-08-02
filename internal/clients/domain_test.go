@@ -46,7 +46,7 @@ func TestCreateDomain(t *testing.T) {
 				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
 
 				// Verify request body
-				r.ParseForm()
+				_ = r.ParseForm()
 				assert.Equal(t, "test.com", r.FormValue("name"))
 
 				w.WriteHeader(http.StatusOK)
@@ -69,7 +69,7 @@ func TestCreateDomain(t *testing.T) {
 						},
 					},
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 			},
 			expectedDomain: &Domain{
 				Name:         "test.com",
@@ -105,7 +105,7 @@ func TestCreateDomain(t *testing.T) {
 			},
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				// Verify all params are sent
-				r.ParseForm()
+				_ = r.ParseForm()
 				assert.Equal(t, "full.com", r.FormValue("name"))
 				assert.Equal(t, "receiving", r.FormValue("type"))
 				assert.Equal(t, "true", r.FormValue("force_dkim_authority"))
@@ -124,7 +124,7 @@ func TestCreateDomain(t *testing.T) {
 						"state": "active",
 					},
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 			},
 			expectedDomain: &Domain{
 				Name:  "full.com",
@@ -140,7 +140,7 @@ func TestCreateDomain(t *testing.T) {
 			},
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusBadRequest)
-				w.Write([]byte("Domain already exists"))
+				_, _ = w.Write([]byte("Domain already exists"))
 			},
 			expectedDomain: nil,
 			expectedError:  true,
@@ -201,7 +201,7 @@ func TestGetDomain(t *testing.T) {
 						"smtp_password": "password123",
 					},
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 			},
 			expectedDomain: &Domain{
 				Name:         "example.com",
@@ -218,7 +218,7 @@ func TestGetDomain(t *testing.T) {
 			domainName: "notfound.com",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte("Domain not found"))
+				_, _ = w.Write([]byte("Domain not found"))
 			},
 			expectedDomain: nil,
 			expectedError:  true,
@@ -276,7 +276,7 @@ func TestUpdateDomain(t *testing.T) {
 				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
 
 				// Verify request body
-				r.ParseForm()
+				_ = r.ParseForm()
 				assert.Equal(t, "tag", r.FormValue("spam_action"))
 				assert.Equal(t, "https", r.FormValue("web_scheme"))
 				assert.Equal(t, "false", r.FormValue("wildcard"))
@@ -289,7 +289,7 @@ func TestUpdateDomain(t *testing.T) {
 						"state": "active",
 					},
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 			},
 			expectedDomain: &Domain{
 				Name:  "update.com",
@@ -306,7 +306,7 @@ func TestUpdateDomain(t *testing.T) {
 			},
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte("Domain not found"))
+				_, _ = w.Write([]byte("Domain not found"))
 			},
 			expectedDomain: nil,
 			expectedError:  true,
@@ -359,7 +359,7 @@ func TestDeleteDomain(t *testing.T) {
 				response := map[string]interface{}{
 					"message": "Domain has been deleted",
 				}
-				json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(response)
 			},
 			expectedError: false,
 		},
@@ -368,7 +368,7 @@ func TestDeleteDomain(t *testing.T) {
 			domainName: "notfound.com",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte("Domain not found"))
+				_, _ = w.Write([]byte("Domain not found"))
 			},
 			expectedError: true,
 		},
@@ -377,7 +377,7 @@ func TestDeleteDomain(t *testing.T) {
 			domainName: "error.com",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Internal server error"))
+				_, _ = w.Write([]byte("Internal server error"))
 			},
 			expectedError: true,
 		},

@@ -120,7 +120,7 @@ func TestHelperFunctions(t *testing.T) {
 		// For histograms, we check the count of samples recorded
 		// Convert to metric for testing
 		metric := &dto.Metric{}
-		OperationDuration.WithLabelValues("domain", "update").(prometheus.Histogram).Write(metric)
+		_ = OperationDuration.WithLabelValues("domain", "update").(prometheus.Histogram).Write(metric)
 		assert.Equal(t, uint64(1), *metric.Histogram.SampleCount)
 	})
 }

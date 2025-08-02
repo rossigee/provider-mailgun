@@ -32,7 +32,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 		username, _, ok := r.BasicAuth()
 		if !ok || username != "api" {
 			w.WriteHeader(http.StatusUnauthorized)
-			json.NewEncoder(w).Encode(map[string]string{"message": "Unauthorized"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": "Unauthorized"})
 			return
 		}
 
@@ -40,7 +40,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 		switch {
 		case r.URL.Path == "/v3/domains" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"total_count": 2,
 				"items": []map[string]interface{}{
 					{
@@ -60,7 +60,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains" && r.Method == "POST":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"domain": map[string]interface{}{
 					"name":  "new.example.com",
 					"type":  "sending",
@@ -71,7 +71,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains/example.com" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"domain": map[string]interface{}{
 					"name":  "example.com",
 					"type":  "sending",
@@ -83,13 +83,13 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains/example.com" && r.Method == "DELETE":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"message": "Domain has been deleted",
 			})
 
 		case r.URL.Path == "/v3/lists" && r.Method == "POST":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"list": map[string]interface{}{
 					"address":     "test@example.com",
 					"name":        "Test List",
@@ -102,7 +102,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/lists/test@example.com" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"list": map[string]interface{}{
 					"address":      "test@example.com",
 					"name":         "Test List",
@@ -114,7 +114,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/routes" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"total_count": 1,
 				"items": []map[string]interface{}{
 					{
@@ -130,7 +130,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/routes" && r.Method == "POST":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"route": map[string]interface{}{
 					"id":          "route456",
 					"priority":    5,
@@ -143,7 +143,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains/example.com/webhooks" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"webhooks": []map[string]interface{}{
 					{
 						"id":  "webhook123",
@@ -156,7 +156,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains/example.com/webhooks" && r.Method == "POST":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"webhook": map[string]interface{}{
 					"id":  "webhook456",
 					"url": "https://example.com/new-webhook",
@@ -168,7 +168,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 		// SMTP Credential endpoints
 		case r.URL.Path == "/v3/domains/example.com/credentials" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"items": []map[string]interface{}{
 					{
 						"login":      "test@example.com",
@@ -180,7 +180,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains/example.com/credentials" && r.Method == "POST":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"login":    "new@example.com",
 				"password": "generated-password",
 				"state":    "active",
@@ -188,14 +188,14 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains/example.com/credentials/test@example.com" && r.Method == "DELETE":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"message": "Credential has been deleted",
 			})
 
 		// Template endpoints
 		case r.URL.Path == "/v3/domains/example.com/templates" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"items": []map[string]interface{}{
 					{
 						"name":        "welcome-template",
@@ -208,7 +208,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains/example.com/templates" && r.Method == "POST":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"template": map[string]interface{}{
 					"name":        "new-template",
 					"description": "New email template",
@@ -220,7 +220,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains/example.com/templates/welcome-template" && r.Method == "GET":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"template": map[string]interface{}{
 					"name":        "welcome-template",
 					"description": "Welcome email template",
@@ -241,13 +241,13 @@ func TestMailgunAPISimulation(t *testing.T) {
 
 		case r.URL.Path == "/v3/domains/example.com/templates/welcome-template" && r.Method == "DELETE":
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"message": "Template has been deleted",
 			})
 
 		default:
 			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"message": "Not found",
 			})
 		}
@@ -486,7 +486,7 @@ func TestMailgunAPISimulation(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != scenario.expectedStatus {
 				t.Errorf("Expected status %d, got %d", scenario.expectedStatus, resp.StatusCode)
@@ -511,7 +511,7 @@ func TestErrorScenarios(t *testing.T) {
 		switch r.URL.Path {
 		case "/v3/error/500":
 			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"message": "Internal server error",
 			})
 		case "/v3/error/429":
@@ -519,12 +519,12 @@ func TestErrorScenarios(t *testing.T) {
 			w.Header().Set("X-RateLimit-Remaining", "0")
 			w.Header().Set("X-RateLimit-Reset", "1609459200")
 			w.WriteHeader(http.StatusTooManyRequests)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"message": "Rate limit exceeded",
 			})
 		case "/v3/error/400":
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(map[string]string{
+			_ = json.NewEncoder(w).Encode(map[string]string{
 				"message": "Bad request",
 			})
 		}
@@ -570,7 +570,7 @@ func TestErrorScenarios(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Request failed: %v", err)
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			if resp.StatusCode != test.expectedStatus {
 				t.Errorf("Expected status %d, got %d", test.expectedStatus, resp.StatusCode)
@@ -592,10 +592,10 @@ func TestClientResilience(t *testing.T) {
 		if r.URL.Path == "/v3/slow" {
 			time.Sleep(100 * time.Millisecond)
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"message": "slow response"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": "slow response"})
 		} else {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"message": "fast response"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"message": "fast response"})
 		}
 	}))
 	defer server.Close()
@@ -630,7 +630,7 @@ func TestClientResilience(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Request failed: %v", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != 200 {
 			t.Errorf("Expected status 200, got %d", resp.StatusCode)

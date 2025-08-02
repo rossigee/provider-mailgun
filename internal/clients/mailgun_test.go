@@ -121,7 +121,7 @@ func TestMakeRequest(t *testing.T) {
 				}
 
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+				_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 			},
 			expectedError: false,
 		},
@@ -146,7 +146,7 @@ func TestMakeRequest(t *testing.T) {
 				}
 
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(map[string]string{"status": "created"})
+				_ = json.NewEncoder(w).Encode(map[string]string{"status": "created"})
 			},
 			expectedError: false,
 		},
@@ -157,7 +157,7 @@ func TestMakeRequest(t *testing.T) {
 			body:   nil,
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Internal Server Error"))
+				_, _ = w.Write([]byte("Internal Server Error"))
 			},
 			expectedError: false,  // makeRequest doesn't handle status codes, just returns response
 		},
@@ -189,7 +189,7 @@ func TestMakeRequest(t *testing.T) {
 			}
 
 			if resp != nil {
-				resp.Body.Close()
+				_ = resp.Body.Close()
 			}
 		})
 	}
@@ -247,7 +247,7 @@ func TestHandleResponse(t *testing.T) {
 			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(tt.statusCode)
-				w.Write([]byte(tt.responseBody))
+				_, _ = w.Write([]byte(tt.responseBody))
 			}))
 			defer server.Close()
 

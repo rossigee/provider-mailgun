@@ -31,6 +31,7 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -97,7 +98,7 @@ func InitTracing(ctx context.Context, config *Config) (*sdktrace.TracerProvider,
 
 	// If tracing is disabled, return a no-op provider
 	if !config.Enabled {
-		noopProvider := trace.NewNoopTracerProvider()
+		noopProvider := noop.NewTracerProvider()
 		otel.SetTracerProvider(noopProvider)
 		globalTracerProvider = noopProvider
 		return nil, nil

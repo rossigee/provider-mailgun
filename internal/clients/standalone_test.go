@@ -77,7 +77,7 @@ func TestStandaloneClient(t *testing.T) {
 
 		// Return test response
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{
+		_ = json.NewEncoder(w).Encode(map[string]string{
 			"message": "success",
 		})
 	}))
@@ -94,7 +94,7 @@ func TestStandaloneClient(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -113,7 +113,7 @@ func TestStandaloneClientAuth(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		_ = json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()
 
@@ -126,7 +126,7 @@ func TestStandaloneClientAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -164,7 +164,7 @@ func TestStandalonePostRequest(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, `{"message": "created"}`)
+		_, _ = fmt.Fprintf(w, `{"message": "created"}`)
 	}))
 	defer server.Close()
 
@@ -178,7 +178,7 @@ func TestStandalonePostRequest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Errorf("Expected status 200, got %d", resp.StatusCode)
@@ -203,7 +203,7 @@ func TestStandaloneErrorHandling(t *testing.T) {
 			name: "404 not found",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
-				w.Write([]byte("Not Found"))
+				_, _ = w.Write([]byte("Not Found"))
 			},
 			expectedError: true,
 		},
@@ -211,7 +211,7 @@ func TestStandaloneErrorHandling(t *testing.T) {
 			name: "500 server error",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
-				w.Write([]byte("Internal Server Error"))
+				_, _ = w.Write([]byte("Internal Server Error"))
 			},
 			expectedError: true,
 		},
@@ -234,7 +234,7 @@ func TestStandaloneErrorHandling(t *testing.T) {
 				}
 				return
 			}
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			// Check if we should expect an error based on status code
 			shouldError := resp.StatusCode >= 400

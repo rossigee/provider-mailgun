@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: read
+  packages: write
+
 env:
   GO_VERSION: '1.24.5'
   GOLANGCI_VERSION: 'latest'
@@ -242,7 +246,7 @@ jobs:
       - name: Build and Push to Primary Registry
         run: |
           # Build and push to GitHub Container Registry (primary)
-          make publish REGISTRY_ORGS="${{ env.PRIMARY_REGISTRY }}"
+          make publish REGISTRY_ORGS="ghcr.io/rossigee"
 
       - name: Build and Push to Harbor (Optional)
         if: env.ENABLE_HARBOR_PUBLISH == 'true'

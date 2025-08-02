@@ -8,7 +8,7 @@ on:
 
 env:
   GO_VERSION: '1.24.5'
-  GOLANGCI_VERSION: 'v2.3.0'
+  GOLANGCI_VERSION: 'latest'
   # Registry configuration
   PRIMARY_REGISTRY: ghcr.io/rossigee
   ENABLE_HARBOR_PUBLISH: false
@@ -58,7 +58,7 @@ jobs:
         run: go mod vendor
 
       - name: Lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v6
         with:
           version: ${{ env.GOLANGCI_VERSION }}
           args: --timeout=10m

@@ -58,6 +58,9 @@ jobs:
       - name: Vendor Dependencies
         run: go mod vendor
 
+      - name: Install Crossplane CLI
+        run: make .cache/tools/linux_x86_64/crossplane-cli-v1.20.0
+
       - name: Lint
         run: make lint
 

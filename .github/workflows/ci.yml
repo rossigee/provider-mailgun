@@ -9,6 +9,7 @@ on:
 env:
   GO_VERSION: '1.24.5'
   GOLANGCI_VERSION: 'latest'
+  GOLANGCILINT_VERSION: '2.3.0'
   # Registry configuration
   PRIMARY_REGISTRY: ghcr.io/rossigee
   ENABLE_HARBOR_PUBLISH: false
@@ -57,13 +58,8 @@ jobs:
       - name: Vendor Dependencies
         run: go mod vendor
 
-      - name: Install golangci-lint v2.3.0
-        run: |
-          curl -sSfL https://github.com/golangci/golangci-lint/releases/download/v2.3.0/golangci-lint-2.3.0-linux-amd64.tar.gz | tar -xzf -
-          sudo mv golangci-lint-2.3.0-linux-amd64/golangci-lint /usr/local/bin/
-
       - name: Lint
-        run: golangci-lint run --timeout=10m
+        run: make lint
 
   check-diff:
     runs-on: ubuntu-22.04

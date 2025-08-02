@@ -235,9 +235,13 @@ jobs:
           make publish REGISTRY_ORGS="harbor.golder.lan/library"
 
       - name: Build and Push to Upbound Registry (Optional)
-        if: env.ENABLE_UPBOUND_PUBLISH == 'true' && secrets.UPBOUND_TOKEN != ''
+        if: env.ENABLE_UPBOUND_PUBLISH == 'true'
         run: |
-          # Push to Upbound Registry
-          make publish REGISTRY_ORGS="xpkg.upbound.io/crossplane-contrib"
+          # Push to Upbound Registry (only if token is available)
+          if [ -n "$UPBOUND_TOKEN" ]; then
+            make publish REGISTRY_ORGS="xpkg.upbound.io/crossplane-contrib"
+          else
+            echo "UPBOUND_TOKEN not available, skipping Upbound registry push"
+          fi
         env:
           UPBOUND_TOKEN: ${{ secrets.UPBOUND_TOKEN }}

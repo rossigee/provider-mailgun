@@ -95,8 +95,30 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	}
 
 	pc := &apisv1beta1.ProviderConfig{}
-	if err := c.kube.Get(ctx, types.NamespacedName{Name: cr.GetProviderConfigReference().Name}, pc); err != nil {
-		return nil, errors.Wrap(err, errGetPC)
+	pcRef := cr.GetProviderConfigReference()
+
+	// Handle case where no providerConfigRef is specified - default to "default"
+	pcName := "default"
+	if pcRef != nil && pcRef.Name != "" {
+		pcName = pcRef.Name
+	}
+
+	// Try namespaced lookup first (ProviderConfig CRD is scope: Namespaced)
+	pcNamespace := cr.GetNamespace()
+	pcErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: pcNamespace}, pc)
+	if pcErr != nil {
+		// Since ProviderConfig is namespaced, also try crossplane-system namespace as fallback
+		// Many providers install their ProviderConfigs there
+		if pcNamespace != "crossplane-system" {
+			fallbackErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: "crossplane-system"}, pc)
+			if fallbackErr != nil {
+				// Both lookups failed, return detailed error
+				return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s': tried namespaced lookup in '%s' and fallback lookup in 'crossplane-system'", pcName, pcNamespace)
+			}
+		} else {
+			// We already tried crossplane-system, return the original error
+			return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s' in namespace '%s'", pcName, pcNamespace)
+		}
 	}
 
 	cd := pc.Spec.Credentials
@@ -254,10 +276,11 @@ func newProviderConfigUsageTracker(kube client.Client) resource.Tracker {
 }
 
 func (t *providerConfigUsageTracker) Track(ctx context.Context, mg resource.Managed) error {
-	// Create ProviderConfigUsage in the same namespace as the managed resource
+	// Create ProviderConfigUsage - cluster-scoped resource
 	pcu := &apisv1beta1.ProviderConfigUsage{}
 	pcu.SetName(string(mg.GetUID()))
-	pcu.SetNamespace(mg.GetNamespace())
+	// Don't set namespace - ProviderConfigUsage should be cluster-scoped even if CRD says namespaced
+	// pcu.SetNamespace(mg.GetNamespace())
 	pcu.SetOwnerReferences([]metav1.OwnerReference{meta.AsOwner(meta.TypedReferenceTo(mg, mg.GetObjectKind().GroupVersionKind()))})
 
 	pcRef := mg.GetProviderConfigReference()

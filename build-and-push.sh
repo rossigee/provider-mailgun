@@ -3,39 +3,59 @@
 # Build and push provider-mailgun to multiple registries
 set -e
 
-# Default values
+# Default values - Standardized registry configuration
 VERSION=${VERSION:-dev}
-PUSH_EXTERNAL=${PUSH_EXTERNAL:-false}
 BUILD_PACKAGE=${BUILD_PACKAGE:-false}
 PLATFORMS=${PLATFORMS:-linux/amd64,linux/arm64}
-REGISTRY=${REGISTRY:-harbor.golder.lan/library}
+
+# Primary registry: GitHub Container Registry
+PRIMARY_REGISTRY=${PRIMARY_REGISTRY:-ghcr.io/rossigee}
+
+# Optional registries
+ENABLE_HARBOR_PUBLISH=${ENABLE_HARBOR_PUBLISH:-false}
+ENABLE_DOCKERHUB_PUBLISH=${ENABLE_DOCKERHUB_PUBLISH:-false}
+HARBOR_REGISTRY=${HARBOR_REGISTRY:-harbor.golder.lan/library}
+DOCKERHUB_REGISTRY=${DOCKERHUB_REGISTRY:-docker.io/rossigee}
 
 # Provider name
 PROVIDER_NAME=provider-mailgun
 
 echo "Building ${PROVIDER_NAME} version ${VERSION}"
 echo "Platforms: ${PLATFORMS}"
-echo "Registry: ${REGISTRY}"
-echo "Push to Docker Hub: ${PUSH_EXTERNAL}"
+echo "Primary Registry: ${PRIMARY_REGISTRY}"
+echo "Harbor Registry: ${ENABLE_HARBOR_PUBLISH}"
+echo "Docker Hub Registry: ${ENABLE_DOCKERHUB_PUBLISH}"
 echo "Build Crossplane package: ${BUILD_PACKAGE}"
 
-# Build the Docker image
-echo "Building Docker image..."
+# Build and push to primary registry (GitHub Container Registry)
+echo "Building and pushing to primary registry (${PRIMARY_REGISTRY})..."
 docker buildx build \
   --platform "${PLATFORMS}" \
-  -t "${REGISTRY}/${PROVIDER_NAME}:${VERSION}" \
-  -t "${REGISTRY}/${PROVIDER_NAME}:latest" \
+  -t "${PRIMARY_REGISTRY}/${PROVIDER_NAME}:${VERSION}" \
+  -t "${PRIMARY_REGISTRY}/${PROVIDER_NAME}:latest" \
   -f cluster/images/provider-mailgun/Dockerfile \
   --push \
   .
 
-# Push to Docker Hub if requested
-if [ "${PUSH_EXTERNAL}" = "true" ]; then
-  echo "Pushing to Docker Hub..."
+# Push to Harbor registry if enabled
+if [ "${ENABLE_HARBOR_PUBLISH}" = "true" ]; then
+  echo "Pushing to Harbor registry (${HARBOR_REGISTRY})..."
   docker buildx build \
     --platform "${PLATFORMS}" \
-    -t "docker.io/rossigee/${PROVIDER_NAME}:${VERSION}" \
-    -t "docker.io/rossigee/${PROVIDER_NAME}:latest" \
+    -t "${HARBOR_REGISTRY}/${PROVIDER_NAME}:${VERSION}" \
+    -t "${HARBOR_REGISTRY}/${PROVIDER_NAME}:latest" \
+    -f cluster/images/provider-mailgun/Dockerfile \
+    --push \
+    .
+fi
+
+# Push to Docker Hub if enabled
+if [ "${ENABLE_DOCKERHUB_PUBLISH}" = "true" ]; then
+  echo "Pushing to Docker Hub (${DOCKERHUB_REGISTRY})..."
+  docker buildx build \
+    --platform "${PLATFORMS}" \
+    -t "${DOCKERHUB_REGISTRY}/${PROVIDER_NAME}:${VERSION}" \
+    -t "${DOCKERHUB_REGISTRY}/${PROVIDER_NAME}:latest" \
     -f cluster/images/provider-mailgun/Dockerfile \
     --push \
     .

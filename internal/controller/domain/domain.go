@@ -94,8 +94,24 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	}
 
 	pc := &apisv1beta1.ProviderConfig{}
-	if err := c.kube.Get(ctx, types.NamespacedName{Name: cr.GetProviderConfigReference().Name}, pc); err != nil {
-		return nil, errors.Wrap(err, errGetPC)
+	pcRef := cr.GetProviderConfigReference()
+
+	// Handle case where no providerConfigRef is specified - default to "default"
+	pcName := "default"
+	if pcRef != nil && pcRef.Name != "" {
+		pcName = pcRef.Name
+	}
+
+	// Try namespaced lookup first (ProviderConfig CRD is scope: Namespaced)
+	pcNamespace := cr.GetNamespace()
+	pcErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: pcNamespace}, pc)
+	if pcErr != nil {
+		// If namespaced lookup fails, try cluster-scoped as fallback
+		clusterErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName}, pc)
+		if clusterErr != nil {
+			// Both lookups failed, return detailed error
+			return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s': tried namespaced lookup in '%s' and cluster-scoped lookup", pcName, pcNamespace)
+		}
 	}
 
 	cd := pc.Spec.Credentials

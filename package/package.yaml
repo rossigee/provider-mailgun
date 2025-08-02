@@ -8,7 +8,7 @@ metadata:
     meta.crossplane.io/license: Apache-2.0
     meta.crossplane.io/description: |
       Crossplane provider for managing Mailgun resources including domains,
-      mailing lists, routes, and webhooks.
+      mailing lists, routes, webhooks, templates, SMTP credentials, and suppression management.
     meta.crossplane.io/readme: |
       This Crossplane provider enables management of Mailgun resources through
       Kubernetes manifests. It supports both US and EU regions and provides
@@ -19,7 +19,11 @@ metadata:
       - Mailing list creation and member management
       - Email routing rules
       - Webhook configuration for event notifications
+      - Email template management
+      - SMTP credential management
+      - Bounce, complaint, and unsubscribe suppression
       - Support for both US and EU Mailgun regions
+      - Namespace-scoped resources for multi-tenancy
 spec:
   controller:
-    image: harbor.golder.lan/library/provider-mailgun:v0.4.0
+    image: ghcr.io/rossigee/provider-mailgun:v0.6.8

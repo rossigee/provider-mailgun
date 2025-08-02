@@ -1,0 +1,95 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: provider-mailgun-metrics
+  namespace: crossplane-system
+  labels:
+    app.kubernetes.io/name: provider-mailgun
+    app.kubernetes.io/component: provider
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: provider-mailgun
+  endpoints:
+  - port: metrics
+    path: /metrics
+    interval: 30s
+    scrapeTimeout: 10s
+    honorLabels: true
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: provider-mailgun-metrics
+  namespace: crossplane-system
+  labels:
+    app.kubernetes.io/name: provider-mailgun
+    app.kubernetes.io/component: provider
+spec:
+  selector:
+    app.kubernetes.io/name: provider-mailgun
+  ports:
+  - name: metrics
+    port: 8080
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: provider-mailgun-alerts
+  namespace: crossplane-system
+  labels:
+    app.kubernetes.io/name: provider-mailgun
+    app.kubernetes.io/component: provider
+spec:
+  groups:
+  - name: provider-mailgun.rules
+    rules:
+    - alert: ProviderMailgunHighErrorRate
+      expr: |
+        (
+          sum(rate(mailgun_operation_total{status!="success"}[5m])) /
+          sum(rate(mailgun_operation_total[5m]))
+        ) > 0.1
+      for: 2m
+      labels:
+        severity: warning
+        component: provider-mailgun
+      annotations:
+        summary: "High error rate in Mailgun provider"
+        description: "Mailgun provider error rate is {{ $value | humanizePercentage }} over the last 5 minutes"
+
+    - alert: ProviderMailgunCircuitBreakerOpen
+      expr: mailgun_circuit_breaker_state == 1
+      for: 1m
+      labels:
+        severity: critical
+        component: provider-mailgun
+      annotations:
+        summary: "Mailgun provider circuit breaker is open"
+        description: "Circuit breaker for Mailgun provider is open, indicating persistent failures"
+
+    - alert: ProviderMailgunHighLatency
+      expr: |
+        histogram_quantile(0.95,
+          sum(rate(mailgun_operation_duration_seconds_bucket[5m])) by (le, operation)
+        ) > 10
+      for: 5m
+      labels:
+        severity: warning
+        component: provider-mailgun
+      annotations:
+        summary: "High latency in Mailgun provider operations"
+        description: "95th percentile latency for {{ $labels.operation }} is {{ $value }}s"
+
+    - alert: ProviderMailgunDown
+      expr: up{job="provider-mailgun-metrics"} == 0
+      for: 2m
+      labels:
+        severity: critical
+        component: provider-mailgun
+      annotations:
+        summary: "Mailgun provider is down"
+        description: "Mailgun provider metrics endpoint is not responding"

@@ -133,7 +133,7 @@ func TestIsRetryableError(t *testing.T) {
 
 		for _, tt := range tests {
 			t.Run(tt.errorMsg, func(t *testing.T) {
-				err := fmt.Errorf(tt.errorMsg)
+				err := fmt.Errorf("%s", tt.errorMsg)
 				result := config.IsRetryableError(err)
 				assert.Equal(t, tt.retry, result)
 			})

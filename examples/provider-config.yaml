@@ -1,0 +1,78 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-mailgun
+spec:
+  package: ghcr.io/rossigee/provider-mailgun:latest
+  revisionActivationPolicy: Automatic
+  revisionHistoryLimit: 1
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-mailgun-config
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+          - name: package-runtime
+            resources:
+              limits:
+                cpu: 500m
+                memory: 512Mi
+              requests:
+                cpu: 100m
+                memory: 128Mi
+            env:
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://jaeger-collector:14268/api/traces"
+            - name: OTEL_SERVICE_NAME
+              value: "provider-mailgun"
+            - name: OTEL_SAMPLING_RATIO
+              value: "0.1"
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              runAsNonRoot: true
+              runAsUser: 2000
+              capabilities:
+                drop: ["ALL"]
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 2000
+            fsGroup: 2000
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: ControllerConfig
+metadata:
+  name: provider-mailgun-config
+spec:
+  args:
+  - --debug
+  - --leader-election=true
+  - --max-reconcile-rate=100
+  - --poll-interval=10m
+  - --sync-interval=1h
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 2000
+    capabilities:
+      drop: ["ALL"]
+  serviceAccount:
+    annotations:
+      # Add any service account annotations here
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"
+      prometheus.io/path: "/metrics"

@@ -1,0 +1,82 @@
+apiVersion: domain.mailgun.crossplane.io/v1alpha1
+kind: Domain
+metadata:
+  name: example-domain
+spec:
+  forProvider:
+    name: example.com
+    smtp_password: "secure-password-123"
+    spam_action: "disabled"
+    wildcard: false
+    force_dkim_authority: false
+    dkim_key_size: 2048
+    ips: []
+    pool_id: ""
+    web_prefix: "email"
+  providerConfigRef:
+    name: default
+---
+apiVersion: mailinglist.mailgun.crossplane.io/v1alpha1
+kind: MailingList
+metadata:
+  name: example-mailing-list
+spec:
+  forProvider:
+    address: newsletter@example.com
+    name: "Example Newsletter"
+    description: "A sample newsletter mailing list"
+    access_level: everyone
+    reply_preference: list
+  providerConfigRef:
+    name: default
+---
+apiVersion: smtpcredential.mailgun.crossplane.io/v1alpha1
+kind: SMTPCredential
+metadata:
+  name: example-smtp-credential
+spec:
+  forProvider:
+    login: "smtp-user@example.com"
+    passwordSecretRef:
+      namespace: default
+      name: smtp-password
+      key: password
+  providerConfigRef:
+    name: default
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: smtp-password
+  namespace: default
+type: Opaque
+stringData:
+  password: "super-secure-smtp-password-123"
+---
+apiVersion: webhook.mailgun.crossplane.io/v1alpha1
+kind: Webhook
+metadata:
+  name: example-webhook
+spec:
+  forProvider:
+    kind: delivered
+    urls:
+    - "https://example.com/webhooks/mailgun/delivered"
+    - "https://backup.example.com/webhooks/mailgun/delivered"
+  providerConfigRef:
+    name: default
+---
+apiVersion: route.mailgun.crossplane.io/v1alpha1
+kind: Route
+metadata:
+  name: example-route
+spec:
+  forProvider:
+    priority: 10
+    description: "Forward all emails to support"
+    expression: "match_recipient('.*@example.com')"
+    actions:
+    - "forward('support@company.com')"
+    - "store(notify='https://example.com/webhook')"
+  providerConfigRef:
+    name: default

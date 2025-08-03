@@ -1,4 +1,4 @@
-module github.com/crossplane-contrib/provider-mailgun
+module github.com/rossigee/provider-mailgun
 
 go 1.24.5
 

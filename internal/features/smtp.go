@@ -28,9 +28,9 @@ import (
 
 	"go.opentelemetry.io/otel/attribute"
 
-	"github.com/crossplane-contrib/provider-mailgun/internal/clients"
-	"github.com/crossplane-contrib/provider-mailgun/internal/errors"
-	"github.com/crossplane-contrib/provider-mailgun/internal/tracing"
+	"github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/errors"
+	"github.com/rossigee/provider-mailgun/internal/tracing"
 )
 
 // SMTPCredentialManager provides advanced SMTP credential management

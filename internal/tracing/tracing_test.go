@@ -255,7 +255,7 @@ func TestSpanNames(t *testing.T) {
 func TestTracingConstants(t *testing.T) {
 	assert.Equal(t, "provider-mailgun", TracingServiceName)
 	assert.Equal(t, "v0.1.0", TracingServiceVersion)
-	assert.Equal(t, "github.com/crossplane-contrib/provider-mailgun/internal/tracing", InstrumentationName)
+	assert.Equal(t, "github.com/rossigee/provider-mailgun/internal/tracing", InstrumentationName)
 }
 
 func BenchmarkStartOperation(b *testing.B) {

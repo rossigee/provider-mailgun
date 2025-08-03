@@ -34,9 +34,9 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/crossplane-contrib/provider-mailgun/apis/smtpcredential/v1alpha1"
-	apisv1beta1 "github.com/crossplane-contrib/provider-mailgun/apis/v1beta1"
-	"github.com/crossplane-contrib/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1alpha1"
+	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockSMTPCredentialClient for testing

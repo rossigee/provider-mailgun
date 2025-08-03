@@ -19,7 +19,7 @@ package resilience
 import (
 	"context"
 
-	"github.com/crossplane-contrib/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // ResilientClient wraps a Mailgun client with retry and circuit breaker logic

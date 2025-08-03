@@ -21,13 +21,13 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/pkg/controller"
 
-	"github.com/crossplane-contrib/provider-mailgun/internal/controller/bounce"
-	"github.com/crossplane-contrib/provider-mailgun/internal/controller/domain"
-	"github.com/crossplane-contrib/provider-mailgun/internal/controller/mailinglist"
-	"github.com/crossplane-contrib/provider-mailgun/internal/controller/route"
-	"github.com/crossplane-contrib/provider-mailgun/internal/controller/smtpcredential"
-	"github.com/crossplane-contrib/provider-mailgun/internal/controller/template"
-	"github.com/crossplane-contrib/provider-mailgun/internal/controller/webhook"
+	"github.com/rossigee/provider-mailgun/internal/controller/bounce"
+	"github.com/rossigee/provider-mailgun/internal/controller/domain"
+	"github.com/rossigee/provider-mailgun/internal/controller/mailinglist"
+	"github.com/rossigee/provider-mailgun/internal/controller/route"
+	"github.com/rossigee/provider-mailgun/internal/controller/smtpcredential"
+	"github.com/rossigee/provider-mailgun/internal/controller/template"
+	"github.com/rossigee/provider-mailgun/internal/controller/webhook"
 )
 
 // Setup sets up all Mailgun controllers

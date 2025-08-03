@@ -27,8 +27,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/crossplane-contrib/provider-mailgun/apis/template/v1alpha1"
-	"github.com/crossplane-contrib/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/apis/template/v1alpha1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockTemplateClient for testing

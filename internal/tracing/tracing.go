@@ -42,7 +42,7 @@ const (
 	TracingServiceVersion = "v0.1.0"
 
 	// InstrumentationName is the name of this instrumentation package
-	InstrumentationName = "github.com/crossplane-contrib/provider-mailgun/internal/tracing"
+	InstrumentationName = "github.com/rossigee/provider-mailgun/internal/tracing"
 )
 
 // Config holds tracing configuration

@@ -31,7 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/crossplane-contrib/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // mockKubeClient implements the client.Client interface for testing

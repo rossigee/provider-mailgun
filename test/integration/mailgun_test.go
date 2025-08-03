@@ -26,8 +26,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/crossplane-contrib/provider-mailgun/internal/clients"
-	"github.com/crossplane-contrib/provider-mailgun/internal/resilience"
+	"github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/resilience"
 )
 
 const (

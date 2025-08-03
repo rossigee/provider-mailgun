@@ -4,7 +4,7 @@ metadata:
   name: provider-mailgun
   annotations:
     meta.crossplane.io/maintainer: Crossplane Contrib <info@crossplane.io>
-    meta.crossplane.io/source: github.com/crossplane-contrib/provider-mailgun
+    meta.crossplane.io/source: github.com/rossigee/provider-mailgun
     meta.crossplane.io/license: Apache-2.0
     meta.crossplane.io/description: |
       Crossplane provider for managing Mailgun resources including domains,

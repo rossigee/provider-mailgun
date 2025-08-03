@@ -3,4 +3,4 @@ kind: Provider
 metadata:
   name: provider-mailgun
 spec:
-  package: crossplane-contrib/provider-mailgun:latest
+  package: rossigee/provider-mailgun:latest

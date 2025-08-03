@@ -20,14 +20,14 @@ package apis
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 
-	bouncev1alpha1 "github.com/crossplane-contrib/provider-mailgun/apis/bounce/v1alpha1"
-	domainv1alpha1 "github.com/crossplane-contrib/provider-mailgun/apis/domain/v1alpha1"
-	mailinglistv1alpha1 "github.com/crossplane-contrib/provider-mailgun/apis/mailinglist/v1alpha1"
-	routev1alpha1 "github.com/crossplane-contrib/provider-mailgun/apis/route/v1alpha1"
-	smtpcredentialv1alpha1 "github.com/crossplane-contrib/provider-mailgun/apis/smtpcredential/v1alpha1"
-	templatev1alpha1 "github.com/crossplane-contrib/provider-mailgun/apis/template/v1alpha1"
-	webhookv1alpha1 "github.com/crossplane-contrib/provider-mailgun/apis/webhook/v1alpha1"
-	v1beta1 "github.com/crossplane-contrib/provider-mailgun/apis/v1beta1"
+	bouncev1alpha1 "github.com/rossigee/provider-mailgun/apis/bounce/v1alpha1"
+	domainv1alpha1 "github.com/rossigee/provider-mailgun/apis/domain/v1alpha1"
+	mailinglistv1alpha1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1alpha1"
+	routev1alpha1 "github.com/rossigee/provider-mailgun/apis/route/v1alpha1"
+	smtpcredentialv1alpha1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1alpha1"
+	templatev1alpha1 "github.com/rossigee/provider-mailgun/apis/template/v1alpha1"
+	webhookv1alpha1 "github.com/rossigee/provider-mailgun/apis/webhook/v1alpha1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 )
 
 func init() {

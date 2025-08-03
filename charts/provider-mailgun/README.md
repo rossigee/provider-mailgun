@@ -21,7 +21,7 @@ helm repo update
 
 ```bash
 # Clone the repository
-git clone https://github.com/crossplane-contrib/provider-mailgun.git
+git clone https://github.com/rossigee/provider-mailgun.git
 cd provider-mailgun
 
 # Install the chart

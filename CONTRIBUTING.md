@@ -271,7 +271,7 @@ We follow semantic versioning:
 
 ## Getting Help
 
-- [GitHub Issues](https://github.com/crossplane-contrib/provider-mailgun/issues) - Bug reports and feature requests
+- [GitHub Issues](https://github.com/rossigee/provider-mailgun/issues) - Bug reports and feature requests
 - [Crossplane Slack](https://slack.crossplane.io/) - #providers channel for questions
 - [Crossplane Documentation](https://crossplane.io/docs/) - General Crossplane information
 

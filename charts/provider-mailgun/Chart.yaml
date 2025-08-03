@@ -4,9 +4,9 @@ description: A Helm chart for Crossplane Provider Mailgun
 type: application
 version: 0.1.0
 appVersion: "v0.1.0"
-home: https://github.com/crossplane-contrib/provider-mailgun
+home: https://github.com/rossigee/provider-mailgun
 sources:
-  - https://github.com/crossplane-contrib/provider-mailgun
+  - https://github.com/rossigee/provider-mailgun
 maintainers:
   - name: Crossplane Community
     url: https://crossplane.io

@@ -132,6 +132,6 @@ curl http://localhost:8080/metrics | grep mailgun
 ## 🔗 Resources
 
 - [Full Deployment Guide](DEPLOYMENT_GUIDE.md)
-- [API Reference](https://pkg.go.dev/github.com/crossplane-contrib/provider-mailgun)
+- [API Reference](https://pkg.go.dev/github.com/rossigee/provider-mailgun)
 - [Mailgun API Docs](https://documentation.mailgun.com/en/latest/api_reference.html)
 - [Crossplane Docs](https://crossplane.io/docs/)

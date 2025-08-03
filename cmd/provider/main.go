@@ -31,9 +31,9 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/pkg/ratelimiter"
 
-	"github.com/crossplane-contrib/provider-mailgun/apis"
-	"github.com/crossplane-contrib/provider-mailgun/internal/controller"
-	"github.com/crossplane-contrib/provider-mailgun/internal/features"
+	"github.com/rossigee/provider-mailgun/apis"
+	"github.com/rossigee/provider-mailgun/internal/controller"
+	"github.com/rossigee/provider-mailgun/internal/features"
 )
 
 func main() {

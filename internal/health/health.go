@@ -29,7 +29,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
-	"github.com/crossplane-contrib/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 const (

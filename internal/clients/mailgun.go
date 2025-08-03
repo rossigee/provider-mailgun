@@ -32,7 +32,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"github.com/crossplane-contrib/provider-mailgun/apis/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/v1beta1"
 )
 
 const (

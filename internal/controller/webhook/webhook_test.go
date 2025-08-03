@@ -28,8 +28,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
-	"github.com/crossplane-contrib/provider-mailgun/apis/webhook/v1alpha1"
-	"github.com/crossplane-contrib/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/apis/webhook/v1alpha1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockWebhookClient for testing

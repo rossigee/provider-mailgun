@@ -200,6 +200,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      attestations: write
       id-token: write
 
     steps:
@@ -234,8 +235,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Verify GitHub Registry Access and Ownership
         run: |

@@ -45,7 +45,7 @@ XPKGS = provider-mailgun
 xpkg.build.provider-mailgun: do.build.images
 
 # Setup Package Metadata
-export CROSSPLANE_VERSION := v1.15.0
+CROSSPLANE_VERSION = 1.19.0
 -include build/makelib/local.xpkg.mk
 -include build/makelib/controlplane.mk
 

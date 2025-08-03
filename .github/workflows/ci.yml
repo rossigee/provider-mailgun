@@ -14,7 +14,7 @@ permissions:
 env:
   GO_VERSION: '1.24.5'
   GOLANGCI_VERSION: 'latest'
-  GOLANGCILINT_VERSION: '2.3.0'
+  GOLANGCILINT_VERSION: '2.3.1'
   # Registry configuration
   PRIMARY_REGISTRY: ghcr.io/rossigee
   ENABLE_HARBOR_PUBLISH: false

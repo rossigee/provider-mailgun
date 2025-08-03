@@ -259,6 +259,8 @@ jobs:
           echo "Repository: ${{ github.repository }}"
           echo "Repository owner: ${{ github.repository_owner }}"
           echo "Using registry: ghcr.io/${{ github.repository_owner }}"
+          echo "DEBUG: REGISTRY_ORGS=ghcr.io/${{ github.repository_owner }}"
+          echo "DEBUG: XPKG_REG_ORGS=ghcr.io/${{ github.repository_owner }}"
           make publish REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}" XPKG_REG_ORGS="ghcr.io/${{ github.repository_owner }}"
 
       - name: Build and Push to Harbor (Optional)

@@ -2,9 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches:
+      - master
+      - main
+      - release-*
+  pull_request: {}
+  workflow_dispatch: {}
 
 permissions:
   contents: read
@@ -12,46 +15,48 @@ permissions:
   id-token: write
 
 env:
+  # Common versions
   GO_VERSION: '1.24.5'
   GOLANGCI_VERSION: 'latest'
   GOLANGCILINT_VERSION: '2.3.1'
-  # Registry configuration
-  PRIMARY_REGISTRY: ghcr.io/rossigee
+  DOCKER_BUILDX_VERSION: 'v0.22.0'
+
+  # Registry configuration - PRIMARY: GitHub Container Registry only
+  REGISTRY_ORG: 'ghcr.io/rossigee'
   ENABLE_HARBOR_PUBLISH: false
   ENABLE_UPBOUND_PUBLISH: false
 
 jobs:
   detect-noop:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     outputs:
       noop: ${{ steps.noop.outputs.should_skip }}
     steps:
       - name: Detect No-op Changes
         id: noop
-        uses: fkirc/skip-duplicate-actions@v5.3.0
+        uses: fkirc/skip-duplicate-actions@f75f66ce1886f00957d99748a42c724f4330bdcf # v5.3.1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           paths_ignore: '["**.md", "**.png", "**.jpg"]'
           do_not_skip: '["workflow_dispatch", "schedule", "push"]'
 
   lint:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           submodules: true
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go Dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: |
             ~/.cache/go-build
@@ -61,7 +66,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Vendor Dependencies
-        run: go mod vendor
+        run: make vendor vendor.check
 
       - name: Install Crossplane CLI
         run: |
@@ -73,23 +78,22 @@ jobs:
         run: make lint
 
   check-diff:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           submodules: true
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go Dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: |
             ~/.cache/go-build
@@ -99,32 +103,31 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Vendor Dependencies
-        run: go mod vendor
+        run: make vendor vendor.check
 
       - name: Check Diff
-        run: |
-          make reviewable
-          git diff --exit-code
+        run: make check-diff
 
   unit-tests:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: detect-noop
     if: needs.detect-noop.outputs.noop != 'true'
-
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
         with:
           submodules: true
-          fetch-depth: 0
+
+      - name: Fetch History
+        run: git fetch --prune --unshallow
 
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go Dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
         with:
           path: |
             ~/.cache/go-build
@@ -134,89 +137,70 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Vendor Dependencies
-        run: go mod vendor
+        run: make vendor vendor.check
 
       - name: Run Unit Tests
-        run: |
-          make test
+        run: make -j2 test
 
-      - name: Upload Coverage Reports
-        uses: codecov/codecov-action@v3
+      - name: Publish Unit Test Coverage
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.out
-          verbose: true
-
-  build:
-    runs-on: ubuntu-22.04
-    needs: detect-noop
-    if: needs.detect-noop.outputs.noop != 'true'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Setup Go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
-
-      - name: Cache Go Dependencies
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - name: Vendor Dependencies
-        run: go mod vendor
-
-      - name: Install Crossplane CLI
-        run: |
-          mkdir -p .cache/tools/linux_x86_64
-          curl -fsSLo .cache/tools/linux_x86_64/crossplane-cli-v1.20.0 --create-dirs https://releases.crossplane.io/stable/v1.20.0/bin/linux_amd64/crank?source=build
-          chmod +x .cache/tools/linux_x86_64/crossplane-cli-v1.20.0
-
-      - name: Build Binary and Package
-        run: |
-          make build
-
-      - name: Upload Package
-        uses: actions/upload-artifact@v4
-        with:
-          name: package
-          path: _output/xpkg/
-          if-no-files-found: error
+          flags: unittests
+          file: _output/tests/linux_amd64/coverage.txt
 
   publish-artifacts:
-    runs-on: ubuntu-22.04
-    needs: [lint, check-diff, unit-tests, build]
-    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-24.04
+    needs: [lint, check-diff, unit-tests]
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
       attestations: write
       id-token: write
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3
         with:
-          fetch-depth: 0
+          platforms: all
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
+        with:
+          version: ${{ env.DOCKER_BUILDX_VERSION }}
+          install: true
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        with:
           submodules: true
 
+      - name: Fetch History
+        run: git fetch --prune --unshallow
+
       - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
+      - name: Cache Go Dependencies
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
       - name: Vendor Dependencies
-        run: go mod vendor
+        run: make vendor vendor.check
 
       - name: Install Crossplane CLI
         run: |
@@ -224,74 +208,12 @@ jobs:
           curl -fsSLo .cache/tools/linux_x86_64/crossplane-cli-v1.20.0 --create-dirs https://releases.crossplane.io/stable/v1.20.0/bin/linux_amd64/crank?source=build
           chmod +x .cache/tools/linux_x86_64/crossplane-cli-v1.20.0
 
-      - name: Build Binaries
-        run: |
-          make build
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Verify GitHub Registry Access and Ownership
-        run: |
-          echo "Testing registry access..."
-          echo "GitHub actor: ${{ github.actor }}"
-          echo "Repository: ${{ github.repository }}"
-          echo "Repository owner: ${{ github.repository_owner }}"
-          echo "Expected GHCR namespace: ghcr.io/${{ github.repository_owner }}"
-
-          # Test GHCR access with a simple build and push
-          echo "Testing GHCR write access..."
-          echo 'FROM scratch' | docker build -t ghcr.io/${{ github.repository_owner }}/test:${{ github.run_id }} - || echo "GHCR build test failed"
-          docker push ghcr.io/${{ github.repository_owner }}/test:${{ github.run_id }} || echo "GHCR push test failed"
-          docker rmi ghcr.io/${{ github.repository_owner }}/test:${{ github.run_id }} || true
-
-          echo "GHCR access verification complete"
-
-          # Check token permissions
-          echo "Checking GITHUB_TOKEN permissions..."
-          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-               -H "Accept: application/vnd.github.v3+json" \
-               https://api.github.com/user || echo "Token verification failed"
-
-      - name: Login to Harbor Registry (Optional)
-        if: env.ENABLE_HARBOR_PUBLISH == 'true'
-        uses: docker/login-action@v3
-        with:
-          registry: harbor.golder.lan
-          username: ${{ secrets.HARBOR_USERNAME }}
-          password: ${{ secrets.HARBOR_PASSWORD }}
-
-      - name: Build and Push to Primary Registry
+      - name: Build and Publish Artifacts
         run: |
           # Build and push to GitHub Container Registry (primary)
           echo "Repository: ${{ github.repository }}"
           echo "Repository owner: ${{ github.repository_owner }}"
-          echo "Using registry: ghcr.io/${{ github.repository_owner }}"
-          echo "DEBUG: REGISTRY_ORGS=ghcr.io/${{ github.repository_owner }}"
-          echo "DEBUG: XPKG_REG_ORGS=ghcr.io/${{ github.repository_owner }}"
-          make publish REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}" XPKG_REG_ORGS="ghcr.io/${{ github.repository_owner }}"
-
-      - name: Build and Push to Harbor (Optional)
-        if: env.ENABLE_HARBOR_PUBLISH == 'true'
-        run: |
-          # Push to Harbor Registry
-          make publish REGISTRY_ORGS="harbor.golder.lan/library"
-
-      - name: Build and Push to Upbound Registry (Optional)
-        if: env.ENABLE_UPBOUND_PUBLISH == 'true'
-        run: |
-          # Push to Upbound Registry (only if token is available)
-          if [ -n "$UPBOUND_TOKEN" ]; then
-            make publish REGISTRY_ORGS="xpkg.upbound.io/crossplane-contrib"
-          else
-            echo "UPBOUND_TOKEN not available, skipping Upbound registry push"
-          fi
+          make build
+          make publish REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}"
         env:
-          UPBOUND_TOKEN: ${{ secrets.UPBOUND_TOKEN }}
+          BUILD_ARGS: "--load"

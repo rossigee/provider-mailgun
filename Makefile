@@ -1,6 +1,6 @@
 # Project Setup
 PROJECT_NAME := provider-mailgun
-PROJECT_REPO := github.com/crossplane-contrib/$(PROJECT_NAME)
+PROJECT_REPO := github.com/rossigee/$(PROJECT_NAME)
 
 PLATFORMS ?= linux_amd64 linux_arm64
 -include build/makelib/common.mk
@@ -38,7 +38,7 @@ XPKG_REG_ORGS_NO_PROMOTE = ghcr.io/rossigee
 
 # Optional registries (can be enabled via environment variables)
 # To enable Harbor: export ENABLE_HARBOR_PUBLISH=true make publish XPKG_REG_ORGS=harbor.golder.lan/library
-# To enable Upbound: export ENABLE_UPBOUND_PUBLISH=true make publish XPKG_REG_ORGS=xpkg.upbound.io/crossplane-contrib
+# To enable Upbound: export ENABLE_UPBOUND_PUBLISH=true make publish XPKG_REG_ORGS=xpkg.upbound.io/rossigee
 XPKGS = provider-mailgun
 -include build/makelib/xpkg.mk
 

@@ -1,6 +1,6 @@
 # Provider Mailgun
 
-A Crossplane provider for managing Mailgun resources with namespace scoping support for multi-tenancy and intelligent credential rotation. Updated with modern CI/CD pipeline.
+A Crossplane provider for managing Mailgun resources with namespace scoping support for multi-tenancy and intelligent credential rotation. Updated with modern CI/CD pipeline and GHCR publishing.
 
 ## Features
 

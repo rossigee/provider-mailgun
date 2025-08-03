@@ -245,9 +245,9 @@ jobs:
           echo "Repository owner: ${{ github.repository_owner }}"
           echo "Expected GHCR namespace: ghcr.io/${{ github.repository_owner }}"
 
-          # Test GHCR access with a simple push/pull
+          # Test GHCR access with a simple build and push
           echo "Testing GHCR write access..."
-          docker tag hello-world ghcr.io/${{ github.repository_owner }}/test:${{ github.run_id }}
+          echo 'FROM scratch' | docker build -t ghcr.io/${{ github.repository_owner }}/test:${{ github.run_id }} - || echo "GHCR build test failed"
           docker push ghcr.io/${{ github.repository_owner }}/test:${{ github.run_id }} || echo "GHCR push test failed"
           docker rmi ghcr.io/${{ github.repository_owner }}/test:${{ github.run_id }} || true
 

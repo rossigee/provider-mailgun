@@ -33,6 +33,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
 	"github.com/crossplane-contrib/provider-mailgun/apis/bounce/v1alpha1"
+	domainv1alpha1 "github.com/crossplane-contrib/provider-mailgun/apis/domain/v1alpha1"
 	apisv1beta1 "github.com/crossplane-contrib/provider-mailgun/apis/v1beta1"
 	clients "github.com/crossplane-contrib/provider-mailgun/internal/clients"
 )
@@ -245,17 +246,36 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 
 // resolveDomainName resolves the domain name from the domainRef
 func (c *external) resolveDomainName(ctx context.Context, cr *v1alpha1.Bounce) (string, error) {
-	// For now, we assume the domain reference name is the domain name
-	// In a more sophisticated implementation, we could resolve the actual Domain resource
 	domainRefName := cr.Spec.ForProvider.DomainRef.Name
 
-	// Extract domain name - if it contains dots, it's likely a domain name
-	// If not, we might need to look up the Domain resource
+	// If the ref name contains dots, it's likely already a domain name
 	if strings.Contains(domainRefName, ".") {
 		return domainRefName, nil
 	}
 
-	// TODO: Look up the Domain resource and get its actual domain name
-	// For now, assume the ref name is the domain name
+	// Look up the Domain resource to get its actual domain name
+	domain := &domainv1alpha1.Domain{}
+	domainKey := types.NamespacedName{
+		Name:      domainRefName,
+		Namespace: cr.GetNamespace(), // Try same namespace first
+	}
+
+	err := c.kube.Get(ctx, domainKey, domain)
+	if err != nil {
+		// If not found in namespace, try cluster-scoped lookup
+		domainKey.Namespace = ""
+		err = c.kube.Get(ctx, domainKey, domain)
+		if err != nil {
+			// If Domain resource not found, assume ref name is the domain name
+			return domainRefName, nil
+		}
+	}
+
+	// Extract domain name from the Domain resource
+	if domain.Spec.ForProvider.Name != nil {
+		return *domain.Spec.ForProvider.Name, nil
+	}
+
+	// Fallback to the resource name if spec name is not set
 	return domainRefName, nil
 }

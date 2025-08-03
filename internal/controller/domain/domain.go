@@ -339,16 +339,15 @@ func isDomainUpToDate(domain *clients.Domain, desired *clients.DomainSpec) bool 
 	if desired.SpamAction != nil && domain.Type != *desired.SpamAction {
 		return false
 	}
+	// WebScheme and Wildcard are write-only fields in Mailgun API
+	// They are not returned in the domain response, so we cannot compare them
+	// We assume they are up to date since they were set during creation/update
+	// Note: These settings can only be verified through separate tracking/subdomain API calls
+	// which are not currently implemented in this provider
 	if desired.WebScheme != nil {
-		// WebScheme comparison would require additional API calls to get tracking settings
-		// For now, we assume it's up to date
-		// TODO: Implement WebScheme comparison when tracking settings API is added
 		_ = desired.WebScheme // prevent unused variable warning
 	}
 	if desired.Wildcard != nil {
-		// Wildcard comparison would require additional API calls
-		// For now, we assume it's up to date
-		// TODO: Implement Wildcard comparison when subdomain API is added
 		_ = desired.Wildcard // prevent unused variable warning
 	}
 

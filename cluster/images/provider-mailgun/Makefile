@@ -12,10 +12,13 @@ include ../../../build/makelib/imagelight.mk
 
 # ====================================================================================
 # Image Build
-img.build:
+img.build: ../../../_output/bin/$(PLATFORM)/provider
 	@$(INFO) docker build $(IMAGE)
 	@$(MAKE) BUILD_ARGS="--load" img.build.shared
 	@$(OK) docker build $(IMAGE)
+
+../../../_output/bin/$(PLATFORM)/provider:
+	@$(MAKE) -C ../../.. go.build PLATFORM=$(PLATFORM)
 
 img.build.shared:
 	@cp Dockerfile $(IMAGE_TEMP_DIR)

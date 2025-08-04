@@ -44,11 +44,16 @@ XPKGS = provider-mailgun
 
 # NOTE: we force image building to happen prior to xpkg build so that we ensure
 # image is present in daemon.
-xpkg.build.provider-mailgun: do.build.images $(CROSSPLANE_CLI)
+xpkg.build.provider-mailgun: do.build.images
 
-# Override publish to ensure package is built first
-# This fixes GitHub Actions issue where .xpkg files don't exist during publish
-xpkg.release.publish.ghcr.io/rossigee.provider-mailgun: xpkg.build.provider-mailgun $(CROSSPLANE_CLI)
+# Ensure CLI is available for package builds and publishing
+$(foreach x,$(XPKGS),$(eval xpkg.build.$(x): $(CROSSPLANE_CLI)))
+
+# Rules to build packages for each platform
+$(foreach p,$(filter linux_%,$(PLATFORMS)),$(foreach x,$(XPKGS),$(eval $(XPKG_OUTPUT_DIR)/$(p)/$(x)-$(VERSION).xpkg: $(CROSSPLANE_CLI); @$(MAKE) xpkg.build.$(x) PLATFORM=$(p))))
+
+# Ensure packages are built for all platforms before publishing
+$(foreach r,$(XPKG_REG_ORGS),$(foreach x,$(XPKGS),$(eval xpkg.release.publish.$(r).$(x): $(CROSSPLANE_CLI) $(foreach p,$(filter linux_%,$(PLATFORMS)),$(XPKG_OUTPUT_DIR)/$(p)/$(x)-$(VERSION).xpkg))))
 
 # Setup Package Metadata
 CROSSPLANE_VERSION = 1.19.0

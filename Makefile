@@ -46,6 +46,10 @@ XPKGS = provider-mailgun
 # image is present in daemon.
 xpkg.build.provider-mailgun: do.build.images
 
+# Override publish to ensure package is built first
+# This fixes GitHub Actions issue where .xpkg files don't exist during publish
+xpkg.release.publish.ghcr.io/rossigee.provider-mailgun: xpkg.build.provider-mailgun $(CROSSPLANE_CLI)
+
 # Setup Package Metadata
 CROSSPLANE_VERSION = 1.19.0
 -include build/makelib/local.xpkg.mk

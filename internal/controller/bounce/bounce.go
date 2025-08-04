@@ -272,8 +272,8 @@ func (c *external) resolveDomainName(ctx context.Context, cr *v1alpha1.Bounce) (
 	}
 
 	// Extract domain name from the Domain resource
-	if domain.Spec.ForProvider.Name != nil {
-		return *domain.Spec.ForProvider.Name, nil
+	if domain.Spec.ForProvider.Name != "" {
+		return domain.Spec.ForProvider.Name, nil
 	}
 
 	// Fallback to the resource name if spec name is not set

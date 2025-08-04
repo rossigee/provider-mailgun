@@ -44,7 +44,7 @@ XPKGS = provider-mailgun
 
 # NOTE: we force image building to happen prior to xpkg build so that we ensure
 # image is present in daemon.
-xpkg.build.provider-mailgun: do.build.images
+xpkg.build.provider-mailgun: do.build.images $(CROSSPLANE_CLI)
 
 # Override publish to ensure package is built first
 # This fixes GitHub Actions issue where .xpkg files don't exist during publish

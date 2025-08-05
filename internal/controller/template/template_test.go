@@ -482,7 +482,7 @@ func TestTemplateDelete(t *testing.T) {
 			}
 			e := &external{client: mockClient}
 
-			err := e.Delete(context.Background(), tc.args.mg)
+			_, err := e.Delete(context.Background(), tc.args.mg)
 
 			if tc.want.err != nil {
 				require.Error(t, err)

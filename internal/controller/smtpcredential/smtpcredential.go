@@ -18,6 +18,8 @@ package smtpcredential
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -106,21 +108,21 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		pcName = pcRef.Name
 	}
 
-	// Try namespaced lookup first (ProviderConfig CRD is scope: Namespaced)
-	pcNamespace := cr.GetNamespace()
-	pcErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: pcNamespace}, pc)
+	// Always try crossplane-system namespace first for ProviderConfigs
+	// This is the standard location for cluster-wide ProviderConfigs
+	pcErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: "crossplane-system"}, pc)
 	if pcErr != nil {
-		// Since ProviderConfig is namespaced, also try crossplane-system namespace as fallback
-		// Many providers install their ProviderConfigs there
+		// If not found in crossplane-system, try the managed resource's namespace as fallback
+		pcNamespace := cr.GetNamespace()
 		if pcNamespace != "crossplane-system" {
-			fallbackErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: "crossplane-system"}, pc)
+			fallbackErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: pcNamespace}, pc)
 			if fallbackErr != nil {
 				// Both lookups failed, return detailed error
-				return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s': tried namespaced lookup in '%s' and fallback lookup in 'crossplane-system'", pcName, pcNamespace)
+				return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s': tried crossplane-system and namespace '%s'", pcName, pcNamespace)
 			}
 		} else {
 			// We already tried crossplane-system, return the original error
-			return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s' in namespace '%s'", pcName, pcNamespace)
+			return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s' in namespace 'crossplane-system'", pcName)
 		}
 	}
 
@@ -145,6 +147,11 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 type external struct {
 	service clients.Client
 	kube    client.Client
+}
+
+func (c *external) Disconnect(ctx context.Context) error {
+	// No persistent connections to clean up
+	return nil
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -326,9 +333,19 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 	// If credential didn't exist (404), that's fine - continue with creation
 
+	// Generate a secure password if none provided
+	password := cr.Spec.ForProvider.Password
+	if password == nil {
+		generatedPassword := generateSecurePassword()
+		password = &generatedPassword
+		logger.Info("generated secure password for SMTP credential")
+	} else {
+		logger.Info("using provided password for SMTP credential")
+	}
+
 	spec := &clients.SMTPCredentialSpec{
 		Login:    cr.Spec.ForProvider.Login,
-		Password: cr.Spec.ForProvider.Password,
+		Password: password,
 	}
 
 	logger.Info("creating new SMTP credential via Mailgun API")
@@ -359,14 +376,14 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	// Return connection details including the password
-	password := ""
-	if credential.Password != "" {
-		password = credential.Password
-	} else if cr.Spec.ForProvider.Password != nil {
-		password = *cr.Spec.ForProvider.Password
+	// Use the password we provided to the API (either user-provided or generated)
+	connectionPassword := ""
+	if password != nil {
+		connectionPassword = *password
 	}
 
-	logger.Info("returning connection details for secret storage")
+	logger.Info("returning connection details for secret storage",
+		"passwordLength", len(connectionPassword))
 	timer.RecordResourceOperation("smtpcredential", "create", "success")
 
 	return managed.ExternalCreation{
@@ -374,7 +391,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 			"smtp_host":     []byte("smtp.mailgun.org"),
 			"smtp_port":     []byte("587"),
 			"smtp_username": []byte(credential.Login),
-			"smtp_password": []byte(password),
+			"smtp_password": []byte(connectionPassword),
 		},
 	}, nil
 }
@@ -416,7 +433,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalUpdate{}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	op := tracing.StartOperation(ctx, tracing.SpanResourceDelete,
 		tracing.AttrResourceType.String("SMTPCredential"),
 		tracing.AttrResourceName.String(mg.GetName()),
@@ -428,7 +445,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	if !ok {
 		err := errors.New(errNotSMTPCredential)
 		op.RecordError(err)
-		return err
+		return managed.ExternalDelete{}, err
 	}
 
 	op.SetAttribute("domain", cr.Spec.ForProvider.Domain)
@@ -439,7 +456,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	err := c.service.DeleteSMTPCredential(ctx, cr.Spec.ForProvider.Domain, cr.Spec.ForProvider.Login)
 	if err != nil && !clients.IsNotFound(err) {
 		op.RecordError(err)
-		return errors.Wrap(err, "failed to delete SMTP credential")
+		return managed.ExternalDelete{}, errors.Wrap(err, "failed to delete SMTP credential")
 	}
 
 	if clients.IsNotFound(err) {
@@ -448,7 +465,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 		op.SetAttribute("credential.deleted", true)
 	}
 
-	return nil
+	return managed.ExternalDelete{}, nil
 }
 
 // providerConfigUsageTracker is a custom tracker that ensures ProviderConfigUsage
@@ -484,4 +501,18 @@ func (t *providerConfigUsageTracker) Track(ctx context.Context, mg resource.Mana
 		return err
 	}
 	return nil
+}
+
+// generateSecurePassword creates a secure random password for SMTP credentials
+func generateSecurePassword() string {
+	// Generate 32 random bytes (256 bits)
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		// Fallback to a time-based password if random generation fails
+		return "mailgun-" + base64.URLEncoding.EncodeToString([]byte("fallback"))[:16]
+	}
+
+	// Convert to base64 and take first 24 characters for a good balance of security and usability
+	password := base64.URLEncoding.EncodeToString(bytes)[:24]
+	return password
 }

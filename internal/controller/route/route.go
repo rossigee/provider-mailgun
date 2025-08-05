@@ -137,6 +137,11 @@ type external struct {
 	service clients.Client
 }
 
+func (c *external) Disconnect(ctx context.Context) error {
+	// No persistent connections to clean up
+	return nil
+}
+
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Route)
 	if !ok {
@@ -225,25 +230,25 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Route)
 	if !ok {
-		return errors.New(errNotRoute)
+		return managed.ExternalDelete{}, errors.New(errNotRoute)
 	}
 
 	cr.SetConditions(xpv1.Deleting())
 
 	externalName := meta.GetExternalName(cr)
 	if externalName == "" {
-		return nil // Already deleted
+		return managed.ExternalDelete{}, nil // Already deleted
 	}
 
 	err := c.service.DeleteRoute(ctx, externalName)
 	if err != nil && !clients.IsNotFound(err) {
-		return errors.Wrap(err, "failed to delete route")
+		return managed.ExternalDelete{}, errors.Wrap(err, "failed to delete route")
 	}
 
-	return nil
+	return managed.ExternalDelete{}, nil
 }
 
 // generateRouteSpec converts the API parameters to client format

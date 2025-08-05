@@ -137,6 +137,11 @@ type external struct {
 	service clients.Client
 }
 
+func (c *external) Disconnect(ctx context.Context) error {
+	// No persistent connections to clean up
+	return nil
+}
+
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Domain)
 	if !ok {
@@ -227,20 +232,20 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Domain)
 	if !ok {
-		return errors.New(errNotDomain)
+		return managed.ExternalDelete{}, errors.New(errNotDomain)
 	}
 
 	cr.SetConditions(xpv1.Deleting())
 
 	err := c.service.DeleteDomain(ctx, cr.Spec.ForProvider.Name)
 	if err != nil && !clients.IsNotFound(err) {
-		return errors.Wrap(err, "failed to delete domain")
+		return managed.ExternalDelete{}, errors.Wrap(err, "failed to delete domain")
 	}
 
-	return nil
+	return managed.ExternalDelete{}, nil
 }
 
 // generateDomainSpec converts the API parameters to client format

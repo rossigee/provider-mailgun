@@ -106,6 +106,12 @@ type Config struct {
 	HTTPClient *http.Client
 }
 
+// Credentials represents the structure of the credentials secret
+type Credentials struct {
+	APIKey string `json:"api_key"`
+	Region string `json:"region,omitempty"`
+}
+
 // mailgunClient implements the Client interface
 type mailgunClient struct {
 	config *Config
@@ -157,7 +163,20 @@ func UseProviderConfig(ctx context.Context, c client.Client, mg resource.Managed
 		return nil, errors.Wrap(err, "cannot get credentials")
 	}
 
-	apiKey := string(data)
+	// Try to parse as JSON first (new format)
+	var creds Credentials
+	var apiKey string
+	if err := json.Unmarshal(data, &creds); err == nil && creds.APIKey != "" {
+		// JSON format with api_key field
+		apiKey = creds.APIKey
+	} else {
+		// Fall back to treating the entire data as the API key (legacy format)
+		apiKey = strings.TrimSpace(string(data))
+		if apiKey == "" {
+			return nil, errors.New("mailgun API key not found in credentials")
+		}
+	}
+
 	if apiKey == "" {
 		return nil, errors.New("mailgun API key not found in credentials")
 	}

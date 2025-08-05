@@ -139,6 +139,11 @@ type external struct {
 	kube    client.Client
 }
 
+func (c *external) Disconnect(ctx context.Context) error {
+	// No persistent connections to clean up
+	return nil
+}
+
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Webhook)
 	if !ok {
@@ -240,10 +245,10 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Webhook)
 	if !ok {
-		return errors.New(errNotWebhook)
+		return managed.ExternalDelete{}, errors.New(errNotWebhook)
 	}
 
 	cr.SetConditions(xpv1.Deleting())
@@ -251,15 +256,15 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	// Resolve domain reference
 	domainName, err := c.resolveDomainReference(ctx, cr)
 	if err != nil {
-		return errors.Wrap(err, errResolveDomain)
+		return managed.ExternalDelete{}, errors.Wrap(err, errResolveDomain)
 	}
 
 	err = c.service.DeleteWebhook(ctx, domainName, cr.Spec.ForProvider.EventType)
 	if err != nil && !clients.IsNotFound(err) {
-		return errors.Wrap(err, "failed to delete webhook")
+		return managed.ExternalDelete{}, errors.Wrap(err, "failed to delete webhook")
 	}
 
-	return nil
+	return managed.ExternalDelete{}, nil
 }
 
 // resolveDomainReference resolves the domain reference to get the domain name

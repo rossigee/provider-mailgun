@@ -142,6 +142,11 @@ type external struct {
 	client clients.Client
 }
 
+func (c *external) Disconnect(ctx context.Context) error {
+	// No persistent connections to clean up
+	return nil
+}
+
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Template)
 	if !ok {
@@ -236,18 +241,18 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalUpdate{}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Template)
 	if !ok {
-		return errors.New(errNotTemplate)
+		return managed.ExternalDelete{}, errors.New(errNotTemplate)
 	}
 
 	cr.SetConditions(xpv1.Deleting())
 
 	err := c.client.DeleteTemplate(ctx, cr.Spec.ForProvider.Domain, cr.Spec.ForProvider.Name)
 	if err != nil {
-		return errors.Wrap(err, errDeleteTemplate)
+		return managed.ExternalDelete{}, errors.Wrap(err, errDeleteTemplate)
 	}
 
-	return nil
+	return managed.ExternalDelete{}, nil
 }

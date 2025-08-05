@@ -137,6 +137,11 @@ type external struct {
 	service clients.Client
 }
 
+func (c *external) Disconnect(ctx context.Context) error {
+	// No persistent connections to clean up
+	return nil
+}
+
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.MailingList)
 	if !ok {
@@ -218,20 +223,20 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.MailingList)
 	if !ok {
-		return errors.New(errNotMailingList)
+		return managed.ExternalDelete{}, errors.New(errNotMailingList)
 	}
 
 	cr.SetConditions(xpv1.Deleting())
 
 	err := c.service.DeleteMailingList(ctx, cr.Spec.ForProvider.Address)
 	if err != nil && !clients.IsNotFound(err) {
-		return errors.Wrap(err, "failed to delete mailing list")
+		return managed.ExternalDelete{}, errors.Wrap(err, "failed to delete mailing list")
 	}
 
-	return nil
+	return managed.ExternalDelete{}, nil
 }
 
 // generateMailingListSpec converts the API parameters to client format

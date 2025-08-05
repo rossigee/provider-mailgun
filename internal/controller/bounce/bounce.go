@@ -139,6 +139,11 @@ type external struct {
 	kube    client.Client
 }
 
+func (c *external) Disconnect(ctx context.Context) error {
+	// No persistent connections to clean up
+	return nil
+}
+
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Bounce)
 	if !ok {
@@ -217,10 +222,10 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalUpdate{}, nil
 }
 
-func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
+func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	cr, ok := mg.(*v1alpha1.Bounce)
 	if !ok {
-		return errors.New(errNotBounce)
+		return managed.ExternalDelete{}, errors.New(errNotBounce)
 	}
 
 	cr.Status.SetConditions(xpv1.Deleting())
@@ -228,7 +233,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 	// Get domain name from domainRef
 	domainName, err := c.resolveDomainName(ctx, cr)
 	if err != nil {
-		return errors.Wrap(err, "cannot resolve domain name")
+		return managed.ExternalDelete{}, errors.Wrap(err, "cannot resolve domain name")
 	}
 
 	externalName := meta.GetExternalName(cr)
@@ -238,10 +243,10 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) error {
 
 	err = c.service.DeleteBounce(ctx, domainName, externalName)
 	if err != nil && !clients.IsNotFound(err) {
-		return errors.Wrap(err, "cannot delete bounce")
+		return managed.ExternalDelete{}, errors.Wrap(err, "cannot delete bounce")
 	}
 
-	return nil
+	return managed.ExternalDelete{}, nil
 }
 
 // resolveDomainName resolves the domain name from the domainRef

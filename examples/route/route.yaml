@@ -9,7 +9,7 @@ spec:
     expression: match_recipient("support@.*")
     actions:
     - type: forward
-      destination: helpdesk@company.com
+      destination: helpdesk@example.org
     - type: store
   providerConfigRef:
     name: default

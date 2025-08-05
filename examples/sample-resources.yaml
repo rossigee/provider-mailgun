@@ -76,7 +76,7 @@ spec:
     description: "Forward all emails to support"
     expression: "match_recipient('.*@example.com')"
     actions:
-    - "forward('support@company.com')"
+    - "forward('support@example.org')"
     - "store(notify='https://example.com/webhook')"
   providerConfigRef:
     name: default

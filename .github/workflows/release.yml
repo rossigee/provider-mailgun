@@ -51,25 +51,11 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Login to Harbor Registry (Optional)
-        if: env.ENABLE_HARBOR_PUBLISH == 'true'
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
-        with:
-          registry: harbor.golder.lan
-          username: ${{ secrets.HARBOR_USERNAME }}
-          password: ${{ secrets.HARBOR_PASSWORD }}
 
       - name: Build and Push Release to Primary Registry
         run: |
           # Build and push to GitHub Container Registry (primary)
           make publish REGISTRY_ORGS="${{ env.PRIMARY_REGISTRY }}" \
-            VERSION=${{ steps.version.outputs.version }}
-
-      - name: Build and Push Release to Harbor (Optional)
-        if: env.ENABLE_HARBOR_PUBLISH == 'true'
-        run: |
-          # Push to Harbor Registry
-          make publish REGISTRY_ORGS="harbor.golder.lan/library" \
             VERSION=${{ steps.version.outputs.version }}
 
       - name: Build and Push Release to Upbound (Optional)

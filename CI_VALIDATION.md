@@ -31,7 +31,7 @@ The provider-mailgun repository has been updated with the improved CI/CD approac
 
 **✅ Registry Updates**
 - Primary: GitHub Container Registry (`ghcr.io/rossigee`)
-- Optional: Harbor (`harbor.golder.lan/library`) - disabled by default
+- Harbor: Removed - no longer used
 - Optional: Upbound (`xpkg.upbound.io/rossigee`) - disabled by default
 
 ### 🚀 Key Improvements Over Previous CI

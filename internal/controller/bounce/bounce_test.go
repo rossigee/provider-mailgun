@@ -519,6 +519,10 @@ func stringPtrValue(s *string) string {
 }
 
 func TestResolveDomainName(t *testing.T) {
+	scheme := runtime.NewScheme()
+	require.NoError(t, v1alpha1.SchemeBuilder.AddToScheme(scheme))
+	require.NoError(t, apisv1beta1.SchemeBuilder.AddToScheme(scheme))
+
 	cases := map[string]struct {
 		domainRefName string
 		expected      string
@@ -535,7 +539,9 @@ func TestResolveDomainName(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			e := &external{}
+			// Setup fake Kubernetes client
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
+			e := &external{kube: fakeClient}
 			cr := &v1alpha1.Bounce{
 				Spec: v1alpha1.BounceSpec{
 					ForProvider: v1alpha1.BounceParameters{

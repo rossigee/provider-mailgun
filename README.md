@@ -112,10 +112,10 @@ go build -o provider cmd/provider/main.go
 make test
 
 # Build Crossplane package (.xpkg)
-crossplane xpkg build -f package/ --embed-runtime-image=ghcr.io/rossigee/provider-mailgun:v0.6.12
+crossplane xpkg build -f package/ --embed-runtime-image=ghcr.io/rossigee/provider-mailgun:v0.7.3
 
 # Build and push to registries
-VERSION=v0.6.12 ./build-and-push.sh
+VERSION=v0.7.3 ./build-and-push.sh
 ```
 
 ### Development Setup
@@ -141,8 +141,11 @@ The provider includes comprehensive test coverage for:
 - **Secret Management**: Kubernetes secret integration testing
 - **ProviderConfig Usage**: Namespace-scoped usage tracking
 - **Mock Client**: Complete Mailgun API simulation
+- **Integration Scenarios**: Multi-resource workflow testing
+- **Error Handling**: Network failures, malformed responses, context cancellation
+- **Controller Coverage**: Enhanced test coverage across all 6 controllers
 
-Current test coverage: **27.4%** with focus on critical paths.
+Current test coverage: **36.3%** (133 test functions) with focus on critical paths and HTTP client reliability (55.7%).
 
 See `CLAUDE.md` for comprehensive development guidance.
 

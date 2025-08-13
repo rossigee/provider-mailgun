@@ -18,8 +18,6 @@ package smtpcredential
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -152,6 +150,41 @@ type external struct {
 func (c *external) Disconnect(ctx context.Context) error {
 	// No persistent connections to clean up
 	return nil
+}
+
+// ExternalForTesting provides access to external struct for integration tests
+type ExternalForTesting struct {
+	Client clients.Client
+	Kube   client.Client
+}
+
+// NewExternalForTesting creates a new external struct for testing
+func NewExternalForTesting(clientAPI clients.Client, kube client.Client) *ExternalForTesting {
+	return &ExternalForTesting{Client: clientAPI, Kube: kube}
+}
+
+// Observe delegates to the external struct
+func (e *ExternalForTesting) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
+	ext := &external{service: e.Client, kube: e.Kube}
+	return ext.Observe(ctx, mg)
+}
+
+// Create delegates to the external struct
+func (e *ExternalForTesting) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
+	ext := &external{service: e.Client, kube: e.Kube}
+	return ext.Create(ctx, mg)
+}
+
+// Update delegates to the external struct
+func (e *ExternalForTesting) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
+	ext := &external{service: e.Client, kube: e.Kube}
+	return ext.Update(ctx, mg)
+}
+
+// Delete delegates to the external struct
+func (e *ExternalForTesting) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
+	ext := &external{service: e.Client, kube: e.Kube}
+	return ext.Delete(ctx, mg)
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
@@ -306,39 +339,46 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	op.SetAttribute("domain", cr.Spec.ForProvider.Domain)
 	op.SetAttribute("login", cr.Spec.ForProvider.Login)
-	op.SetAttribute("rotation_strategy", true)
 
-	logger.Info("starting SMTP credential creation with rotation strategy")
+	logger.Info("starting SMTP credential creation")
 
 	cr.SetConditions(xpv1.Creating())
 
-	// Implement rotation strategy: delete existing credential first (if any)
-	// This ensures we get fresh credentials and handles imported resources
-	logger.Info("deleting existing SMTP credential for rotation")
-	err := c.service.DeleteSMTPCredential(ctx, cr.Spec.ForProvider.Domain, cr.Spec.ForProvider.Login)
-	if err != nil && !clients.IsNotFound(err) {
-		// If deletion fails for reasons other than "not found", that's an error
-		logger.Error(err, "failed to delete existing SMTP credential during rotation")
-		op.RecordError(err)
-		return managed.ExternalCreation{}, errors.Wrap(err, "failed to delete existing SMTP credential during rotation")
+	// Check if this is an imported resource that needs rotation
+	// Only apply rotation strategy for imported resources, not new ones
+	externalName := meta.GetExternalName(cr)
+	isImported := externalName != "" && externalName != cr.Spec.ForProvider.Login
+
+	if isImported {
+		// Implement rotation strategy for imported resources: delete existing credential first
+		// This ensures we get fresh credentials for imported resources
+		logger.Info("deleting existing SMTP credential for imported resource rotation")
+		op.SetAttribute("rotation_strategy", true)
+		err := c.service.DeleteSMTPCredential(ctx, cr.Spec.ForProvider.Domain, cr.Spec.ForProvider.Login)
+		if err != nil && !clients.IsNotFound(err) {
+			// If deletion fails for reasons other than "not found", that's an error
+			logger.Error(err, "failed to delete existing SMTP credential during rotation")
+			op.RecordError(err)
+			return managed.ExternalCreation{}, errors.Wrap(err, "failed to delete existing SMTP credential during rotation")
+		}
+
+		if clients.IsNotFound(err) {
+			logger.Info("no existing credential found during rotation, proceeding with fresh creation")
+			op.SetAttribute("rotation.existing_found", false)
+		} else if err == nil {
+			logger.Info("existing credential deleted successfully during rotation, proceeding with fresh creation")
+			op.SetAttribute("rotation.existing_found", true)
+			op.SetAttribute("rotation.deleted", true)
+		}
+	} else {
+		logger.Info("creating new SMTP credential (no rotation needed)")
+		op.SetAttribute("rotation_strategy", false)
 	}
 
-	if clients.IsNotFound(err) {
-		logger.Info("no existing credential found, proceeding with fresh creation")
-		op.SetAttribute("rotation.existing_found", false)
-	} else if err == nil {
-		logger.Info("existing credential deleted successfully, proceeding with fresh creation")
-		op.SetAttribute("rotation.existing_found", true)
-		op.SetAttribute("rotation.deleted", true)
-	}
-	// If credential didn't exist (404), that's fine - continue with creation
-
-	// Generate a secure password if none provided
+	// Use provided password or let Mailgun generate one
 	password := cr.Spec.ForProvider.Password
 	if password == nil {
-		generatedPassword := generateSecurePassword()
-		password = &generatedPassword
-		logger.Info("generated secure password for SMTP credential")
+		logger.Info("no password provided, letting Mailgun generate one")
 	} else {
 		logger.Info("using provided password for SMTP credential")
 	}
@@ -375,15 +415,23 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		State:     credential.State,
 	}
 
-	// Return connection details including the password
-	// Use the password we provided to the API (either user-provided or generated)
-	connectionPassword := ""
-	if password != nil {
+	// Return connection details including the password from Mailgun
+	// Use the password returned by Mailgun API (either provided or generated by Mailgun)
+	connectionPassword := credential.Password
+	if connectionPassword == "" && password != nil {
+		// Fallback to provided password if Mailgun didn't return one
 		connectionPassword = *password
 	}
 
 	logger.Info("returning connection details for secret storage",
-		"passwordLength", len(connectionPassword))
+		"passwordLength", len(connectionPassword),
+		"passwordSource", func() string {
+			if password == nil {
+				return "mailgun-generated"
+			} else {
+				return "user-provided"
+			}
+		}())
 	timer.RecordResourceOperation("smtpcredential", "create", "success")
 
 	return managed.ExternalCreation{
@@ -482,8 +530,13 @@ func (t *providerConfigUsageTracker) Track(ctx context.Context, mg resource.Mana
 	// Create ProviderConfigUsage - namespaced resource per CRD definition
 	pcu := &apisv1beta1.ProviderConfigUsage{}
 	pcu.SetName(string(mg.GetUID()))
-	// Set namespace to match the managed resource namespace
-	pcu.SetNamespace(mg.GetNamespace())
+	// Set namespace to crossplane-system if managed resource has no namespace (cluster-scoped)
+	// Otherwise use the managed resource namespace
+	namespace := mg.GetNamespace()
+	if namespace == "" {
+		namespace = "crossplane-system"
+	}
+	pcu.SetNamespace(namespace)
 	pcu.SetOwnerReferences([]metav1.OwnerReference{meta.AsOwner(meta.TypedReferenceTo(mg, mg.GetObjectKind().GroupVersionKind()))})
 
 	pcRef := mg.GetProviderConfigReference()
@@ -501,18 +554,4 @@ func (t *providerConfigUsageTracker) Track(ctx context.Context, mg resource.Mana
 		return err
 	}
 	return nil
-}
-
-// generateSecurePassword creates a secure random password for SMTP credentials
-func generateSecurePassword() string {
-	// Generate 32 random bytes (256 bits)
-	bytes := make([]byte, 32)
-	if _, err := rand.Read(bytes); err != nil {
-		// Fallback to a time-based password if random generation fails
-		return "mailgun-" + base64.URLEncoding.EncodeToString([]byte("fallback"))[:16]
-	}
-
-	// Convert to base64 and take first 24 characters for a good balance of security and usability
-	password := base64.URLEncoding.EncodeToString(bytes)[:24]
-	return password
 }

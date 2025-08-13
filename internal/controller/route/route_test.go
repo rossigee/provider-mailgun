@@ -18,6 +18,7 @@ package route
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -481,6 +482,465 @@ func TestRouteDelete(t *testing.T) {
 				// Verify route was deleted
 				_, exists := mockClient.routes["route_delete"]
 				assert.False(t, exists)
+			}
+		})
+	}
+}
+
+func TestRouteUpdate(t *testing.T) {
+	type args struct {
+		mg resource.Managed
+	}
+	type want struct {
+		o   managed.ExternalUpdate
+		err error
+	}
+
+	cases := map[string]struct {
+		reason string
+		args   args
+		want   want
+	}{
+		"SuccessfulUpdate": {
+			reason: "Should successfully update route",
+			args: args{
+				mg: func() *v1alpha1.Route {
+					r := &v1alpha1.Route{
+						Spec: v1alpha1.RouteSpec{
+							ForProvider: v1alpha1.RouteParameters{
+								Priority:    intPtr(20),
+								Description: stringPtr("Updated route"),
+								Expression:  "match_recipient(\".*@updated.com\")",
+								Actions: []v1alpha1.RouteAction{
+									{
+										Type:        "forward",
+										Destination: stringPtr("updated@destination.com"),
+									},
+								},
+							},
+						},
+					}
+					r.SetAnnotations(map[string]string{
+						"crossplane.io/external-name": "route_update",
+					})
+					return r
+				}(),
+			},
+			want: want{
+				o: managed.ExternalUpdate{
+					ConnectionDetails: managed.ConnectionDetails{},
+				},
+			},
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockRouteClient{
+				routes: map[string]*clients.Route{
+					"route_update": {
+						ID:          "route_update",
+						Priority:    10,
+						Description: "Original route",
+						Expression:  "match_recipient(\".*@original.com\")",
+						Actions: []clients.RouteAction{
+							{
+								Type:        "forward",
+								Destination: stringPtr("original@destination.com"),
+							},
+						},
+						CreatedAt: "2025-01-01T00:00:00Z",
+					},
+				},
+			}
+			e := &external{service: mockClient}
+
+			got, err := e.Update(context.Background(), tc.args.mg)
+
+			if tc.want.err != nil {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.want.err.Error())
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.want.o, got)
+
+				// Verify the route was updated
+				updatedRoute := mockClient.routes["route_update"]
+				assert.Equal(t, 20, updatedRoute.Priority)
+				assert.Equal(t, "Updated route", updatedRoute.Description)
+				assert.Equal(t, "match_recipient(\".*@updated.com\")", updatedRoute.Expression)
+			}
+		})
+	}
+}
+
+// Additional comprehensive test coverage for Route controller
+
+// Test error handling scenarios
+func TestRouteObserveErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason     string
+		mockErr    error
+		setupMock  func(*MockRouteClient)
+		expectErr  bool
+		expectExists bool
+	}{
+		"ClientError": {
+			reason:    "Should handle client errors gracefully",
+			mockErr:   errors.New("mailgun api error"),
+			expectErr: true,
+		},
+		"RouteNotFoundButUpToDate": {
+			reason: "Should handle route not found correctly",
+			setupMock: func(m *MockRouteClient) {
+				// Mock will return "route not found" error for nonexistent routes
+			},
+			expectErr:    false,
+			expectExists: false,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockRouteClient{err: tc.mockErr}
+			if tc.setupMock != nil {
+				tc.setupMock(mockClient)
+			}
+
+			e := &external{service: mockClient}
+			mg := func() *v1alpha1.Route {
+				r := &v1alpha1.Route{
+					Spec: v1alpha1.RouteSpec{
+						ForProvider: v1alpha1.RouteParameters{
+							Expression: "match_recipient(\".*@test.com\")",
+							Actions:    []v1alpha1.RouteAction{{Type: "stop"}},
+						},
+					},
+				}
+				r.SetAnnotations(map[string]string{
+					"crossplane.io/external-name": "route_test",
+				})
+				return r
+			}()
+
+			obs, err := e.Observe(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expectExists, obs.ResourceExists)
+			}
+		})
+	}
+}
+
+func TestRouteCreateErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason    string
+		mockErr   error
+		expectErr bool
+	}{
+		"CreateError": {
+			reason:    "Should handle create errors",
+			mockErr:   errors.New("failed to create route"),
+			expectErr: true,
+		},
+		"InvalidExpression": {
+			reason:    "Should handle invalid expression errors",
+			mockErr:   errors.New("invalid expression syntax"),
+			expectErr: true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockRouteClient{err: tc.mockErr}
+			e := &external{service: mockClient}
+
+			mg := &v1alpha1.Route{
+				Spec: v1alpha1.RouteSpec{
+					ForProvider: v1alpha1.RouteParameters{
+						Priority:    intPtr(10),
+						Description: stringPtr("Error test route"),
+						Expression:  "invalid_expression",
+						Actions: []v1alpha1.RouteAction{
+							{Type: "stop"},
+						},
+					},
+				},
+			}
+
+			_, err := e.Create(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestRouteUpdateErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason    string
+		mockErr   error
+		expectErr bool
+	}{
+		"UpdateError": {
+			reason:    "Should handle update errors",
+			mockErr:   errors.New("failed to update route"),
+			expectErr: true,
+		},
+		"RouteNotFound": {
+			reason:    "Should handle route not found during update",
+			mockErr:   errors.New("route not found (404)"),
+			expectErr: true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockRouteClient{err: tc.mockErr}
+			e := &external{service: mockClient}
+
+			mg := func() *v1alpha1.Route {
+				r := &v1alpha1.Route{
+					Spec: v1alpha1.RouteSpec{
+						ForProvider: v1alpha1.RouteParameters{
+							Expression: "match_recipient(\".*@error.com\")",
+							Actions:    []v1alpha1.RouteAction{{Type: "stop"}},
+						},
+					},
+				}
+				r.SetAnnotations(map[string]string{
+					"crossplane.io/external-name": "route_error",
+				})
+				return r
+			}()
+
+			_, err := e.Update(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestRouteDeleteErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason    string
+		mockErr   error
+		expectErr bool
+	}{
+		"DeleteError": {
+			reason:    "Should handle delete errors",
+			mockErr:   errors.New("failed to delete route"),
+			expectErr: true,
+		},
+		"RouteNotFound": {
+			reason:    "Should handle route not found during delete gracefully",
+			mockErr:   errors.New("route not found (404)"),
+			expectErr: false, // Should handle 404 gracefully on delete
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockRouteClient{err: tc.mockErr}
+			e := &external{service: mockClient}
+
+			mg := func() *v1alpha1.Route {
+				r := &v1alpha1.Route{
+					Spec: v1alpha1.RouteSpec{
+						ForProvider: v1alpha1.RouteParameters{
+							Expression: "match_recipient(\".*@error.com\")",
+							Actions:    []v1alpha1.RouteAction{{Type: "stop"}},
+						},
+					},
+				}
+				r.SetAnnotations(map[string]string{
+					"crossplane.io/external-name": "route_error",
+				})
+				return r
+			}()
+
+			_, err := e.Delete(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// Test edge cases and complex routing scenarios
+func TestRouteEdgeCases(t *testing.T) {
+	t.Run("MinimalRoute", func(t *testing.T) {
+		mockClient := &MockRouteClient{}
+		e := &external{service: mockClient}
+
+		// Route with only required fields
+		mg := &v1alpha1.Route{
+			Spec: v1alpha1.RouteSpec{
+				ForProvider: v1alpha1.RouteParameters{
+					Expression: "match_recipient(\".*@minimal.com\")",
+					Actions: []v1alpha1.RouteAction{
+						{Type: "stop"},
+					},
+					// Priority and Description are nil/empty
+				},
+			},
+		}
+
+		_, err := e.Create(context.Background(), mg)
+		require.NoError(t, err)
+
+		// Verify route was created with minimal fields
+		route := mockClient.routes["route_123"] // Default ID from mock
+		assert.Equal(t, "match_recipient(\".*@minimal.com\")", route.Expression)
+		assert.Equal(t, 0, route.Priority) // Default from mock
+		assert.Len(t, route.Actions, 1)
+		assert.Equal(t, "stop", route.Actions[0].Type)
+	})
+
+	t.Run("ComplexRouteWithMultipleActions", func(t *testing.T) {
+		mockClient := &MockRouteClient{}
+		e := &external{service: mockClient}
+
+		// Route with multiple actions and complex expression
+		mg := &v1alpha1.Route{
+			Spec: v1alpha1.RouteSpec{
+				ForProvider: v1alpha1.RouteParameters{
+					Priority:    intPtr(50),
+					Description: stringPtr("Complex multi-action route for sales team"),
+					Expression:  "match_recipient(\"sales-.*@company.com\") AND match_header(\"X-Priority\", \"high\")",
+					Actions: []v1alpha1.RouteAction{
+						{
+							Type:        "forward",
+							Destination: stringPtr("sales-manager@company.com"),
+						},
+						{
+							Type:        "store",
+							Destination: stringPtr("high-priority-sales-archive"),
+						},
+					},
+				},
+			},
+		}
+
+		_, err := e.Create(context.Background(), mg)
+		require.NoError(t, err)
+
+		// Verify route was created with all specified fields
+		route := mockClient.routes["route_123"]
+		assert.Equal(t, 50, route.Priority)
+		assert.Equal(t, "Complex multi-action route for sales team", route.Description)
+		assert.Equal(t, "match_recipient(\"sales-.*@company.com\") AND match_header(\"X-Priority\", \"high\")", route.Expression)
+		assert.Len(t, route.Actions, 2)
+		assert.Equal(t, "forward", route.Actions[0].Type)
+		assert.Equal(t, "sales-manager@company.com", *route.Actions[0].Destination)
+		assert.Equal(t, "store", route.Actions[1].Type)
+		assert.Equal(t, "high-priority-sales-archive", *route.Actions[1].Destination)
+	})
+
+	t.Run("RouteStatusUpdate", func(t *testing.T) {
+		mockClient := &MockRouteClient{
+			routes: map[string]*clients.Route{
+				"route_status": {
+					ID:          "route_status",
+					Priority:    25,
+					Description: "Route for status testing",
+					Expression:  "match_recipient(\".*@status.com\")",
+					Actions: []clients.RouteAction{
+						{
+							Type:        "forward",
+							Destination: stringPtr("admin@status.com"),
+						},
+					},
+					CreatedAt: "2025-01-01T00:00:00Z",
+				},
+			},
+		}
+		e := &external{service: mockClient}
+
+		mg := func() *v1alpha1.Route {
+			r := &v1alpha1.Route{
+				Spec: v1alpha1.RouteSpec{
+					ForProvider: v1alpha1.RouteParameters{
+						Expression: "match_recipient(\".*@status.com\")",
+						Actions:    []v1alpha1.RouteAction{{Type: "forward"}},
+					},
+				},
+			}
+			r.SetAnnotations(map[string]string{
+				"crossplane.io/external-name": "route_status",
+			})
+			return r
+		}()
+
+		obs, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+		assert.True(t, obs.ResourceExists)
+		// Note: ResourceUpToDate depends on comparison logic in the actual controller
+
+		// Verify the managed resource status is updated
+		assert.Equal(t, "route_status", mg.Status.AtProvider.ID)
+		assert.Equal(t, 25, mg.Status.AtProvider.Priority)
+		assert.Equal(t, "Route for status testing", mg.Status.AtProvider.Description)
+		assert.Equal(t, "match_recipient(\".*@status.com\")", mg.Status.AtProvider.Expression)
+		assert.Equal(t, "2025-01-01T00:00:00Z", mg.Status.AtProvider.CreatedAt)
+		assert.Len(t, mg.Status.AtProvider.Actions, 1)
+	})
+}
+
+// Test different route action types and patterns
+func TestRouteActionTypes(t *testing.T) {
+	actionTypes := []struct {
+		type_ string
+		dest  *string
+	}{
+		{"forward", stringPtr("user@example.com")},
+		{"store", stringPtr("mailing-list-archive")},
+		{"stop", nil},
+	}
+
+	for _, action := range actionTypes {
+		t.Run(fmt.Sprintf("ActionType_%s", action.type_), func(t *testing.T) {
+			mockClient := &MockRouteClient{}
+			e := &external{service: mockClient}
+
+			mg := &v1alpha1.Route{
+				Spec: v1alpha1.RouteSpec{
+					ForProvider: v1alpha1.RouteParameters{
+						Expression: fmt.Sprintf("match_recipient(\".*@%s.com\")", action.type_),
+						Actions: []v1alpha1.RouteAction{
+							{
+								Type:        action.type_,
+								Destination: action.dest,
+							},
+						},
+					},
+				},
+			}
+
+			_, err := e.Create(context.Background(), mg)
+			require.NoError(t, err)
+
+			// Verify the action was configured correctly
+			route := mockClient.routes["route_123"]
+			assert.Len(t, route.Actions, 1)
+			assert.Equal(t, action.type_, route.Actions[0].Type)
+			if action.dest != nil {
+				assert.Equal(t, action.dest, route.Actions[0].Destination)
+			} else {
+				assert.Nil(t, route.Actions[0].Destination)
 			}
 		})
 	}

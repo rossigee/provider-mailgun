@@ -14,7 +14,7 @@ PRIMARY_REGISTRY=${PRIMARY_REGISTRY:-ghcr.io/rossigee}
 # Optional registries
 ENABLE_HARBOR_PUBLISH=${ENABLE_HARBOR_PUBLISH:-false}
 ENABLE_DOCKERHUB_PUBLISH=${ENABLE_DOCKERHUB_PUBLISH:-false}
-HARBOR_REGISTRY=${HARBOR_REGISTRY:-harbor.golder.lan/library}
+HARBOR_REGISTRY=${HARBOR_REGISTRY:-} # Harbor removed - no default registry
 DOCKERHUB_REGISTRY=${DOCKERHUB_REGISTRY:-docker.io/rossigee}
 
 # Provider name

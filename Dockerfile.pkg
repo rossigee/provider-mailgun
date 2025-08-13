@@ -1,2 +1,0 @@
-FROM scratch
-ADD provider-mailgun-v0.6.8.xpkg /package.xpkg

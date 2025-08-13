@@ -18,7 +18,9 @@ package clients
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 )
 
@@ -29,9 +31,11 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 	params := map[string]interface{}{
 		"login": credential.Login,
 	}
+	// Let Mailgun generate the password if none is provided
 	if credential.Password != nil {
 		params["password"] = *credential.Password
 	}
+	// If no password provided, Mailgun will generate one
 
 	body := strings.NewReader(createFormData(params))
 	resp, err := c.makeRequest(ctx, "POST", path, body)
@@ -39,12 +43,53 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 		return nil, fmt.Errorf("failed to create SMTP credential: %w", err)
 	}
 
-	var result SMTPCredential
-	if err := c.handleResponse(resp, &result); err != nil {
-		return nil, fmt.Errorf("failed to handle response: %w", err)
+	// Read the response body once
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode >= 400 {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
 	}
 
-	return &result, nil
+	// Read response body
+	responseBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+
+	// Try to parse as credential response first (if Mailgun returns the credential directly)
+	var credentialResponse struct {
+		Login     string `json:"login"`
+		Password  string `json:"password"`
+		CreatedAt string `json:"created_at"`
+		State     string `json:"state"`
+	}
+
+	if err := json.Unmarshal(responseBody, &credentialResponse); err == nil && credentialResponse.Login != "" {
+		return &SMTPCredential{
+			Login:     credentialResponse.Login,
+			Password:  credentialResponse.Password,
+			CreatedAt: credentialResponse.CreatedAt,
+			State:     credentialResponse.State,
+		}, nil
+	}
+
+	// Fallback: parse as message response (current API behavior)
+	var createResponse struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(responseBody, &createResponse); err != nil {
+		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Verify the creation was successful by checking the message
+	if !strings.Contains(createResponse.Message, "Created") && !strings.Contains(createResponse.Message, "credentials pair") {
+		return nil, fmt.Errorf("unexpected response from Mailgun API: %s", createResponse.Message)
+	}
+
+	// If we only got a success message, we need to fetch the credential to get the password
+	// This happens when Mailgun generates the password
+	return c.GetSMTPCredential(ctx, domain, credential.Login)
 }
 
 // GetSMTPCredential retrieves an SMTP credential

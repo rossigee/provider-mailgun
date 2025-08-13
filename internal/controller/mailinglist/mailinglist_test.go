@@ -18,6 +18,7 @@ package mailinglist
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -499,6 +500,361 @@ func TestMailingListDelete(t *testing.T) {
 				assert.False(t, exists)
 			}
 		})
+	}
+}
+
+// Additional comprehensive test coverage for MailingList controller
+
+// Test error handling scenarios
+func TestMailingListObserveErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason     string
+		mockErr    error
+		setupMock  func(*MockMailingListClient)
+		expectErr  bool
+		expectExists bool
+	}{
+		"ClientError": {
+			reason:    "Should handle client errors gracefully",
+			mockErr:   errors.New("mailgun api error"),
+			expectErr: true,
+		},
+		"MailingListNotFoundButUpToDate": {
+			reason: "Should handle mailing list not found correctly",
+			setupMock: func(m *MockMailingListClient) {
+				// Mock will return "mailing list not found" error for nonexistent lists
+			},
+			expectErr:    false,
+			expectExists: false,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockMailingListClient{err: tc.mockErr}
+			if tc.setupMock != nil {
+				tc.setupMock(mockClient)
+			}
+
+			e := &external{service: mockClient}
+			mg := &v1alpha1.MailingList{
+				Spec: v1alpha1.MailingListSpec{
+					ForProvider: v1alpha1.MailingListParameters{
+						Address: "test@example.com",
+					},
+				},
+			}
+
+			obs, err := e.Observe(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expectExists, obs.ResourceExists)
+			}
+		})
+	}
+}
+
+func TestMailingListCreateErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason    string
+		mockErr   error
+		expectErr bool
+	}{
+		"CreateError": {
+			reason:    "Should handle create errors",
+			mockErr:   errors.New("failed to create mailing list"),
+			expectErr: true,
+		},
+		"DuplicateAddress": {
+			reason:    "Should handle duplicate address errors",
+			mockErr:   errors.New("address already exists"),
+			expectErr: true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockMailingListClient{err: tc.mockErr}
+			e := &external{service: mockClient}
+
+			mg := &v1alpha1.MailingList{
+				Spec: v1alpha1.MailingListSpec{
+					ForProvider: v1alpha1.MailingListParameters{
+						Address:     "error@example.com",
+						Name:        stringPtr("Error List"),
+						Description: stringPtr("Error test list"),
+						AccessLevel: stringPtr("readonly"),
+					},
+				},
+			}
+
+			_, err := e.Create(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestMailingListUpdateErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason    string
+		mockErr   error
+		expectErr bool
+	}{
+		"UpdateError": {
+			reason:    "Should handle update errors",
+			mockErr:   errors.New("failed to update mailing list"),
+			expectErr: true,
+		},
+		"MailingListNotFound": {
+			reason:    "Should handle mailing list not found during update",
+			mockErr:   errors.New("mailing list not found (404)"),
+			expectErr: true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockMailingListClient{err: tc.mockErr}
+			e := &external{service: mockClient}
+
+			mg := &v1alpha1.MailingList{
+				Spec: v1alpha1.MailingListSpec{
+					ForProvider: v1alpha1.MailingListParameters{
+						Address:     "error@example.com",
+						Name:        stringPtr("Updated List"),
+						Description: stringPtr("Updated description"),
+					},
+				},
+			}
+
+			_, err := e.Update(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestMailingListDeleteErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason    string
+		mockErr   error
+		expectErr bool
+	}{
+		"DeleteError": {
+			reason:    "Should handle delete errors",
+			mockErr:   errors.New("failed to delete mailing list"),
+			expectErr: true,
+		},
+		"MailingListNotFound": {
+			reason:    "Should handle mailing list not found during delete gracefully",
+			mockErr:   errors.New("mailing list not found (404)"),
+			expectErr: false, // Should handle 404 gracefully on delete
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockMailingListClient{err: tc.mockErr}
+			e := &external{service: mockClient}
+
+			mg := &v1alpha1.MailingList{
+				Spec: v1alpha1.MailingListSpec{
+					ForProvider: v1alpha1.MailingListParameters{
+						Address: "error@example.com",
+					},
+				},
+			}
+
+			_, err := e.Delete(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// Test edge cases and boundary conditions
+func TestMailingListEdgeCases(t *testing.T) {
+	t.Run("MinimalMailingList", func(t *testing.T) {
+		mockClient := &MockMailingListClient{}
+		e := &external{service: mockClient}
+
+		// Mailing list with only required fields
+		mg := &v1alpha1.MailingList{
+			Spec: v1alpha1.MailingListSpec{
+				ForProvider: v1alpha1.MailingListParameters{
+					Address: "minimal@example.com",
+					// Name, Description, AccessLevel, ReplyPreference are nil/empty
+				},
+			},
+		}
+
+		_, err := e.Create(context.Background(), mg)
+		require.NoError(t, err)
+
+		// Verify mailing list was created with minimal fields
+		list, exists := mockClient.mailingLists["minimal@example.com"]
+		assert.True(t, exists)
+		assert.Equal(t, "minimal@example.com", list.Address)
+		assert.Equal(t, "Test List", list.Name) // Default from mock
+	})
+
+	t.Run("CompleteMailingListConfiguration", func(t *testing.T) {
+		mockClient := &MockMailingListClient{}
+		e := &external{service: mockClient}
+
+		// Mailing list with all fields specified
+		mg := &v1alpha1.MailingList{
+			Spec: v1alpha1.MailingListSpec{
+				ForProvider: v1alpha1.MailingListParameters{
+					Address:         "complete@example.com",
+					Name:            stringPtr("Complete Test List"),
+					Description:     stringPtr("A comprehensive test mailing list with all configuration options"),
+					AccessLevel:     stringPtr("members"),
+					ReplyPreference: stringPtr("sender"),
+				},
+			},
+		}
+
+		_, err := e.Create(context.Background(), mg)
+		require.NoError(t, err)
+
+		// Verify mailing list was created with all specified fields
+		list, exists := mockClient.mailingLists["complete@example.com"]
+		assert.True(t, exists)
+		assert.Equal(t, "complete@example.com", list.Address)
+		assert.Equal(t, "Complete Test List", list.Name)
+		assert.Equal(t, "A comprehensive test mailing list with all configuration options", list.Description)
+		assert.Equal(t, "members", list.AccessLevel)
+		assert.Equal(t, "sender", list.ReplyPreference)
+	})
+
+	t.Run("MailingListStatusUpdate", func(t *testing.T) {
+		mockClient := &MockMailingListClient{
+			mailingLists: map[string]*clients.MailingList{
+				"status@example.com": {
+					Address:         "status@example.com",
+					Name:            "Status Test List",
+					Description:     "List for status testing",
+					AccessLevel:     "readonly",
+					ReplyPreference: "list",
+					CreatedAt:       "2025-01-01T00:00:00Z",
+					MembersCount:    5,
+				},
+			},
+		}
+		e := &external{service: mockClient}
+
+		mg := &v1alpha1.MailingList{
+			Spec: v1alpha1.MailingListSpec{
+				ForProvider: v1alpha1.MailingListParameters{
+					Address: "status@example.com",
+				},
+			},
+		}
+
+		obs, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+		assert.True(t, obs.ResourceExists)
+		assert.True(t, obs.ResourceUpToDate)
+
+		// Verify the managed resource status is updated
+		assert.Equal(t, "status@example.com", mg.Status.AtProvider.Address)
+		assert.Equal(t, "Status Test List", mg.Status.AtProvider.Name)
+		assert.Equal(t, "List for status testing", mg.Status.AtProvider.Description)
+		assert.Equal(t, "readonly", mg.Status.AtProvider.AccessLevel)
+		assert.Equal(t, "list", mg.Status.AtProvider.ReplyPreference)
+		assert.Equal(t, "2025-01-01T00:00:00Z", mg.Status.AtProvider.CreatedAt)
+		assert.Equal(t, 5, mg.Status.AtProvider.MembersCount)
+	})
+
+	t.Run("PartialFieldUpdate", func(t *testing.T) {
+		mockClient := &MockMailingListClient{
+			mailingLists: map[string]*clients.MailingList{
+				"partial@example.com": {
+					Address:         "partial@example.com",
+					Name:            "Original Name",
+					Description:     "Original Description",
+					AccessLevel:     "readonly",
+					ReplyPreference: "list",
+					CreatedAt:       "2025-01-01T00:00:00Z",
+					MembersCount:    0,
+				},
+			},
+		}
+		e := &external{service: mockClient}
+
+		// Update only the name field
+		mg := &v1alpha1.MailingList{
+			Spec: v1alpha1.MailingListSpec{
+				ForProvider: v1alpha1.MailingListParameters{
+					Address: "partial@example.com",
+					Name:    stringPtr("Updated Name Only"),
+					// Description, AccessLevel, ReplyPreference not specified
+				},
+			},
+		}
+
+		_, err := e.Update(context.Background(), mg)
+		require.NoError(t, err)
+
+		// Verify only the name was updated, other fields remain unchanged
+		list := mockClient.mailingLists["partial@example.com"]
+		assert.Equal(t, "Updated Name Only", list.Name)
+		assert.Equal(t, "Original Description", list.Description) // Should remain unchanged
+		assert.Equal(t, "readonly", list.AccessLevel)             // Should remain unchanged
+		assert.Equal(t, "list", list.ReplyPreference)             // Should remain unchanged
+	})
+}
+
+// Test different access levels and reply preferences
+func TestMailingListAccessLevelsAndReplyPreferences(t *testing.T) {
+	accessLevels := []string{"readonly", "members", "everyone"}
+	replyPreferences := []string{"list", "sender"}
+
+	for _, accessLevel := range accessLevels {
+		for _, replyPref := range replyPreferences {
+			t.Run(fmt.Sprintf("AccessLevel_%s_ReplyPref_%s", accessLevel, replyPref), func(t *testing.T) {
+				mockClient := &MockMailingListClient{}
+				e := &external{service: mockClient}
+
+				address := fmt.Sprintf("%s-%s@example.com", accessLevel, replyPref)
+				mg := &v1alpha1.MailingList{
+					Spec: v1alpha1.MailingListSpec{
+						ForProvider: v1alpha1.MailingListParameters{
+							Address:         address,
+							Name:            stringPtr(fmt.Sprintf("Test %s %s", accessLevel, replyPref)),
+							AccessLevel:     &accessLevel,
+							ReplyPreference: &replyPref,
+						},
+					},
+				}
+
+				_, err := e.Create(context.Background(), mg)
+				require.NoError(t, err)
+
+				// Verify the configuration was set correctly
+				list, exists := mockClient.mailingLists[address]
+				assert.True(t, exists)
+				assert.Equal(t, accessLevel, list.AccessLevel)
+				assert.Equal(t, replyPref, list.ReplyPreference)
+			})
+		}
 	}
 }
 

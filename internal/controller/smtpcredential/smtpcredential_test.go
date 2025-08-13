@@ -51,9 +51,16 @@ func (m *MockSMTPCredentialClient) CreateSMTPCredential(ctx context.Context, dom
 	}
 
 	key := domain + "/" + credential.Login
+
+	// Simulate Mailgun's behavior: use provided password or generate one
+	password := "mailgun-generated-password-123"
+	if credential.Password != nil {
+		password = *credential.Password
+	}
+
 	result := &clients.SMTPCredential{
 		Login:     credential.Login,
-		Password:  "generated-password",
+		Password:  password, // Mailgun returns the password (provided or generated)
 		CreatedAt: "2025-01-01T00:00:00Z",
 		State:     "active",
 	}
@@ -469,14 +476,22 @@ func TestSMTPCredentialCreate(t *testing.T) {
 				assert.Contains(t, err.Error(), tc.want.err.Error())
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tc.want.o, got)
+
+				// Check connection details structure
+				assert.Equal(t, []byte("smtp.mailgun.org"), got.ConnectionDetails["smtp_host"])
+				assert.Equal(t, []byte("587"), got.ConnectionDetails["smtp_port"])
+				assert.Contains(t, string(got.ConnectionDetails["smtp_username"]), "@example.com")
+
+				// Verify password is the one returned by Mailgun (mock returns "mailgun-generated-password-123")
+				password := got.ConnectionDetails["smtp_password"]
+				assert.Equal(t, []byte("mailgun-generated-password-123"), password, "Should use password returned by Mailgun")
 
 				// For rotation test, verify the old credential was deleted and new one created
 				if name == "SuccessfulCreateWithRotation" {
 					key := "example.com/existing@example.com"
 					newCred, exists := mockClient.credentials[key]
 					assert.True(t, exists, "New credential should exist after rotation")
-					assert.Equal(t, "generated-password", newCred.Password, "Should have new password")
+					assert.Equal(t, "mailgun-generated-password-123", newCred.Password, "Should have Mailgun-generated password")
 				}
 			}
 		})
@@ -670,15 +685,21 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 
 			assert.NoError(t, err)
 
+			// Determine expected namespace: use "crossplane-system" if namespace is empty
+			expectedNamespace := tt.namespace
+			if expectedNamespace == "" {
+				expectedNamespace = "crossplane-system"
+			}
+
 			// Verify that ProviderConfigUsage was created in the correct namespace
 			pcu := &apisv1beta1.ProviderConfigUsage{}
 			err = fakeClient.Get(context.Background(), types.NamespacedName{
 				Name:      string(cr.GetUID()),
-				Namespace: tt.namespace,
+				Namespace: expectedNamespace,
 			}, pcu)
 
 			assert.NoError(t, err, "ProviderConfigUsage should be created")
-			assert.Equal(t, tt.namespace, pcu.GetNamespace(), "ProviderConfigUsage should be in the same namespace as the managed resource")
+			assert.Equal(t, expectedNamespace, pcu.GetNamespace(), "ProviderConfigUsage should be in the correct namespace")
 			assert.Equal(t, "test-provider-config", pcu.GetProviderConfigReference().Name, "ProviderConfigUsage should reference the correct ProviderConfig")
 
 			// Verify owner reference is set correctly

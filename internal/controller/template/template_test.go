@@ -28,6 +28,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/template/v1alpha1"
+	domainv1alpha1 "github.com/rossigee/provider-mailgun/apis/domain/v1alpha1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
@@ -44,10 +45,14 @@ func (m *MockTemplateClient) CreateTemplate(ctx context.Context, domain string, 
 
 	key := domain + "/" + template.Name
 	result := &clients.Template{
-		Name:        template.Name,
-		Description: *template.Description,
-		CreatedAt:   "2025-01-01T00:00:00Z",
-		CreatedBy:   "api",
+		Name:      template.Name,
+		CreatedAt: "2025-01-01T00:00:00Z",
+		CreatedBy: "api",
+	}
+
+	// Handle optional description
+	if template.Description != nil {
+		result.Description = *template.Description
 	}
 
 	if template.Template != nil {
@@ -492,6 +497,374 @@ func TestTemplateDelete(t *testing.T) {
 				// Verify template was deleted
 				_, exists := mockClient.templates["example.com/delete-template"]
 				assert.False(t, exists)
+			}
+		})
+	}
+}
+
+// Additional comprehensive test coverage for Template controller
+
+// Test error handling scenarios
+func TestTemplateObserveErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason     string
+		mockErr    error
+		setupMock  func(*MockTemplateClient)
+		expectErr  bool
+		expectExists bool
+	}{
+		"ClientError": {
+			reason:    "Should handle client errors gracefully",
+			mockErr:   errors.New("mailgun api error"),
+			expectErr: true,
+		},
+		"InvalidManagedResource": {
+			reason:    "Should handle invalid managed resource type",
+			expectErr: false, // Observe handles type check internally
+		},
+		"TemplateNotFoundButUpToDate": {
+			reason: "Should handle template not found correctly",
+			setupMock: func(m *MockTemplateClient) {
+				// Mock will return "template not found" error for nonexistent templates
+			},
+			expectErr:    false,
+			expectExists: false,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockTemplateClient{err: tc.mockErr}
+			if tc.setupMock != nil {
+				tc.setupMock(mockClient)
+			}
+
+			e := &external{client: mockClient}
+			mg := &v1alpha1.Template{
+				Spec: v1alpha1.TemplateSpec{
+					ForProvider: v1alpha1.TemplateParameters{
+						Domain: "example.com",
+						Name:   "test-template",
+					},
+				},
+			}
+
+			obs, err := e.Observe(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, tc.expectExists, obs.ResourceExists)
+			}
+		})
+	}
+}
+
+func TestTemplateCreateErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason    string
+		mockErr   error
+		expectErr bool
+	}{
+		"CreateError": {
+			reason:    "Should handle create errors",
+			mockErr:   errors.New("failed to create template"),
+			expectErr: true,
+		},
+		"InvalidResourceType": {
+			reason:    "Should handle invalid resource type",
+			expectErr: false, // Create handles type check internally
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockTemplateClient{err: tc.mockErr}
+			e := &external{client: mockClient}
+
+			mg := &v1alpha1.Template{
+				Spec: v1alpha1.TemplateSpec{
+					ForProvider: v1alpha1.TemplateParameters{
+						Domain:      "example.com",
+						Name:        "error-template",
+						Description: stringPtr("Error test template"),
+						Template:    stringPtr("Hello {{name}}!"),
+						Engine:      stringPtr("mustache"),
+					},
+				},
+			}
+
+			_, err := e.Create(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestTemplateUpdateErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason    string
+		mockErr   error
+		expectErr bool
+	}{
+		"UpdateError": {
+			reason:    "Should handle update errors",
+			mockErr:   errors.New("failed to update template"),
+			expectErr: true,
+		},
+		"TemplateNotFound": {
+			reason:    "Should handle template not found during update",
+			mockErr:   errors.New("template not found (404)"),
+			expectErr: true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockTemplateClient{err: tc.mockErr}
+			e := &external{client: mockClient}
+
+			mg := &v1alpha1.Template{
+				Spec: v1alpha1.TemplateSpec{
+					ForProvider: v1alpha1.TemplateParameters{
+						Domain:      "example.com",
+						Name:        "error-template",
+						Description: stringPtr("Updated description"),
+					},
+				},
+			}
+
+			_, err := e.Update(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestTemplateDeleteErrors(t *testing.T) {
+	cases := map[string]struct {
+		reason    string
+		mockErr   error
+		expectErr bool
+	}{
+		"DeleteError": {
+			reason:    "Should handle delete errors",
+			mockErr:   errors.New("failed to delete template"),
+			expectErr: true,
+		},
+		"TemplateNotFound": {
+			reason:    "Should handle template not found during delete",
+			mockErr:   errors.New("template not found (404)"),
+			expectErr: true, // Template controller doesn't handle 404 gracefully yet
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			mockClient := &MockTemplateClient{err: tc.mockErr}
+			e := &external{client: mockClient}
+
+			mg := &v1alpha1.Template{
+				Spec: v1alpha1.TemplateSpec{
+					ForProvider: v1alpha1.TemplateParameters{
+						Domain: "example.com",
+						Name:   "error-template",
+					},
+				},
+			}
+
+			_, err := e.Delete(context.Background(), mg)
+
+			if tc.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+// Test edge cases and boundary conditions
+func TestTemplateEdgeCases(t *testing.T) {
+	t.Run("EmptyTemplateFields", func(t *testing.T) {
+		mockClient := &MockTemplateClient{}
+		e := &external{client: mockClient}
+
+		// Template with minimal required fields
+		mg := &v1alpha1.Template{
+			Spec: v1alpha1.TemplateSpec{
+				ForProvider: v1alpha1.TemplateParameters{
+					Domain: "example.com",
+					Name:   "minimal-template",
+					// Description, Template, Engine are nil/empty
+				},
+			},
+		}
+
+		_, err := e.Create(context.Background(), mg)
+		require.NoError(t, err)
+
+		// Verify template was created with minimal fields
+		key := "example.com/minimal-template"
+		template, exists := mockClient.templates[key]
+		assert.True(t, exists)
+		assert.Equal(t, "minimal-template", template.Name)
+	})
+
+	t.Run("TemplateWithComplexContent", func(t *testing.T) {
+		mockClient := &MockTemplateClient{}
+		e := &external{client: mockClient}
+
+		// Template with complex HTML/CSS content
+		complexTemplate := `
+<!DOCTYPE html>
+<html>
+<head>
+	<style>
+		body { font-family: Arial, sans-serif; }
+		.header { background-color: #f0f0f0; padding: 20px; }
+	</style>
+</head>
+<body>
+	<div class="header">
+		<h1>Welcome {{name}}!</h1>
+		<p>Your email is: {{email}}</p>
+	</div>
+	<div class="content">
+		{{#items}}
+			<li>{{title}} - {{price}}</li>
+		{{/items}}
+	</div>
+</body>
+</html>`
+
+		mg := &v1alpha1.Template{
+			Spec: v1alpha1.TemplateSpec{
+				ForProvider: v1alpha1.TemplateParameters{
+					Domain:      "example.com",
+					Name:        "complex-template",
+					Description: stringPtr("Complex HTML template with CSS and Mustache syntax"),
+					Template:    &complexTemplate,
+					Engine:      stringPtr("mustache"),
+				},
+			},
+		}
+
+		_, err := e.Create(context.Background(), mg)
+		require.NoError(t, err)
+
+		// Verify template was created with complex content
+		key := "example.com/complex-template"
+		template, exists := mockClient.templates[key]
+		assert.True(t, exists)
+		assert.Equal(t, "complex-template", template.Name)
+		assert.Len(t, template.Versions, 1)
+		assert.Equal(t, complexTemplate, template.Versions[0].Template)
+	})
+
+	t.Run("TemplateStatusUpdate", func(t *testing.T) {
+		mockClient := &MockTemplateClient{
+			templates: map[string]*clients.Template{
+				"example.com/status-template": {
+					Name:        "status-template",
+					Description: "Template for status testing",
+					CreatedAt:   "2025-01-01T00:00:00Z",
+					CreatedBy:   "test-user",
+					Versions: []clients.TemplateVersion{
+						{
+							Tag:       "v1.0",
+							Engine:    "mustache",
+							CreatedAt: "2025-01-01T00:00:00Z",
+							Comment:   "Initial version",
+							Active:    true,
+							Template:  "Hello {{name}}!",
+						},
+					},
+				},
+			},
+		}
+		e := &external{client: mockClient}
+
+		mg := &v1alpha1.Template{
+			Spec: v1alpha1.TemplateSpec{
+				ForProvider: v1alpha1.TemplateParameters{
+					Domain: "example.com",
+					Name:   "status-template",
+				},
+			},
+		}
+
+		obs, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+		assert.True(t, obs.ResourceExists)
+		assert.True(t, obs.ResourceUpToDate)
+
+		// Verify the managed resource status is updated
+		assert.Equal(t, "status-template", mg.Status.AtProvider.Name)
+		assert.Equal(t, "Template for status testing", mg.Status.AtProvider.Description)
+		assert.Equal(t, "2025-01-01T00:00:00Z", mg.Status.AtProvider.CreatedAt)
+		assert.Equal(t, "test-user", mg.Status.AtProvider.CreatedBy)
+	})
+}
+
+// Test invalid managed resource types to improve error handling coverage
+func TestTemplateInvalidManagedResource(t *testing.T) {
+	operations := []struct {
+		name string
+		op   func(*external, context.Context, resource.Managed) error
+	}{
+		{
+			name: "Observe",
+			op: func(e *external, ctx context.Context, mg resource.Managed) error {
+				_, err := e.Observe(ctx, mg)
+				return err
+			},
+		},
+		{
+			name: "Create",
+			op: func(e *external, ctx context.Context, mg resource.Managed) error {
+				_, err := e.Create(ctx, mg)
+				return err
+			},
+		},
+		{
+			name: "Update",
+			op: func(e *external, ctx context.Context, mg resource.Managed) error {
+				_, err := e.Update(ctx, mg)
+				return err
+			},
+		},
+		{
+			name: "Delete",
+			op: func(e *external, ctx context.Context, mg resource.Managed) error {
+				_, err := e.Delete(ctx, mg)
+				return err
+			},
+		},
+	}
+
+	for _, op := range operations {
+		t.Run(op.name+"InvalidType", func(t *testing.T) {
+			mockClient := &MockTemplateClient{}
+			e := &external{client: mockClient}
+
+			// Use a different resource type (not Template)
+			invalidMg := &domainv1alpha1.Domain{} // Wrong type
+
+			err := op.op(e, context.Background(), invalidMg)
+			// Should handle gracefully without panicking
+			// The exact error depends on implementation
+			if err != nil {
+				assert.Contains(t, err.Error(), "Template", "Error should mention Template type mismatch")
 			}
 		})
 	}

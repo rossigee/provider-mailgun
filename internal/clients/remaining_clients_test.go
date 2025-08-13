@@ -22,7 +22,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -253,6 +255,35 @@ func TestSMTPCredentialOperations(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Handle the specific CreateSMTPCredential flow (POST -> GET)
+				if tt.name == "CreateSMTPCredential success" {
+					if r.Method == "POST" && r.URL.Path == tt.path {
+						w.WriteHeader(tt.status)
+						// Return success message (current Mailgun API behavior)
+						response := map[string]interface{}{
+							"message": "Created 1 credentials pair(s)",
+						}
+						_ = json.NewEncoder(w).Encode(response)
+						return
+					} else if r.Method == "GET" && r.URL.Path == "/v3/domains/example.com/credentials" {
+						w.WriteHeader(200)
+						// Return credentials list with the newly created credential
+						response := map[string]interface{}{
+							"items": []map[string]interface{}{
+								{
+									"login":      "test@example.com",
+									"password":   "password123", // Mailgun-generated password
+									"created_at": "2025-01-01T00:00:00Z",
+									"state":      "active",
+								},
+							},
+						}
+						_ = json.NewEncoder(w).Encode(response)
+						return
+					}
+				}
+
+				// For other operations, use the original logic
 				assert.Equal(t, tt.method, r.Method)
 				assert.Equal(t, tt.path, r.URL.Path)
 
@@ -272,12 +303,9 @@ func TestSMTPCredentialOperations(t *testing.T) {
 					}
 					_ = json.NewEncoder(w).Encode(response)
 				case "POST":
-					// CreateSMTPCredential returns single credential
+					// CreateSMTPCredential returns a success message
 					response := map[string]interface{}{
-						"login":      "test@example.com",
-						"password":   "password123",
-						"created_at": "2025-01-01T00:00:00Z",
-						"state":      "active",
+						"message": "Created 1 credentials pair(s)",
 					}
 					_ = json.NewEncoder(w).Encode(response)
 				default:
@@ -447,6 +475,197 @@ func TestErrorHandling(t *testing.T) {
 			err := tt.operation(client)
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), fmt.Sprintf("%d", tt.statusCode)) // Check status code is in error
+		})
+	}
+}
+
+// Network and Connection Failure Tests
+func TestNetworkFailures(t *testing.T) {
+	tests := []struct {
+		name      string
+		setupFunc func() (*Config, func())
+		operation func(client Client) error
+		wantErr   string
+	}{
+		{
+			name: "Connection Refused",
+			setupFunc: func() (*Config, func()) {
+				// Use a port that's guaranteed to be closed
+				config := &Config{
+					APIKey:     "test-key",
+					BaseURL:    "http://localhost:1", // Port 1 should be closed
+					HTTPClient: &http.Client{},
+				}
+				return config, func() {}
+			},
+			operation: func(client Client) error {
+				_, err := client.GetDomain(context.Background(), "test.com")
+				return err
+			},
+			wantErr: "connection refused",
+		},
+		{
+			name: "DNS Resolution Failure",
+			setupFunc: func() (*Config, func()) {
+				config := &Config{
+					APIKey:     "test-key",
+					BaseURL:    "http://nonexistent-domain-12345.invalid/v3",
+					HTTPClient: &http.Client{},
+				}
+				return config, func() {}
+			},
+			operation: func(client Client) error {
+				_, err := client.GetDomain(context.Background(), "test.com")
+				return err
+			},
+			wantErr: "no such host",
+		},
+		{
+			name: "Request Timeout",
+			setupFunc: func() (*Config, func()) {
+				// Create a server that never responds
+				server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					// Sleep longer than our timeout
+					time.Sleep(2 * time.Second)
+					w.WriteHeader(200)
+				}))
+
+				// Use a very short timeout
+				config := &Config{
+					APIKey:  "test-key",
+					BaseURL: server.URL + "/v3",
+					HTTPClient: &http.Client{
+						Timeout: 100 * time.Millisecond, // Very short timeout
+					},
+				}
+				return config, server.Close
+			},
+			operation: func(client Client) error {
+				_, err := client.GetDomain(context.Background(), "test.com")
+				return err
+			},
+			wantErr: "timeout",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, cleanup := tt.setupFunc()
+			defer cleanup()
+
+			client := NewClient(config)
+			err := tt.operation(client)
+
+			require.Error(t, err, "Expected network failure to return error")
+			assert.Contains(t, strings.ToLower(err.Error()), tt.wantErr,
+				"Error should contain expected failure type. Got: %v", err)
+		})
+	}
+}
+
+// Malformed Response Tests
+func TestMalformedResponses(t *testing.T) {
+	tests := []struct {
+		name      string
+		response  string
+		operation func(client Client) error
+		wantErr   string
+	}{
+		{
+			name:     "Invalid JSON Response",
+			response: "{invalid json content",
+			operation: func(client Client) error {
+				_, err := client.GetDomain(context.Background(), "test.com")
+				return err
+			},
+			wantErr: "invalid character",
+		},
+		{
+			name:     "Empty Response Body",
+			response: "",
+			operation: func(client Client) error {
+				_, err := client.GetDomain(context.Background(), "test.com")
+				return err
+			},
+			wantErr: "EOF", // JSON parsing error for empty body
+		},
+		{
+			name:     "Partial JSON Response",
+			response: `{"domain":{"name":"test.com","state":"partial"`,
+			operation: func(client Client) error {
+				_, err := client.GetDomain(context.Background(), "test.com")
+				return err
+			},
+			wantErr: "unexpected EOF",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(200)
+				_, _ = w.Write([]byte(tt.response))
+			}))
+			defer server.Close()
+
+			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", HTTPClient: &http.Client{}}
+			client := NewClient(config)
+
+			err := tt.operation(client)
+
+			if tt.wantErr != "" {
+				require.Error(t, err, "Expected malformed response to return error")
+				assert.Contains(t, err.Error(), tt.wantErr,
+					"Error should contain expected parsing failure. Got: %v", err)
+			}
+		})
+	}
+}
+
+// Context Cancellation Tests
+func TestContextCancellation(t *testing.T) {
+	tests := []struct {
+		name      string
+		operation func(ctx context.Context, client Client) error
+	}{
+		{
+			name: "GetDomain with Cancelled Context",
+			operation: func(ctx context.Context, client Client) error {
+				_, err := client.GetDomain(ctx, "test.com")
+				return err
+			},
+		},
+		{
+			name: "CreateDomain with Cancelled Context",
+			operation: func(ctx context.Context, client Client) error {
+				_, err := client.CreateDomain(ctx, &DomainSpec{Name: "test.com"})
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Simulate a slow server
+				time.Sleep(100 * time.Millisecond)
+				w.WriteHeader(200)
+				_, _ = w.Write([]byte(`{"domain":{"name":"test.com"}}`))
+			}))
+			defer server.Close()
+
+			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", HTTPClient: &http.Client{}}
+			client := NewClient(config)
+
+			// Create a context that we'll cancel immediately
+			ctx, cancel := context.WithCancel(context.Background())
+			cancel() // Cancel immediately
+
+			err := tt.operation(ctx, client)
+			require.Error(t, err, "Expected cancelled context to return error")
+			assert.Contains(t, err.Error(), "context canceled",
+				"Error should indicate context cancellation. Got: %v", err)
 		})
 	}
 }

@@ -144,6 +144,41 @@ func (c *external) Disconnect(ctx context.Context) error {
 	return nil
 }
 
+// ExternalForTesting provides access to external struct for integration tests
+type ExternalForTesting struct {
+	Client clients.Client
+	Kube   client.Client
+}
+
+// NewExternalForTesting creates a new external struct for testing
+func NewExternalForTesting(clientAPI clients.Client, kube client.Client) *ExternalForTesting {
+	return &ExternalForTesting{Client: clientAPI, Kube: kube}
+}
+
+// Observe delegates to the external struct
+func (e *ExternalForTesting) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
+	ext := &external{service: e.Client, kube: e.Kube}
+	return ext.Observe(ctx, mg)
+}
+
+// Create delegates to the external struct
+func (e *ExternalForTesting) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
+	ext := &external{service: e.Client, kube: e.Kube}
+	return ext.Create(ctx, mg)
+}
+
+// Update delegates to the external struct
+func (e *ExternalForTesting) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
+	ext := &external{service: e.Client, kube: e.Kube}
+	return ext.Update(ctx, mg)
+}
+
+// Delete delegates to the external struct
+func (e *ExternalForTesting) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
+	ext := &external{service: e.Client, kube: e.Kube}
+	return ext.Delete(ctx, mg)
+}
+
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1alpha1.Webhook)
 	if !ok {

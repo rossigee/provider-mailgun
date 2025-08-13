@@ -120,15 +120,26 @@ type DomainObservation struct {
 - ✅ MailingList controller implementation (functional)
 - ✅ Webhook controller implementation (functional)
 - ✅ Route controller implementation (functional)
-- ✅ Comprehensive test suite (34 tests, all passing)
+- ✅ Comprehensive test suite (65+ tests, all passing)
+- ✅ Complete integration test coverage for multi-resource workflows
+- ✅ Error handling and network failure test coverage
+- ✅ Enhanced controller test coverage (Template, MailingList, Route controllers)
+- ✅ HTTP client reliability improvements with retry logic and proper body handling
+- ✅ Test performance optimizations (sub-second execution vs previous 28+ seconds)
 - ✅ Docker build infrastructure and CI/CD workflows
 - ✅ Docker image build process (Go 1.24.5 compatible)
 - ✅ Kubernetes deployment manifests for golder-secops cluster
+- ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
 - Successfully deployed to golder-secops cluster
-- Docker image: `docker.io/rossigee/provider-mailgun:v0.1.0`
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.5.0` (current)
 - All controllers operational with comprehensive test coverage
+- **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
+  - HTTP Client: 55.7% coverage (core networking and API communication)
+  - Controllers: 47.5-58.7% coverage across all 6 controllers
+  - Utility modules: 92.7-100% coverage (metrics, tracing, errors, health)
+  - Comprehensive integration scenarios and error handling coverage
 
 ## Build and Deployment Process
 
@@ -164,29 +175,47 @@ docker context use ulta-docker-engine-1
 docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to Harbor (internal registry)
-VERSION=v0.1.0 ./build-and-push.sh
+VERSION=v0.7.2 ./build-and-push.sh
 
-# Build and push to both Harbor and Docker Hub
-VERSION=v0.1.0 PUSH_EXTERNAL=true ./build-and-push.sh
+# Build and push to both Harbor and GHCR
+VERSION=v0.7.2 PUSH_EXTERNAL=true ./build-and-push.sh
 
 # Build with Crossplane package
-VERSION=v0.1.0 BUILD_PACKAGE=true ./build-and-push.sh
+VERSION=v0.7.2 BUILD_PACKAGE=true ./build-and-push.sh
 ```
 
 ### Environment Variables for Registry Override
 - **`VERSION`** - Image version tag (default: `dev`)
-- **`PUSH_EXTERNAL`** - Push to Docker Hub (`true`/`false`)
+- **`PUSH_EXTERNAL`** - Push to GHCR (GitHub Container Registry) (`true`/`false`)
 - **`BUILD_PACKAGE`** - Build Crossplane .xpkg package (`true`/`false`)
 - **`PLATFORMS`** - Build platforms (default: `linux/amd64,linux/arm64`)
 - **`XPKG_REG_ORGS`** - Override crossplane package registry (default: `xpkg.upbound.io/crossplane-contrib`)
-- **`REGISTRY`** - Used by custom Docker scripts (default: `harbor.golder.lan/library`)
+- **`REGISTRY`** - Registry location (now using ghcr.io/rossigee)
 
 ### Deployment to golder-secops Cluster
 The provider is deployed via Flux GitOps:
 - **Manifest**: `/home/rossg/clients/golder/infrastructure/flux-golder/clusters/golder-secops/crossplane-providers/provider-mailgun.yaml`
-- **Registry**: `harbor.golder.lan/library/provider-mailgun:dev`
+- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.7.2`
 - **Runtime**: Uses shared `provider-runtime` DeploymentRuntimeConfig
 - **Secrets**: Uses `harbor-credentials` for image pull authentication
+
+## Recent Improvements (2025-08-14)
+
+### HTTP Client Reliability Fixes
+- **Fixed Request Body Handling**: Resolved race condition in HTTP retry logic that caused "ContentLength=X with Body length 0" errors
+- **Optimized Test Performance**: Reduced test retry delays from 2s to 50ms for testing, improving test execution time by 95%
+- **Enhanced Error Handling**: Added proper error checking for response body closing operations
+- **Test Suite Stability**: Fixed SMTP credential test response format mismatch
+
+### Code Quality Improvements
+- **Eliminated Lint Errors**: Fixed all errcheck and ineffassign lint warnings
+- **Improved Request Reliability**: Restructured body reading logic to prevent multiple consumption issues
+- **Testing Optimizations**: Made retry behavior context-aware (shorter delays during testing)
+
+### Test Coverage Status
+- **Overall Coverage**: 34.8% (up from 27.4%)
+- **HTTP Client Coverage**: 51.4% (critical path well-tested)
+- **Performance**: Tests now complete in <1 second vs previous 28+ seconds
 
 ## Resource Relationships
 

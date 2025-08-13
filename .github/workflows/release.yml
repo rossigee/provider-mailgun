@@ -50,10 +50,16 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
 
-      - name: Publish
+      - name: Publish Version
         run: make publish
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          REGISTRY_ORGS: ghcr.io/rossigee
+
+      - name: Publish Latest
+        run: make publish
+        env:
+          VERSION: latest
           REGISTRY_ORGS: ghcr.io/rossigee
 
       - name: Create GitHub Release

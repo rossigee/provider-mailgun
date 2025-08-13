@@ -50,11 +50,19 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
 
+      - name: Verify Build Artifacts
+        run: |
+          # Verify provider binary exists
+          ls -la bin/linux_amd64/provider
+          file bin/linux_amd64/provider
+
       - name: Build Docker Image (Version)
         run: |
           # Build container image for specific version
           docker build -t ghcr.io/rossigee/provider-mailgun:${{ steps.version.outputs.version }} \
             --build-arg VERSION=${{ steps.version.outputs.version }} \
+            --build-arg TARGETOS=linux \
+            --build-arg TARGETARCH=amd64 \
             -f cluster/images/provider-mailgun/Dockerfile .
 
       - name: Build Docker Image (Latest)

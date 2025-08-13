@@ -133,7 +133,7 @@ type DomainObservation struct {
 
 **✅ Production Deployment**:
 - Successfully deployed to golder-secops cluster
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.8.1` (current)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.8.2` (current)
 - All controllers operational with comprehensive test coverage
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
   - HTTP Client: 55.7% coverage (core networking and API communication)
@@ -175,13 +175,13 @@ docker context use ulta-docker-engine-1
 docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to Harbor (internal registry)
-VERSION=v0.8.1 ./build-and-push.sh
+VERSION=v0.8.2 ./build-and-push.sh
 
 # Build and push to both Harbor and GHCR
-VERSION=v0.8.1 PUSH_EXTERNAL=true ./build-and-push.sh
+VERSION=v0.8.2 PUSH_EXTERNAL=true ./build-and-push.sh
 
 # Build with Crossplane package
-VERSION=v0.8.1 BUILD_PACKAGE=true ./build-and-push.sh
+VERSION=v0.8.2 BUILD_PACKAGE=true ./build-and-push.sh
 ```
 
 ### Environment Variables for Registry Override
@@ -195,7 +195,7 @@ VERSION=v0.8.1 BUILD_PACKAGE=true ./build-and-push.sh
 ### Deployment to golder-secops Cluster
 The provider is deployed via Flux GitOps:
 - **Manifest**: `/home/rossg/clients/golder/infrastructure/flux-golder/clusters/golder-secops/crossplane-providers/provider-mailgun.yaml`
-- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.8.1`
+- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.8.2`
 - **Runtime**: Uses shared `provider-runtime` DeploymentRuntimeConfig
 - **Secrets**: Uses `harbor-credentials` for image pull authentication
 

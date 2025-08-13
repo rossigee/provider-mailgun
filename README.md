@@ -112,10 +112,10 @@ go build -o provider cmd/provider/main.go
 make test
 
 # Build Crossplane package (.xpkg)
-crossplane xpkg build -f package/ --embed-runtime-image=ghcr.io/rossigee/provider-mailgun:v0.8.0
+crossplane xpkg build -f package/ --embed-runtime-image=ghcr.io/rossigee/provider-mailgun:v0.8.1
 
 # Build and push to registries
-VERSION=v0.8.0 ./build-and-push.sh
+VERSION=v0.8.1 ./build-and-push.sh
 ```
 
 ### Development Setup

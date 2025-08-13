@@ -3,7 +3,7 @@ kind: Provider
 metadata:
   name: provider-mailgun
 spec:
-  package: ghcr.io/rossigee/provider-mailgun:v0.8.0
+  package: ghcr.io/rossigee/provider-mailgun:v0.8.1
   revisionActivationPolicy: Automatic
   revisionHistoryLimit: 1
   runtimeConfigRef:

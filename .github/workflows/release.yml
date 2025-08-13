@@ -7,10 +7,6 @@ on:
 
 env:
   GO_VERSION: '1.24.5'
-  # Registry configuration
-  PRIMARY_REGISTRY: ghcr.io/rossigee
-  ENABLE_HARBOR_PUBLISH: false
-  ENABLE_UPBOUND_PUBLISH: false
 
 jobs:
   release:
@@ -35,7 +31,7 @@ jobs:
       - name: Vendor Dependencies
         run: make vendor vendor.check
 
-      - name: Get Version
+      - name: Extract Version
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
@@ -49,26 +45,20 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-
-      - name: Build and Push Release to Primary Registry
-        run: |
-          # Build and push to GitHub Container Registry (primary)
-          make publish REGISTRY_ORGS="${{ env.PRIMARY_REGISTRY }}" \
-            VERSION=${{ steps.version.outputs.version }}
-
-      - name: Build and Push Release to Upbound (Optional)
-        if: env.ENABLE_UPBOUND_PUBLISH == 'true' && secrets.UPBOUND_TOKEN != ''
-        run: |
-          # Push to Upbound Registry
-          make publish REGISTRY_ORGS="xpkg.upbound.io/rossigee" \
-            VERSION=${{ steps.version.outputs.version }}
+      - name: Build
+        run: make build
         env:
-          UPBOUND_TOKEN: ${{ secrets.UPBOUND_TOKEN }}
+          VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Publish
+        run: make publish
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          REGISTRY_ORGS: ghcr.io/rossigee
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.version }}
           name: Release ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false

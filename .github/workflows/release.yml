@@ -50,16 +50,33 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
 
-      - name: Publish Version
-        run: make publish
+      - name: Build Docker Image (Version)
+        run: |
+          # Build container image for specific version
+          docker build -t ghcr.io/rossigee/provider-mailgun:${{ steps.version.outputs.version }} \
+            --build-arg VERSION=${{ steps.version.outputs.version }} \
+            -f cluster/images/provider-mailgun/Dockerfile .
+
+      - name: Build Docker Image (Latest)
+        run: |
+          # Tag the same image as latest
+          docker tag ghcr.io/rossigee/provider-mailgun:${{ steps.version.outputs.version }} \
+            ghcr.io/rossigee/provider-mailgun:latest
+
+      - name: Push Docker Images
+        run: |
+          # Push both version and latest tags
+          docker push ghcr.io/rossigee/provider-mailgun:${{ steps.version.outputs.version }}
+          docker push ghcr.io/rossigee/provider-mailgun:latest
+
+      - name: Publish Crossplane Packages
+        run: |
+          # Publish versioned package
+          make publish
+          # Publish latest package
+          make publish VERSION=latest
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          REGISTRY_ORGS: ghcr.io/rossigee
-
-      - name: Publish Latest
-        run: make publish
-        env:
-          VERSION: latest
           REGISTRY_ORGS: ghcr.io/rossigee
 
       - name: Create GitHub Release

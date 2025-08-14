@@ -26,6 +26,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	xpcontroller "github.com/crossplane/crossplane-runtime/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/pkg/feature"
@@ -77,6 +78,9 @@ func main() {
 		LeaderElectionResourceLock:    resourcelock.LeasesResourceLock,
 		Cache:                         cache.Options{DefaultNamespaces: map[string]cache.Config{namespace: {}}},
 		LeaderElectionReleaseOnCancel: true,
+		Metrics: server.Options{
+			BindAddress: ":9090", // Use standard metrics port to avoid conflict with health checks on :8080
+		},
 	})
 	kingpin.FatalIfError(err, "Cannot create controller manager")
 

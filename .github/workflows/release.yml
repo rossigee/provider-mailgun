@@ -53,8 +53,16 @@ jobs:
       - name: Verify Build Artifacts
         run: |
           # Verify provider binary exists
+          ls -la bin/
+          ls -la bin/linux_amd64/
+          if [ ! -f bin/linux_amd64/provider ]; then
+            echo "ERROR: Provider binary not found!"
+            find . -name "provider" -type f 2>/dev/null || echo "No provider binary found anywhere"
+            exit 1
+          fi
           ls -la bin/linux_amd64/provider
           file bin/linux_amd64/provider
+          echo "✅ Provider binary verification successful"
 
       - name: Build Docker Image (Version)
         run: |

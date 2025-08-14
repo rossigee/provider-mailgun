@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -34,6 +35,7 @@ import (
 	"github.com/rossigee/provider-mailgun/apis"
 	"github.com/rossigee/provider-mailgun/internal/controller"
 	"github.com/rossigee/provider-mailgun/internal/features"
+	"github.com/rossigee/provider-mailgun/internal/health"
 )
 
 func main() {
@@ -50,11 +52,14 @@ func main() {
 
 	zl := zap.New(zap.UseDevMode(*debug))
 	log := logging.NewLogrLogger(zl.WithName("provider-mailgun"))
+
+	// Always set a logger for controller-runtime, but adjust verbosity
 	if *debug {
-		// The controller-runtime runs with a no-op logger by default. It is
-		// *very* verbose even at info level, so we only provide it a real
-		// logger when we're running in debug mode.
+		// In debug mode, use full verbosity
 		ctrl.SetLogger(zl)
+	} else {
+		// In production mode, use a less verbose logger to avoid noise
+		ctrl.SetLogger(zl.WithValues("source", "controller-runtime").V(1))
 	}
 
 	log.Debug("Starting", "sync-interval", syncInterval.String())
@@ -98,6 +103,19 @@ func main() {
 
 	// Setup all controllers
 	kingpin.FatalIfError(controller.Setup(mgr, o), "Cannot setup Mailgun controllers")
+
+	// Setup health check endpoints
+	healthChecker := health.NewHealthChecker(mgr.GetClient(), nil)
+	mux := http.NewServeMux()
+	health.SetupHealthChecks(mux, healthChecker)
+
+	// Start health check server in a goroutine
+	go func() {
+		log.Info("Starting health check server", "addr", ":8080")
+		if err := http.ListenAndServe(":8080", mux); err != nil && err != http.ErrServerClosed {
+			log.Info("Failed to start health check server", "error", err)
+		}
+	}()
 
 	log.Info("Starting manager")
 	kingpin.FatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")

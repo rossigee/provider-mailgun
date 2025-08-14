@@ -10,6 +10,7 @@ A Crossplane provider for managing Mailgun resources with namespace scoping supp
 - **Complete Mailgun API Coverage**: Domains, routing, templates, credentials, suppressions
 - **Credential Rotation Strategy**: Handles write-only SMTP credentials with automatic rotation
 - **Unified Regional Support**: Single API key works across US and EU regions
+- **Health Monitoring**: Built-in health probes for Kubernetes liveness and readiness checks
 
 ## Supported Resources
 
@@ -81,6 +82,15 @@ The provider uses a unified API key that works across both US and EU regions:
 - **API Key**: Works interchangeably between US (`https://api.mailgun.net/v3`) and EU (`https://api.eu.mailgun.net/v3`) endpoints
 - **Automatic Routing**: Provider determines appropriate endpoint based on domain configuration
 
+### Health Monitoring
+
+The provider exposes health endpoints for Kubernetes monitoring:
+
+- **Liveness Probe**: `GET /healthz` on port 8080 - Simple process health check
+- **Readiness Probe**: `GET /readyz` on port 8080 - Verifies Kubernetes API and Mailgun API connectivity
+- **Response Format**: JSON with detailed status information and timestamps
+- **Kubernetes Integration**: Configure liveness and readiness probes in your deployment manifests
+
 ### SMTP Credential Rotation Strategy
 
 Due to Mailgun's write-only SMTP credentials API, the provider implements an intelligent rotation strategy:
@@ -112,10 +122,10 @@ go build -o provider cmd/provider/main.go
 make test
 
 # Build Crossplane package (.xpkg)
-crossplane xpkg build -f package/ --embed-runtime-image=ghcr.io/rossigee/provider-mailgun:v0.8.3
+crossplane xpkg build -f package/ --embed-runtime-image=ghcr.io/rossigee/provider-mailgun:v0.9.0
 
 # Build and push to registries
-VERSION=v0.8.3 ./build-and-push.sh
+VERSION=v0.9.0 ./build-and-push.sh
 ```
 
 ### Development Setup

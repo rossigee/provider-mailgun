@@ -129,11 +129,13 @@ type DomainObservation struct {
 - ✅ Docker build infrastructure and CI/CD workflows
 - ✅ Docker image build process (Go 1.24.5 compatible)
 - ✅ Kubernetes deployment manifests for golder-secops cluster
+- ✅ Health probe endpoints (/healthz and /readyz on port 8080)
+- ✅ Improved logging configuration for production deployments
 - ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
 - Successfully deployed to golder-secops cluster
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.8.3` (current)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.9.0` (current)
 - All controllers operational with comprehensive test coverage
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
   - HTTP Client: 55.7% coverage (core networking and API communication)
@@ -175,13 +177,13 @@ docker context use ulta-docker-engine-1
 docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to Harbor (internal registry)
-VERSION=v0.8.3 ./build-and-push.sh
+VERSION=v0.9.0 ./build-and-push.sh
 
 # Build and push to both Harbor and GHCR
-VERSION=v0.8.3 PUSH_EXTERNAL=true ./build-and-push.sh
+VERSION=v0.9.0 PUSH_EXTERNAL=true ./build-and-push.sh
 
 # Build with Crossplane package
-VERSION=v0.8.3 BUILD_PACKAGE=true ./build-and-push.sh
+VERSION=v0.9.0 BUILD_PACKAGE=true ./build-and-push.sh
 ```
 
 ### Environment Variables for Registry Override
@@ -195,11 +197,18 @@ VERSION=v0.8.3 BUILD_PACKAGE=true ./build-and-push.sh
 ### Deployment to golder-secops Cluster
 The provider is deployed via Flux GitOps:
 - **Manifest**: `/home/rossg/clients/golder/infrastructure/flux-golder/clusters/golder-secops/crossplane-providers/provider-mailgun.yaml`
-- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.8.3`
+- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.9.0`
 - **Runtime**: Uses shared `provider-runtime` DeploymentRuntimeConfig
+- **Health Probes**: Kubernetes liveness and readiness probes configured for port 8080
 - **Secrets**: Uses `harbor-credentials` for image pull authentication
 
 ## Recent Improvements (2025-08-14)
+
+### Health Probe Implementation (v0.9.0)
+- **Health Endpoints Added**: Implemented `/healthz` and `/readyz` endpoints on port 8080
+- **Kubernetes Integration**: Proper liveness and readiness probe support for container orchestration
+- **Logging Configuration Fix**: Resolved controller-runtime logging issues in production deployments
+- **Comprehensive Test Coverage**: Added regression tests for health endpoint functionality
 
 ### HTTP Client Reliability Fixes
 - **Fixed Request Body Handling**: Resolved race condition in HTTP retry logic that caused "ContentLength=X with Body length 0" errors

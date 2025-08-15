@@ -26,4 +26,4 @@ metadata:
       - Namespace-scoped resources for multi-tenancy
 spec:
   controller:
-    image: ghcr.io/rossigee/provider-mailgun:v0.9.4
+    image: ghcr.io/rossigee/provider-mailgun:v0.9.5

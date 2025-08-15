@@ -28,7 +28,7 @@ img.build.shared:
 
 # ====================================================================================
 # Image Publish
-img.publish: img.build
-	@$(INFO) docker push $(IMAGE)
-	@docker push $(IMAGE)
-	@$(OK) docker push $(IMAGE)
+img.publish:
+	@$(INFO) Skipping image publish for $(IMAGE)
+	@echo Publish is deferred to xpkg machinery
+	@$(OK) Image publish skipped for $(IMAGE)

@@ -31,6 +31,11 @@ jobs:
       - name: Vendor Dependencies
         run: make vendor vendor.check
 
+      - name: Install Crossplane CLI
+        run: |
+          CROSSPLANE_CLI_PATH=$(make build.vars | grep CROSSPLANE_CLI= | cut -d= -f2)
+          make "$CROSSPLANE_CLI_PATH"
+
       - name: Extract Version
         id: version
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
@@ -95,13 +100,11 @@ jobs:
 
       - name: Publish Crossplane Packages
         run: |
-          # Publish versioned package
           make publish
-          # Publish latest package
-          make publish VERSION=latest
         env:
           VERSION: ${{ steps.version.outputs.version }}
           REGISTRY_ORGS: ghcr.io/rossigee
+          XPKG_REG_ORGS: ghcr.io/rossigee
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

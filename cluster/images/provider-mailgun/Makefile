@@ -24,7 +24,7 @@ img.build: ../../../_output/bin/$(PLATFORM)/provider
 img.build.shared:
 	@cp Dockerfile $(IMAGE_TEMP_DIR)
 	@cp -r $(OUTPUT_DIR)/bin/ $(IMAGE_TEMP_DIR)/
-	@docker buildx build $(BUILD_ARGS) --platform $(IMAGE_PLATFORMS) --build-arg TARGETOS=$(TARGETOS) --build-arg TARGETARCH=$(TARGETARCH) -t $(IMAGE) $(IMAGE_TEMP_DIR)
+	@docker buildx build $(BUILD_ARGS) --platform $(IMAGE_PLATFORM) --build-arg TARGETOS=$(TARGETOS) --build-arg TARGETARCH=$(TARGETARCH) -t $(IMAGE) $(IMAGE_TEMP_DIR)
 
 # ====================================================================================
 # Image Publish

@@ -34,6 +34,7 @@ import (
 	"github.com/rossigee/provider-mailgun/apis/webhook/v1alpha1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	clients "github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/features"
 )
 
 const (
@@ -50,6 +51,9 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1alpha1.WebhookKind)
 
 	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
+	if o.Features.Enabled(features.EnableAlphaManagementPolicies) {
+		cps = append(cps, managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme()))
+	}
 
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1alpha1.WebhookGroupVersionKind),

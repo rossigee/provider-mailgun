@@ -204,11 +204,12 @@ The provider is deployed via Flux GitOps:
 
 ## Recent Improvements (2025-08-14)
 
-### Health Probe Implementation (v0.10.0)
-- **Health Endpoints Added**: Implemented `/healthz` and `/readyz` endpoints on port 8080
-- **Kubernetes Integration**: Proper liveness and readiness probe support for container orchestration
-- **Logging Configuration Fix**: Resolved controller-runtime logging issues in production deployments
-- **Comprehensive Test Coverage**: Added regression tests for health endpoint functionality
+### HTTP Service Consolidation (v0.10.1)
+- **Single HTTP Server**: Consolidated metrics (previously port 9090) and health checks onto single port 8080
+- **Controller-Runtime Integration**: Migrated to controller-runtime's built-in health check system using `AddHealthzCheck`/`AddReadyzCheck`
+- **Simplified Architecture**: Removed custom HTTP server implementation (~200 lines of code)
+- **Standard Endpoints**: Health checks available at `/healthz` and `/readyz`, metrics at `/metrics` - all on port 8080
+- **Test Updates**: Updated health check tests to use new controller-runtime interface
 
 ### HTTP Client Reliability Fixes
 - **Fixed Request Body Handling**: Resolved race condition in HTTP retry logic that caused "ContentLength=X with Body length 0" errors

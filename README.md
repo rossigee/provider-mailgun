@@ -84,11 +84,11 @@ The provider uses a unified API key that works across both US and EU regions:
 
 ### Health Monitoring
 
-The provider exposes health endpoints for Kubernetes monitoring:
+The provider exposes monitoring endpoints on port 8080:
 
-- **Liveness Probe**: `GET /healthz` on port 8080 - Simple process health check
-- **Readiness Probe**: `GET /readyz` on port 8080 - Verifies Kubernetes API and Mailgun API connectivity
-- **Response Format**: JSON with detailed status information and timestamps
+- **Liveness Probe**: `GET /healthz` - Simple process health check
+- **Readiness Probe**: `GET /readyz` - Verifies Kubernetes API and Mailgun API connectivity
+- **Metrics**: `GET /metrics` - Prometheus metrics for monitoring and alerting
 - **Kubernetes Integration**: Configure liveness and readiness probes in your deployment manifests
 
 ### SMTP Credential Rotation Strategy

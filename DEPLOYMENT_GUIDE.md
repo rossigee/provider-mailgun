@@ -108,8 +108,8 @@ curl http://localhost:8080/metrics
 ### Health Checks
 ```bash
 # Check provider health endpoint
-kubectl port-forward -n crossplane-system deployment/provider-mailgun-controller 8081:8081
-curl http://localhost:8081/healthz
+kubectl port-forward -n crossplane-system deployment/provider-mailgun-controller 8080:8080
+curl http://localhost:8080/healthz
 
 # Expected response: {"status":"ok","timestamp":"...","components":{...}}
 ```

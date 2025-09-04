@@ -18,60 +18,17 @@ package health
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
-const (
-	// Health check paths
-	HealthzPath = "/healthz"
-	ReadyzPath  = "/readyz"
-)
 
-var (
-	// Health check metrics
-	healthCheckRequests = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Namespace: "provider_mailgun",
-			Name:      "health_check_requests_total",
-			Help:      "Total number of health check requests",
-		},
-		[]string{"endpoint", "status"},
-	)
-
-	healthCheckDuration = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Namespace: "provider_mailgun",
-			Name:      "health_check_duration_seconds",
-			Help:      "Duration of health check requests in seconds",
-			Buckets:   []float64{0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25},
-		},
-		[]string{"endpoint"},
-	)
-)
-
-func init() {
-	metrics.Registry.MustRegister(healthCheckRequests, healthCheckDuration)
-}
-
-// HealthStatus represents the health status of a component
-type HealthStatus struct {
-	Status      string            `json:"status"`
-	Message     string            `json:"message,omitempty"`
-	Timestamp   time.Time         `json:"timestamp"`
-	Details     map[string]string `json:"details,omitempty"`
-	Duration    string            `json:"duration,omitempty"`
-}
 
 // HealthChecker provides health checking functionality
 type HealthChecker struct {
@@ -87,93 +44,6 @@ func NewHealthChecker(kubeClient client.Client, mailgunCheckFunc func(context.Co
 	}
 }
 
-// ServeHealthz handles liveness probe requests
-func (h *HealthChecker) ServeHealthz(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	defer func() {
-		healthCheckDuration.WithLabelValues("healthz").Observe(time.Since(start).Seconds())
-	}()
-
-	logger := log.FromContext(r.Context()).WithValues("endpoint", "healthz")
-
-	// Simple liveness check - just ensure the process is running
-	status := HealthStatus{
-		Status:    "healthy",
-		Message:   "Provider is running",
-		Timestamp: time.Now(),
-		Duration:  time.Since(start).String(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	healthCheckRequests.WithLabelValues("healthz", "success").Inc()
-
-	if err := json.NewEncoder(w).Encode(status); err != nil {
-		logger.Error(err, "failed to encode health status")
-	}
-}
-
-// ServeReadyz handles readiness probe requests
-func (h *HealthChecker) ServeReadyz(w http.ResponseWriter, r *http.Request) {
-	start := time.Now()
-	defer func() {
-		healthCheckDuration.WithLabelValues("readyz").Observe(time.Since(start).Seconds())
-	}()
-
-	logger := log.FromContext(r.Context()).WithValues("endpoint", "readyz")
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
-
-	details := make(map[string]string)
-	allHealthy := true
-
-	// Check Kubernetes connectivity
-	if h.kubeClient != nil {
-		if err := h.checkKubernetes(ctx); err != nil {
-			details["kubernetes"] = fmt.Sprintf("unhealthy: %s", err.Error())
-			allHealthy = false
-			logger.Info("Kubernetes connectivity check failed", "error", err)
-		} else {
-			details["kubernetes"] = "healthy"
-		}
-	}
-
-	// Check Mailgun API connectivity (if available)
-	if h.mailgunCheck != nil {
-		if err := h.mailgunCheck(ctx); err != nil {
-			details["mailgun_api"] = fmt.Sprintf("unhealthy: %s", err.Error())
-			allHealthy = false
-			logger.Info("Mailgun API connectivity check failed", "error", err)
-		} else {
-			details["mailgun_api"] = "healthy"
-		}
-	}
-
-	status := HealthStatus{
-		Timestamp: time.Now(),
-		Details:   details,
-		Duration:  time.Since(start).String(),
-	}
-
-	if allHealthy {
-		status.Status = "ready"
-		status.Message = "All components are healthy"
-		w.WriteHeader(http.StatusOK)
-		healthCheckRequests.WithLabelValues("readyz", "success").Inc()
-	} else {
-		status.Status = "not_ready"
-		status.Message = "Some components are unhealthy"
-		w.WriteHeader(http.StatusServiceUnavailable)
-		healthCheckRequests.WithLabelValues("readyz", "failure").Inc()
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	if err := json.NewEncoder(w).Encode(status); err != nil {
-		logger.Error(err, "failed to encode readiness status")
-	}
-}
 
 // checkKubernetes verifies Kubernetes API connectivity
 func (h *HealthChecker) checkKubernetes(ctx context.Context) error {
@@ -211,8 +81,30 @@ func CreateMailgunHealthCheck(config *clients.Config) func(context.Context) erro
 	}
 }
 
-// SetupHealthChecks sets up health check endpoints
-func SetupHealthChecks(mux *http.ServeMux, checker *HealthChecker) {
-	mux.HandleFunc(HealthzPath, checker.ServeHealthz)
-	mux.HandleFunc(ReadyzPath, checker.ServeReadyz)
+// HealthzCheck returns a healthz.Checker for liveness probes
+func (h *HealthChecker) HealthzCheck(req *http.Request) error {
+	// Simple liveness check - just ensure the process is running
+	return nil
+}
+
+// ReadyzCheck returns a healthz.Checker for readiness probes
+func (h *HealthChecker) ReadyzCheck(req *http.Request) error {
+	ctx, cancel := context.WithTimeout(req.Context(), 5*time.Second)
+	defer cancel()
+
+	// Check Kubernetes connectivity
+	if h.kubeClient != nil {
+		if err := h.checkKubernetes(ctx); err != nil {
+			return fmt.Errorf("kubernetes unhealthy: %w", err)
+		}
+	}
+
+	// Check Mailgun API connectivity (if available)
+	if h.mailgunCheck != nil {
+		if err := h.mailgunCheck(ctx); err != nil {
+			return fmt.Errorf("mailgun API unhealthy: %w", err)
+		}
+	}
+
+	return nil
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"net/http"
 	"os"
 	"path/filepath"
 
@@ -79,7 +78,7 @@ func main() {
 		Cache:                         cache.Options{DefaultNamespaces: map[string]cache.Config{namespace: {}}},
 		LeaderElectionReleaseOnCancel: true,
 		Metrics: server.Options{
-			BindAddress: ":9090", // Use standard metrics port to avoid conflict with health checks on :8080
+			BindAddress: ":8080", // Single HTTP server for both metrics and health checks
 		},
 	})
 	kingpin.FatalIfError(err, "Cannot create controller manager")
@@ -108,18 +107,10 @@ func main() {
 	// Setup all controllers
 	kingpin.FatalIfError(controller.Setup(mgr, o), "Cannot setup Mailgun controllers")
 
-	// Setup health check endpoints
+	// Add health checks to the manager's built-in endpoints
 	healthChecker := health.NewHealthChecker(mgr.GetClient(), nil)
-	mux := http.NewServeMux()
-	health.SetupHealthChecks(mux, healthChecker)
-
-	// Start health check server in a goroutine
-	go func() {
-		log.Info("Starting health check server", "addr", ":8080")
-		if err := http.ListenAndServe(":8080", mux); err != nil && err != http.ErrServerClosed {
-			log.Info("Failed to start health check server", "error", err)
-		}
-	}()
+	kingpin.FatalIfError(mgr.AddHealthzCheck("mailgun-provider", healthChecker.HealthzCheck), "Cannot add healthz check")
+	kingpin.FatalIfError(mgr.AddReadyzCheck("mailgun-provider", healthChecker.ReadyzCheck), "Cannot add readyz check")
 
 	log.Info("Starting manager")
 	kingpin.FatalIfError(mgr.Start(ctrl.SetupSignalHandler()), "Cannot start controller manager")

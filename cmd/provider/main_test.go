@@ -18,8 +18,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -33,7 +31,7 @@ import (
 	"github.com/rossigee/provider-mailgun/internal/health"
 )
 
-func TestHealthEndpoints(t *testing.T) {
+func TestHealthChecker(t *testing.T) {
 	// Create a fake Kubernetes client with proper scheme
 	s := runtime.NewScheme()
 	require.NoError(t, scheme.AddToScheme(s))
@@ -46,63 +44,26 @@ func TestHealthEndpoints(t *testing.T) {
 	// Create health checker
 	healthChecker := health.NewHealthChecker(kubeClient, nil)
 
-	// Create HTTP mux and setup health checks
-	mux := http.NewServeMux()
-	health.SetupHealthChecks(mux, healthChecker)
-
-	t.Run("HealthzEndpoint", func(t *testing.T) {
+	t.Run("HealthzCheck", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/healthz", nil)
-		w := httptest.NewRecorder()
+		err := healthChecker.HealthzCheck(req)
 
-		mux.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-
-		var status health.HealthStatus
-		err := json.Unmarshal(w.Body.Bytes(), &status)
-		require.NoError(t, err)
-
-		assert.Equal(t, "healthy", status.Status)
-		assert.Equal(t, "Provider is running", status.Message)
-		assert.NotZero(t, status.Timestamp)
-		assert.NotEmpty(t, status.Duration)
+		// Healthz should always succeed (liveness check)
+		assert.NoError(t, err)
 	})
 
-	t.Run("ReadyzEndpoint", func(t *testing.T) {
+	t.Run("ReadyzCheck", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/readyz", nil)
-		w := httptest.NewRecorder()
-
-		mux.ServeHTTP(w, req)
+		err := healthChecker.ReadyzCheck(req)
 
 		// The fake client doesn't support RESTMapper queries properly,
 		// so we expect this to fail with kubernetes unhealthy
-		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-
-		var status health.HealthStatus
-		err := json.Unmarshal(w.Body.Bytes(), &status)
-		require.NoError(t, err)
-
-		assert.Equal(t, "not_ready", status.Status)
-		assert.Equal(t, "Some components are unhealthy", status.Message)
-		assert.NotZero(t, status.Timestamp)
-		assert.NotEmpty(t, status.Duration)
-		assert.Contains(t, status.Details, "kubernetes")
-		assert.Contains(t, status.Details["kubernetes"], "unhealthy")
-	})
-
-	t.Run("InvalidEndpoint", func(t *testing.T) {
-		req := httptest.NewRequest("GET", "/invalid", nil)
-		w := httptest.NewRecorder()
-
-		mux.ServeHTTP(w, req)
-
-		assert.Equal(t, http.StatusNotFound, w.Code)
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "kubernetes unhealthy")
 	})
 }
 
-func TestHealthEndpointsWithMailgunCheck(t *testing.T) {
+func TestHealthCheckerWithMailgunCheck(t *testing.T) {
 	// Create a fake Kubernetes client with proper scheme
 	s := runtime.NewScheme()
 	require.NoError(t, scheme.AddToScheme(s))
@@ -120,28 +81,13 @@ func TestHealthEndpointsWithMailgunCheck(t *testing.T) {
 	// Create health checker with Mailgun check
 	healthChecker := health.NewHealthChecker(kubeClient, mailgunCheck)
 
-	// Create HTTP mux and setup health checks
-	mux := http.NewServeMux()
-	health.SetupHealthChecks(mux, healthChecker)
-
 	t.Run("ReadyzWithMailgunCheck", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/readyz", nil)
-		w := httptest.NewRecorder()
-
-		mux.ServeHTTP(w, req)
+		err := healthChecker.ReadyzCheck(req)
 
 		// Even with a healthy Mailgun check, kubernetes check fails with fake client
-		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-
-		var status health.HealthStatus
-		err := json.Unmarshal(w.Body.Bytes(), &status)
-		require.NoError(t, err)
-
-		assert.Equal(t, "not_ready", status.Status)
-		assert.Contains(t, status.Details, "kubernetes")
-		assert.Contains(t, status.Details, "mailgun_api")
-		assert.Contains(t, status.Details["kubernetes"], "unhealthy")
-		assert.Equal(t, "healthy", status.Details["mailgun_api"])
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "kubernetes unhealthy")
 	})
 }
 

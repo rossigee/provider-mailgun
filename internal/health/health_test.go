@@ -18,12 +18,10 @@ package health
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -77,30 +75,18 @@ func TestHealthChecker(t *testing.T) {
 	})
 }
 
-func TestServeHealthz(t *testing.T) {
-	t.Run("HealthzEndpoint", func(t *testing.T) {
+func TestHealthzCheck(t *testing.T) {
+	t.Run("HealthzAlwaysSucceeds", func(t *testing.T) {
 		checker := NewHealthChecker(nil, nil)
 
 		req := httptest.NewRequest("GET", "/healthz", nil)
-		w := httptest.NewRecorder()
+		err := checker.HealthzCheck(req)
 
-		checker.ServeHealthz(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-
-		var status HealthStatus
-		err := json.Unmarshal(w.Body.Bytes(), &status)
-		require.NoError(t, err)
-
-		assert.Equal(t, "healthy", status.Status)
-		assert.Equal(t, "Provider is running", status.Message)
-		assert.NotZero(t, status.Timestamp)
-		assert.NotEmpty(t, status.Duration)
+		assert.NoError(t, err)
 	})
 }
 
-func TestServeReadyz(t *testing.T) {
+func TestReadyzCheck(t *testing.T) {
 	t.Run("ReadyWithHealthyComponents", func(t *testing.T) {
 		mockClient := &mockKubeClient{
 			restMapperFunc: func() (map[schema.GroupKind][]schema.GroupVersionResource, error) {
@@ -115,21 +101,9 @@ func TestServeReadyz(t *testing.T) {
 		checker := NewHealthChecker(mockClient, mailgunCheck)
 
 		req := httptest.NewRequest("GET", "/readyz", nil)
-		w := httptest.NewRecorder()
+		err := checker.ReadyzCheck(req)
 
-		checker.ServeReadyz(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
-
-		var status HealthStatus
-		err := json.Unmarshal(w.Body.Bytes(), &status)
-		require.NoError(t, err)
-
-		assert.Equal(t, "ready", status.Status)
-		assert.Equal(t, "All components are healthy", status.Message)
-		assert.Equal(t, "healthy", status.Details["kubernetes"])
-		assert.Equal(t, "healthy", status.Details["mailgun_api"])
+		assert.NoError(t, err)
 	})
 
 	t.Run("NotReadyWithUnhealthyKubernetes", func(t *testing.T) {
@@ -146,20 +120,10 @@ func TestServeReadyz(t *testing.T) {
 		checker := NewHealthChecker(mockClient, mailgunCheck)
 
 		req := httptest.NewRequest("GET", "/readyz", nil)
-		w := httptest.NewRecorder()
+		err := checker.ReadyzCheck(req)
 
-		checker.ServeReadyz(w, req)
-
-		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-
-		var status HealthStatus
-		err := json.Unmarshal(w.Body.Bytes(), &status)
-		require.NoError(t, err)
-
-		assert.Equal(t, "not_ready", status.Status)
-		assert.Equal(t, "Some components are unhealthy", status.Message)
-		assert.Contains(t, status.Details["kubernetes"], "unhealthy")
-		assert.Equal(t, "healthy", status.Details["mailgun_api"])
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "kubernetes unhealthy")
 	})
 
 	t.Run("NotReadyWithUnhealthyMailgun", func(t *testing.T) {
@@ -176,62 +140,19 @@ func TestServeReadyz(t *testing.T) {
 		checker := NewHealthChecker(mockClient, mailgunCheck)
 
 		req := httptest.NewRequest("GET", "/readyz", nil)
-		w := httptest.NewRecorder()
+		err := checker.ReadyzCheck(req)
 
-		checker.ServeReadyz(w, req)
-
-		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
-
-		var status HealthStatus
-		err := json.Unmarshal(w.Body.Bytes(), &status)
-		require.NoError(t, err)
-
-		assert.Equal(t, "not_ready", status.Status)
-		assert.Contains(t, status.Details["mailgun_api"], "unhealthy")
-		assert.Equal(t, "healthy", status.Details["kubernetes"])
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "mailgun API unhealthy")
 	})
 
 	t.Run("ReadyWithNilChecks", func(t *testing.T) {
 		checker := NewHealthChecker(nil, nil)
 
 		req := httptest.NewRequest("GET", "/readyz", nil)
-		w := httptest.NewRecorder()
+		err := checker.ReadyzCheck(req)
 
-		checker.ServeReadyz(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		var status HealthStatus
-		err := json.Unmarshal(w.Body.Bytes(), &status)
-		require.NoError(t, err)
-
-		assert.Equal(t, "ready", status.Status)
-		assert.Empty(t, status.Details) // No checks performed
-	})
-
-	t.Run("ReadinessTimeout", func(t *testing.T) {
-		slowMailgunCheck := func(ctx context.Context) error {
-			// Sleep longer than the 5-second timeout
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(6 * time.Second):
-				return nil
-			}
-		}
-
-		checker := NewHealthChecker(nil, slowMailgunCheck)
-
-		req := httptest.NewRequest("GET", "/readyz", nil)
-		w := httptest.NewRecorder()
-
-		start := time.Now()
-		checker.ServeReadyz(w, req)
-		duration := time.Since(start)
-
-		// Should complete within reasonable time due to timeout
-		assert.Less(t, duration, 7*time.Second)
-		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+		assert.NoError(t, err)
 	})
 }
 
@@ -304,53 +225,5 @@ func TestCreateMailgunHealthCheck(t *testing.T) {
 		// Should fail because of connection error
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "mailgun API not accessible")
-	})
-}
-
-func TestSetupHealthChecks(t *testing.T) {
-	t.Run("SetupEndpoints", func(t *testing.T) {
-		mux := http.NewServeMux()
-		checker := NewHealthChecker(nil, nil)
-
-		SetupHealthChecks(mux, checker)
-
-		// Test healthz endpoint
-		req := httptest.NewRequest("GET", "/healthz", nil)
-		w := httptest.NewRecorder()
-		mux.ServeHTTP(w, req)
-		assert.Equal(t, http.StatusOK, w.Code)
-
-		// Test readyz endpoint
-		req = httptest.NewRequest("GET", "/readyz", nil)
-		w = httptest.NewRecorder()
-		mux.ServeHTTP(w, req)
-		assert.Equal(t, http.StatusOK, w.Code)
-	})
-}
-
-func TestHealthStatusJSON(t *testing.T) {
-	t.Run("JSONSerialization", func(t *testing.T) {
-		status := HealthStatus{
-			Status:    "healthy",
-			Message:   "All good",
-			Timestamp: time.Now(),
-			Details: map[string]string{
-				"component1": "healthy",
-				"component2": "degraded",
-			},
-			Duration: "5ms",
-		}
-
-		data, err := json.Marshal(status)
-		require.NoError(t, err)
-
-		var unmarshaled HealthStatus
-		err = json.Unmarshal(data, &unmarshaled)
-		require.NoError(t, err)
-
-		assert.Equal(t, status.Status, unmarshaled.Status)
-		assert.Equal(t, status.Message, unmarshaled.Message)
-		assert.Equal(t, status.Details, unmarshaled.Details)
-		assert.Equal(t, status.Duration, unmarshaled.Duration)
 	})
 }

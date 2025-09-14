@@ -1,6 +1,6 @@
 module github.com/rossigee/provider-mailgun
 
-go 1.25.1
+go 1.23.0
 
 require (
 	github.com/crossplane/crossplane-runtime v1.20.0

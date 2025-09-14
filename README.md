@@ -1,29 +1,27 @@
 # Provider Mailgun
 
-A Crossplane provider for managing Mailgun resources with namespace scoping support for multi-tenancy and intelligent credential rotation. Updated with modern CI/CD pipeline and GHCR publishing.
+A Crossplane v2 provider for managing Mailgun resources with complete namespace isolation for multi-tenancy. All resources are namespace-scoped for enhanced security and team isolation.
 
 ## Features
 
-- **Namespace-scoped Resources**: SMTPCredentials, Templates, MailingLists, Webhooks
-- **Cluster-scoped Resources**: Domains, Routes, Suppressions
-- **Multi-tenancy Support**: Teams can manage resources in isolated namespaces
+- **Crossplane v2 Architecture**: Complete namespace-scoped resource management
+- **Multi-tenancy**: All resources isolated by namespace for team separation
 - **Complete Mailgun API Coverage**: Domains, routing, templates, credentials, suppressions
 - **Credential Rotation Strategy**: Handles write-only SMTP credentials with automatic rotation
 - **Unified Regional Support**: Single API key works across US and EU regions
 - **Health Monitoring**: Built-in health probes for Kubernetes liveness and readiness checks
+- **Breaking Change v0.11.0**: Removed all v1alpha1 cluster-scoped APIs
 
 ## Supported Resources
 
-### Namespace-scoped (Multi-tenant)
-- **SMTPCredential** - Team-isolated SMTP credentials
-- **Template** - Team-specific email templates
+### All Namespace-scoped (v1beta1)
+- **Domain** - Namespace-isolated sending/receiving domains
 - **MailingList** - Team-managed subscriber lists
+- **Route** - Team-specific email routing rules
 - **Webhook** - Team-specific event notifications
-
-### Cluster-scoped (Platform-managed)
-- **Domain** - Platform-controlled sending/receiving domains
-- **Route** - Global email routing rules
-- **Bounce/Complaint/Unsubscribe** - Domain-wide suppression management
+- **Template** - Team-specific email templates
+- **SMTPCredential** - Team-isolated SMTP credentials
+- **Bounce** - Team-managed bounce suppressions
 
 ## Quick Start
 
@@ -57,9 +55,9 @@ spec:
       key: credentials
 ```
 
-4. Create your first domain:
+4. Create your first domain (v1beta1 namespaced):
 ```bash
-kubectl apply -f examples/domain/domain.yaml
+kubectl apply -f examples/domain/domain-v1beta1.yaml
 ```
 
 5. Create SMTP credentials for sending emails:

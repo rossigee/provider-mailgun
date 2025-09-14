@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.0
-  name: mailinglists.mailinglist.mailgun.crossplane.io
+  name: bounces.bounce.mailgun.m.crossplane.io
 spec:
-  group: mailinglist.mailgun.crossplane.io
+  group: bounce.mailgun.m.crossplane.io
   names:
     categories:
     - crossplane
     - managed
     - mailgun
-    kind: MailingList
-    listKind: MailingListList
-    plural: mailinglists
-    singular: mailinglist
+    kind: Bounce
+    listKind: BounceList
+    plural: bounces
+    singular: bounce
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -31,11 +31,12 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A MailingList is a managed resource that represents a Mailgun
-          MailingList
+        description: |-
+          This is the Crossplane v2 namespaced version.
+          A Bounce is a managed resource that represents a Mailgun bounce suppression entry.
         properties:
           apiVersion:
             description: |-
@@ -55,7 +56,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: A MailingListSpec defines the desired state of a MailingList.
+            description: A BounceSpec defines the desired state of a Bounce.
             properties:
               deletionPolicy:
                 default: Delete
@@ -72,64 +73,99 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: MailingListParameters define the desired state of a Mailgun
-                  MailingList
+                description: BounceParameters are the configurable fields of a Bounce.
                 properties:
-                  accessLevel:
-                    default: readonly
-                    description: AccessLevel controls who can post to the list
-                    enum:
-                    - readonly
-                    - members
-                    - everyone
-                    type: string
                   address:
-                    description: Address is the mailing list email address
+                    description: Address is the email address to add to the bounce
+                      list
                     pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
                     type: string
-                  description:
-                    description: Description provides additional information about
-                      the mailing list
+                  code:
+                    description: Code is the error code associated with the bounce
+                      (e.g., "550")
                     type: string
-                  members:
-                    description: Members is a list of email addresses to add to the
-                      mailing list
-                    items:
-                      description: MailingListMember represents a member of the mailing
-                        list
-                      properties:
-                        address:
-                          description: Address is the member's email address
-                          pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
-                          type: string
-                        name:
-                          description: Name is the member's display name
-                          type: string
-                        subscribed:
-                          default: true
-                          description: Subscribed indicates if the member is subscribed
-                          type: boolean
-                        vars:
-                          additionalProperties:
+                  domainRef:
+                    description: DomainRef references the Domain resource this bounce
+                      belongs to
+                    properties:
+                      name:
+                        description: Name of the referenced object.
+                        type: string
+                      policy:
+                        description: Policies for referencing.
+                        properties:
+                          resolution:
+                            default: Required
+                            description: |-
+                              Resolution specifies whether resolution of this reference is required.
+                              The default is 'Required', which means the reconcile will fail if the
+                              reference cannot be resolved. 'Optional' means this reference will be
+                              a no-op if it cannot be resolved.
+                            enum:
+                            - Required
+                            - Optional
                             type: string
-                          description: Vars are custom variables for the member
-                          type: object
-                      required:
-                      - address
-                      type: object
-                    type: array
-                  name:
-                    description: Name is the display name for the mailing list
-                    type: string
-                  replyPreference:
-                    default: list
-                    description: ReplyPreference controls how replies are handled
-                    enum:
-                    - list
-                    - sender
+                          resolve:
+                            description: |-
+                              Resolve specifies when this reference should be resolved. The default
+                              is 'IfNotPresent', which will attempt to resolve the reference only when
+                              the corresponding field is not present. Use 'Always' to resolve the
+                              reference on every reconcile.
+                            enum:
+                            - Always
+                            - IfNotPresent
+                            type: string
+                        type: object
+                    required:
+                    - name
+                    type: object
+                  domainSelector:
+                    description: DomainSelector selects a reference to a Domain resource
+                    properties:
+                      matchControllerRef:
+                        description: |-
+                          MatchControllerRef ensures an object with the same controller reference
+                          as the selecting object is selected.
+                        type: boolean
+                      matchLabels:
+                        additionalProperties:
+                          type: string
+                        description: MatchLabels ensures an object with matching labels
+                          is selected.
+                        type: object
+                      policy:
+                        description: Policies for selection.
+                        properties:
+                          resolution:
+                            default: Required
+                            description: |-
+                              Resolution specifies whether resolution of this reference is required.
+                              The default is 'Required', which means the reconcile will fail if the
+                              reference cannot be resolved. 'Optional' means this reference will be
+                              a no-op if it cannot be resolved.
+                            enum:
+                            - Required
+                            - Optional
+                            type: string
+                          resolve:
+                            description: |-
+                              Resolve specifies when this reference should be resolved. The default
+                              is 'IfNotPresent', which will attempt to resolve the reference only when
+                              the corresponding field is not present. Use 'Always' to resolve the
+                              reference on every reconcile.
+                            enum:
+                            - Always
+                            - IfNotPresent
+                            type: string
+                        type: object
+                    type: object
+                  error:
+                    description: Error is the error message describing the bounce
+                      reason
                     type: string
                 required:
                 - address
+                - domainRef
                 type: object
               managementPolicies:
                 default:
@@ -299,33 +335,13 @@ spec:
             - forProvider
             type: object
           status:
-            description: A MailingListStatus represents the observed state of a MailingList.
+            description: A BounceStatus represents the observed state of a Bounce.
             properties:
               atProvider:
-                description: MailingListObservation reflects the observed state of
-                  a Mailgun MailingList
+                description: BounceObservation are the observable fields of a Bounce.
                 properties:
-                  accessLevel:
-                    description: AccessLevel controls who can post to the list
-                    type: string
-                  address:
-                    description: Address is the mailing list email address
-                    type: string
                   createdAt:
-                    description: CreatedAt is when the mailing list was created
-                    type: string
-                  description:
-                    description: Description provides additional information about
-                      the mailing list
-                    type: string
-                  membersCount:
-                    description: MembersCount is the number of members in the list
-                    type: integer
-                  name:
-                    description: Name is the display name for the mailing list
-                    type: string
-                  replyPreference:
-                    description: ReplyPreference controls how replies are handled
+                    description: CreatedAt is when the bounce was recorded
                     type: string
                 type: object
               conditions:

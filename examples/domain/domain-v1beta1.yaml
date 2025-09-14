@@ -1,0 +1,21 @@
+apiVersion: domain.mailgun.m.crossplane.io/v1beta1
+kind: Domain
+metadata:
+  name: example-domain-v2
+  namespace: default
+spec:
+  forProvider:
+    name: test-v2.example.com
+    type: sending
+    dkimKeySize: 1024
+    forceDkimAuthority: false
+    spamAction: disabled
+    tracking:
+      click: true
+      open: true
+      unsubscribe: false
+    webScheme: https
+    wildcard: false
+  providerConfigRef:
+    name: default
+  deletionPolicy: Delete

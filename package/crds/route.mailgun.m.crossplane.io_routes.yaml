@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.0
-  name: templates.template.mailgun.crossplane.io
+  name: routes.route.mailgun.m.crossplane.io
 spec:
-  group: template.mailgun.crossplane.io
+  group: route.mailgun.m.crossplane.io
   names:
     categories:
     - crossplane
     - managed
     - mailgun
-    kind: Template
-    listKind: TemplateList
-    plural: templates
-    singular: template
+    kind: Route
+    listKind: RouteList
+    plural: routes
+    singular: route
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -25,23 +25,18 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
-    - jsonPath: .spec.forProvider.domain
-      name: DOMAIN
+    - jsonPath: .metadata.annotations.crossplane\.io/external-name
+      name: EXTERNAL-NAME
       type: string
-    - jsonPath: .spec.forProvider.name
-      name: TEMPLATE
-      type: string
-    - jsonPath: .status.atProvider.versionCount
-      name: VERSIONS
-      type: integer
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A Template is a managed resource that represents a Mailgun email
-          template.
+        description: |-
+          This is the Crossplane v2 namespaced version.
+          A Route is a managed resource that represents a Mailgun Route
         properties:
           apiVersion:
             description: |-
@@ -61,7 +56,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: A TemplateSpec defines the desired state of a Template.
+            description: A RouteSpec defines the desired state of a Route.
             properties:
               deletionPolicy:
                 default: Delete
@@ -78,40 +73,50 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: TemplateParameters are the configurable fields of a Template.
+                description: RouteParameters define the desired state of a Mailgun
+                  Route
                 properties:
-                  comment:
-                    description: Comment for the initial version if template content
-                      is provided.
-                    type: string
+                  actions:
+                    description: Actions define what to do with messages matching
+                      the expression
+                    items:
+                      description: RouteAction defines an action to take on matching
+                        messages
+                      properties:
+                        destination:
+                          description: |-
+                            Destination is where to forward messages (for forward action)
+                            Required for forward actions
+                          type: string
+                        type:
+                          description: Type is the action type
+                          enum:
+                          - forward
+                          - store
+                          - stop
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    minItems: 1
+                    type: array
                   description:
                     description: Description provides a human-readable description
-                      of the template.
+                      of the route
                     type: string
-                  domain:
-                    description: Domain is the domain this template belongs to.
+                  expression:
+                    description: Expression defines the filter for incoming messages
                     type: string
-                  engine:
-                    default: mustache
-                    description: Engine specifies the template engine to use.
-                    enum:
-                    - mustache
-                    - handlebars
-                    type: string
-                  name:
-                    description: Name is the template name identifier.
-                    pattern: ^[a-zA-Z0-9._-]+$
-                    type: string
-                  tag:
-                    description: Tag for organizing templates.
-                    type: string
-                  template:
-                    description: Template contains the template content for the initial
-                      version.
-                    type: string
+                  priority:
+                    default: 0
+                    description: Priority determines the order in which routes are
+                      processed (0-100, lower = higher priority)
+                    maximum: 100
+                    minimum: 0
+                    type: integer
                 required:
-                - domain
-                - name
+                - actions
+                - expression
                 type: object
               managementPolicies:
                 default:
@@ -281,45 +286,51 @@ spec:
             - forProvider
             type: object
           status:
-            description: A TemplateStatus represents the observed state of a Template.
+            description: A RouteStatus represents the observed state of a Route.
             properties:
               atProvider:
-                description: TemplateObservation are the observable fields of a Template.
+                description: RouteObservation reflects the observed state of a Mailgun
+                  Route
                 properties:
-                  activeVersion:
-                    description: ActiveVersion contains information about the active
-                      version.
-                    properties:
-                      active:
-                        description: Active indicates if this is the active version.
-                        type: boolean
-                      comment:
-                        description: Comment describing this version.
-                        type: string
-                      createdAt:
-                        description: CreatedAt when this version was created.
-                        type: string
-                      engine:
-                        description: Engine used for this version.
-                        type: string
-                      tag:
-                        description: Tag identifying the version.
-                        type: string
-                    type: object
+                  actions:
+                    description: Actions define what to do with messages matching
+                      the expression
+                    items:
+                      description: RouteAction defines an action to take on matching
+                        messages
+                      properties:
+                        destination:
+                          description: |-
+                            Destination is where to forward messages (for forward action)
+                            Required for forward actions
+                          type: string
+                        type:
+                          description: Type is the action type
+                          enum:
+                          - forward
+                          - store
+                          - stop
+                          type: string
+                      required:
+                      - type
+                      type: object
+                    type: array
                   createdAt:
-                    description: CreatedAt is when the template was created.
-                    type: string
-                  createdBy:
-                    description: CreatedBy indicates who created the template.
+                    description: CreatedAt is when the route was created
                     type: string
                   description:
-                    description: Description of the template.
+                    description: Description provides a human-readable description
+                      of the route
                     type: string
-                  name:
-                    description: Name is the template identifier.
+                  expression:
+                    description: Expression defines the filter for incoming messages
                     type: string
-                  versionCount:
-                    description: VersionCount is the number of versions for this template.
+                  id:
+                    description: ID is the route identifier in Mailgun
+                    type: string
+                  priority:
+                    description: Priority determines the order in which routes are
+                      processed
                     type: integer
                 type: object
               conditions:

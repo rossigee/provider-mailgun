@@ -4,19 +4,19 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.0
-  name: domains.domain.mailgun.crossplane.io
+  name: mailinglists.mailinglist.mailgun.m.crossplane.io
 spec:
-  group: domain.mailgun.crossplane.io
+  group: mailinglist.mailgun.m.crossplane.io
   names:
     categories:
     - crossplane
     - managed
     - mailgun
-    kind: Domain
-    listKind: DomainList
-    plural: domains
-    singular: domain
-  scope: Cluster
+    kind: MailingList
+    listKind: MailingListList
+    plural: mailinglists
+    singular: mailinglist
+  scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .status.conditions[?(@.type=='Ready')].status
@@ -31,10 +31,12 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A Domain is a managed resource that represents a Mailgun Domain
+        description: |-
+          This is the Crossplane v2 namespaced version.
+          A MailingList is a managed resource that represents a Mailgun MailingList
         properties:
           apiVersion:
             description: |-
@@ -54,7 +56,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: A DomainSpec defines the desired state of a Domain.
+            description: A MailingListSpec defines the desired state of a MailingList.
             properties:
               deletionPolicy:
                 default: Delete
@@ -71,80 +73,64 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: DomainParameters define the desired state of a Mailgun
-                  Domain
+                description: MailingListParameters define the desired state of a Mailgun
+                  MailingList
                 properties:
-                  dkimKeySize:
-                    default: 1024
-                    description: DKIMKeySize specifies the DKIM key size (1024 or
-                      2048)
+                  accessLevel:
+                    default: readonly
+                    description: AccessLevel controls who can post to the list
                     enum:
-                    - 1024
-                    - 2048
-                    type: integer
-                  forceDkimAuthority:
-                    default: false
-                    description: ForceDKIMAuthority forces DKIM authority even if
-                      subdomain
-                    type: boolean
-                  ips:
-                    description: IPs is a list of IP addresses to whitelist for this
-                      domain
+                    - readonly
+                    - members
+                    - everyone
+                    type: string
+                  address:
+                    description: Address is the mailing list email address
+                    pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+                    type: string
+                  description:
+                    description: Description provides additional information about
+                      the mailing list
+                    type: string
+                  members:
+                    description: Members is a list of email addresses to add to the
+                      mailing list
                     items:
-                      type: string
+                      description: MailingListMember represents a member of the mailing
+                        list
+                      properties:
+                        address:
+                          description: Address is the member's email address
+                          pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+                          type: string
+                        name:
+                          description: Name is the member's display name
+                          type: string
+                        subscribed:
+                          default: true
+                          description: Subscribed indicates if the member is subscribed
+                          type: boolean
+                        vars:
+                          additionalProperties:
+                            type: string
+                          description: Vars are custom variables for the member
+                          type: object
+                      required:
+                      - address
+                      type: object
                     type: array
                   name:
-                    description: Name is the domain name to create
-                    pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
+                    description: Name is the display name for the mailing list
                     type: string
-                  smtpPassword:
-                    description: SMTP password for the domain (if not set, will be
-                      auto-generated)
-                    type: string
-                  spamAction:
-                    default: disabled
-                    description: Spam action for the domain
+                  replyPreference:
+                    default: list
+                    description: ReplyPreference controls how replies are handled
                     enum:
-                    - disabled
-                    - block
-                    - tag
+                    - list
+                    - sender
                     type: string
-                  tracking:
-                    description: Tracking settings for the domain
-                    properties:
-                      click:
-                        default: false
-                        description: Click tracking enabled
-                        type: boolean
-                      open:
-                        default: false
-                        description: Open tracking enabled
-                        type: boolean
-                      unsubscribe:
-                        default: false
-                        description: Unsubscribe tracking enabled
-                        type: boolean
-                    type: object
-                  type:
-                    default: sending
-                    description: Type specifies the domain type (sending or receiving)
-                    enum:
-                    - sending
-                    - receiving
-                    type: string
-                  webScheme:
-                    default: http
-                    description: Web scheme for tracking URLs
-                    enum:
-                    - http
-                    - https
-                    type: string
-                  wildcard:
-                    default: false
-                    description: Wildcard setting for the domain
-                    type: boolean
                 required:
-                - name
+                - address
                 type: object
               managementPolicies:
                 default:
@@ -314,103 +300,33 @@ spec:
             - forProvider
             type: object
           status:
-            description: A DomainStatus represents the observed state of a Domain.
+            description: A MailingListStatus represents the observed state of a MailingList.
             properties:
               atProvider:
-                description: DomainObservation reflects the observed state of a Mailgun
-                  Domain
+                description: MailingListObservation reflects the observed state of
+                  a Mailgun MailingList
                 properties:
+                  accessLevel:
+                    description: AccessLevel controls who can post to the list
+                    type: string
+                  address:
+                    description: Address is the mailing list email address
+                    type: string
                   createdAt:
-                    description: CreatedAt is when the domain was created
+                    description: CreatedAt is when the mailing list was created
                     type: string
-                  id:
-                    description: ID is the domain identifier in Mailgun
+                  description:
+                    description: Description provides additional information about
+                      the mailing list
                     type: string
-                  receivingDnsRecords:
-                    description: Receiving DNS records for incoming mail
-                    items:
-                      description: DNSRecord represents a DNS record required for
-                        domain configuration
-                      properties:
-                        name:
-                          description: Name is the DNS record name
-                          type: string
-                        priority:
-                          description: Priority is the MX record priority (for MX
-                            records)
-                          type: integer
-                        type:
-                          description: Type is the DNS record type (TXT, CNAME, MX)
-                          type: string
-                        valid:
-                          description: Valid indicates if the DNS record is properly
-                            configured
-                          type: boolean
-                        value:
-                          description: Value is the DNS record value
-                          type: string
-                      type: object
-                    type: array
-                  requiredDnsRecords:
-                    description: RequiredDNSRecords contains the DNS records that
-                      need to be configured
-                    items:
-                      description: DNSRecord represents a DNS record required for
-                        domain configuration
-                      properties:
-                        name:
-                          description: Name is the DNS record name
-                          type: string
-                        priority:
-                          description: Priority is the MX record priority (for MX
-                            records)
-                          type: integer
-                        type:
-                          description: Type is the DNS record type (TXT, CNAME, MX)
-                          type: string
-                        valid:
-                          description: Valid indicates if the DNS record is properly
-                            configured
-                          type: boolean
-                        value:
-                          description: Value is the DNS record value
-                          type: string
-                      type: object
-                    type: array
-                  sendingDnsRecords:
-                    description: Sending DNS records for outgoing mail
-                    items:
-                      description: DNSRecord represents a DNS record required for
-                        domain configuration
-                      properties:
-                        name:
-                          description: Name is the DNS record name
-                          type: string
-                        priority:
-                          description: Priority is the MX record priority (for MX
-                            records)
-                          type: integer
-                        type:
-                          description: Type is the DNS record type (TXT, CNAME, MX)
-                          type: string
-                        valid:
-                          description: Valid indicates if the DNS record is properly
-                            configured
-                          type: boolean
-                        value:
-                          description: Value is the DNS record value
-                          type: string
-                      type: object
-                    type: array
-                  smtpLogin:
-                    description: SMTPLogin is the SMTP login for the domain
+                  membersCount:
+                    description: MembersCount is the number of members in the list
+                    type: integer
+                  name:
+                    description: Name is the display name for the mailing list
                     type: string
-                  smtpPassword:
-                    description: SMTPPassword is the SMTP password for the domain
-                    type: string
-                  state:
-                    description: State is the current state of the domain (active,
-                      unverified, disabled)
+                  replyPreference:
+                    description: ReplyPreference controls how replies are handled
                     type: string
                 type: object
               conditions:

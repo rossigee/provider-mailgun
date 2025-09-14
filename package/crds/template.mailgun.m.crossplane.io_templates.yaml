@@ -4,19 +4,19 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.0
-  name: bounces.bounce.mailgun.crossplane.io
+  name: templates.template.mailgun.m.crossplane.io
 spec:
-  group: bounce.mailgun.crossplane.io
+  group: template.mailgun.m.crossplane.io
   names:
     categories:
     - crossplane
     - managed
     - mailgun
-    kind: Bounce
-    listKind: BounceList
-    plural: bounces
-    singular: bounce
-  scope: Cluster
+    kind: Template
+    listKind: TemplateList
+    plural: templates
+    singular: template
+  scope: Namespaced
   versions:
   - additionalPrinterColumns:
     - jsonPath: .status.conditions[?(@.type=='Ready')].status
@@ -25,17 +25,24 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
-    - jsonPath: .metadata.annotations.crossplane\.io/external-name
-      name: EXTERNAL-NAME
+    - jsonPath: .spec.forProvider.domain
+      name: DOMAIN
       type: string
+    - jsonPath: .spec.forProvider.name
+      name: TEMPLATE
+      type: string
+    - jsonPath: .status.atProvider.versionCount
+      name: VERSIONS
+      type: integer
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A Bounce is a managed resource that represents a Mailgun bounce
-          suppression entry.
+        description: |-
+          This is the Crossplane v2 namespaced version.
+          A Template is a managed resource that represents a Mailgun email template.
         properties:
           apiVersion:
             description: |-
@@ -55,7 +62,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: A BounceSpec defines the desired state of a Bounce.
+            description: A TemplateSpec defines the desired state of a Template.
             properties:
               deletionPolicy:
                 default: Delete
@@ -72,99 +79,40 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: BounceParameters are the configurable fields of a Bounce.
+                description: TemplateParameters are the configurable fields of a Template.
                 properties:
-                  address:
-                    description: Address is the email address to add to the bounce
-                      list
-                    pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+                  comment:
+                    description: Comment for the initial version if template content
+                      is provided.
                     type: string
-                  code:
-                    description: Code is the error code associated with the bounce
-                      (e.g., "550")
+                  description:
+                    description: Description provides a human-readable description
+                      of the template.
                     type: string
-                  domainRef:
-                    description: DomainRef references the Domain resource this bounce
-                      belongs to
-                    properties:
-                      name:
-                        description: Name of the referenced object.
-                        type: string
-                      policy:
-                        description: Policies for referencing.
-                        properties:
-                          resolution:
-                            default: Required
-                            description: |-
-                              Resolution specifies whether resolution of this reference is required.
-                              The default is 'Required', which means the reconcile will fail if the
-                              reference cannot be resolved. 'Optional' means this reference will be
-                              a no-op if it cannot be resolved.
-                            enum:
-                            - Required
-                            - Optional
-                            type: string
-                          resolve:
-                            description: |-
-                              Resolve specifies when this reference should be resolved. The default
-                              is 'IfNotPresent', which will attempt to resolve the reference only when
-                              the corresponding field is not present. Use 'Always' to resolve the
-                              reference on every reconcile.
-                            enum:
-                            - Always
-                            - IfNotPresent
-                            type: string
-                        type: object
-                    required:
-                    - name
-                    type: object
-                  domainSelector:
-                    description: DomainSelector selects a reference to a Domain resource
-                    properties:
-                      matchControllerRef:
-                        description: |-
-                          MatchControllerRef ensures an object with the same controller reference
-                          as the selecting object is selected.
-                        type: boolean
-                      matchLabels:
-                        additionalProperties:
-                          type: string
-                        description: MatchLabels ensures an object with matching labels
-                          is selected.
-                        type: object
-                      policy:
-                        description: Policies for selection.
-                        properties:
-                          resolution:
-                            default: Required
-                            description: |-
-                              Resolution specifies whether resolution of this reference is required.
-                              The default is 'Required', which means the reconcile will fail if the
-                              reference cannot be resolved. 'Optional' means this reference will be
-                              a no-op if it cannot be resolved.
-                            enum:
-                            - Required
-                            - Optional
-                            type: string
-                          resolve:
-                            description: |-
-                              Resolve specifies when this reference should be resolved. The default
-                              is 'IfNotPresent', which will attempt to resolve the reference only when
-                              the corresponding field is not present. Use 'Always' to resolve the
-                              reference on every reconcile.
-                            enum:
-                            - Always
-                            - IfNotPresent
-                            type: string
-                        type: object
-                    type: object
-                  error:
-                    description: Error is the error message describing the bounce
-                      reason
+                  domain:
+                    description: Domain is the domain this template belongs to.
+                    type: string
+                  engine:
+                    default: mustache
+                    description: Engine specifies the template engine to use.
+                    enum:
+                    - mustache
+                    - handlebars
+                    type: string
+                  name:
+                    description: Name is the template name identifier.
+                    pattern: ^[a-zA-Z0-9._-]+$
+                    type: string
+                  tag:
+                    description: Tag for organizing templates.
+                    type: string
+                  template:
+                    description: Template contains the template content for the initial
+                      version.
                     type: string
                 required:
-                - address
-                - domainRef
+                - domain
+                - name
                 type: object
               managementPolicies:
                 default:
@@ -334,14 +282,46 @@ spec:
             - forProvider
             type: object
           status:
-            description: A BounceStatus represents the observed state of a Bounce.
+            description: A TemplateStatus represents the observed state of a Template.
             properties:
               atProvider:
-                description: BounceObservation are the observable fields of a Bounce.
+                description: TemplateObservation are the observable fields of a Template.
                 properties:
+                  activeVersion:
+                    description: ActiveVersion contains information about the active
+                      version.
+                    properties:
+                      active:
+                        description: Active indicates if this is the active version.
+                        type: boolean
+                      comment:
+                        description: Comment describing this version.
+                        type: string
+                      createdAt:
+                        description: CreatedAt when this version was created.
+                        type: string
+                      engine:
+                        description: Engine used for this version.
+                        type: string
+                      tag:
+                        description: Tag identifying the version.
+                        type: string
+                    type: object
                   createdAt:
-                    description: CreatedAt is when the bounce was recorded
+                    description: CreatedAt is when the template was created.
                     type: string
+                  createdBy:
+                    description: CreatedBy indicates who created the template.
+                    type: string
+                  description:
+                    description: Description of the template.
+                    type: string
+                  name:
+                    description: Name is the template identifier.
+                    type: string
+                  versionCount:
+                    description: VersionCount is the number of versions for this template.
+                    type: integer
                 type: object
               conditions:
                 description: Conditions of the resource.

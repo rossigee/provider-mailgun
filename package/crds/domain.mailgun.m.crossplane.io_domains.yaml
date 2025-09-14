@@ -4,18 +4,18 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.0
-  name: smtpcredentials.smtpcredential.mailgun.crossplane.io
+  name: domains.domain.mailgun.m.crossplane.io
 spec:
-  group: smtpcredential.mailgun.crossplane.io
+  group: domain.mailgun.m.crossplane.io
   names:
     categories:
     - crossplane
     - managed
     - mailgun
-    kind: SMTPCredential
-    listKind: SMTPCredentialList
-    plural: smtpcredentials
-    singular: smtpcredential
+    kind: Domain
+    listKind: DomainList
+    plural: domains
+    singular: domain
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -25,20 +25,18 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
-    - jsonPath: .spec.forProvider.domain
-      name: DOMAIN
-      type: string
-    - jsonPath: .spec.forProvider.login
-      name: LOGIN
+    - jsonPath: .metadata.annotations.crossplane\.io/external-name
+      name: EXTERNAL-NAME
       type: string
     - jsonPath: .metadata.creationTimestamp
       name: AGE
       type: date
-    name: v1alpha1
+    name: v1beta1
     schema:
       openAPIV3Schema:
-        description: A SMTPCredential is a managed resource that represents a Mailgun
-          SMTP credential.
+        description: |-
+          A Domain is a namespaced managed resource that represents a Mailgun Domain.
+          This is the Crossplane v2 namespaced version.
         properties:
           apiVersion:
             description: |-
@@ -58,7 +56,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: A SMTPCredentialSpec defines the desired state of a SMTPCredential.
+            description: A DomainSpec defines the desired state of a Domain.
             properties:
               deletionPolicy:
                 default: Delete
@@ -75,25 +73,80 @@ spec:
                 - Delete
                 type: string
               forProvider:
-                description: SMTPCredentialParameters are the configurable fields
-                  of a SMTPCredential.
+                description: DomainParameters define the desired state of a Mailgun
+                  Domain
                 properties:
-                  domain:
-                    description: Domain is the domain this SMTP credential belongs
-                      to.
+                  dkimKeySize:
+                    default: 1024
+                    description: DKIMKeySize specifies the DKIM key size (1024 or
+                      2048)
+                    enum:
+                    - 1024
+                    - 2048
+                    type: integer
+                  forceDkimAuthority:
+                    default: false
+                    description: ForceDKIMAuthority forces DKIM authority even if
+                      subdomain
+                    type: boolean
+                  ips:
+                    description: IPs is a list of IP addresses to whitelist for this
+                      domain
+                    items:
+                      type: string
+                    type: array
+                  name:
+                    description: Name is the domain name to create
+                    pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
                     type: string
-                  login:
-                    description: Login is the SMTP username (email address).
-                    pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+                  smtpPassword:
+                    description: SMTP password for the domain (if not set, will be
+                      auto-generated)
                     type: string
-                  password:
-                    description: Password is the SMTP password. If not provided, Mailgun
-                      will generate one.
-                    minLength: 8
+                  spamAction:
+                    default: disabled
+                    description: Spam action for the domain
+                    enum:
+                    - disabled
+                    - block
+                    - tag
                     type: string
+                  tracking:
+                    description: Tracking settings for the domain
+                    properties:
+                      click:
+                        default: false
+                        description: Click tracking enabled
+                        type: boolean
+                      open:
+                        default: false
+                        description: Open tracking enabled
+                        type: boolean
+                      unsubscribe:
+                        default: false
+                        description: Unsubscribe tracking enabled
+                        type: boolean
+                    type: object
+                  type:
+                    default: sending
+                    description: Type specifies the domain type (sending or receiving)
+                    enum:
+                    - sending
+                    - receiving
+                    type: string
+                  webScheme:
+                    default: http
+                    description: Web scheme for tracking URLs
+                    enum:
+                    - http
+                    - https
+                    type: string
+                  wildcard:
+                    default: false
+                    description: Wildcard setting for the domain
+                    type: boolean
                 required:
-                - domain
-                - login
+                - name
                 type: object
               managementPolicies:
                 default:
@@ -263,21 +316,103 @@ spec:
             - forProvider
             type: object
           status:
-            description: A SMTPCredentialStatus represents the observed state of a
-              SMTPCredential.
+            description: A DomainStatus represents the observed state of a Domain.
             properties:
               atProvider:
-                description: SMTPCredentialObservation are the observable fields of
-                  a SMTPCredential.
+                description: DomainObservation reflects the observed state of a Mailgun
+                  Domain
                 properties:
                   createdAt:
-                    description: CreatedAt is when the credential was created.
+                    description: CreatedAt is when the domain was created
                     type: string
-                  login:
-                    description: Login is the SMTP username.
+                  id:
+                    description: ID is the domain identifier in Mailgun
+                    type: string
+                  receivingDnsRecords:
+                    description: Receiving DNS records for incoming mail
+                    items:
+                      description: DNSRecord represents a DNS record required for
+                        domain configuration
+                      properties:
+                        name:
+                          description: Name is the DNS record name
+                          type: string
+                        priority:
+                          description: Priority is the MX record priority (for MX
+                            records)
+                          type: integer
+                        type:
+                          description: Type is the DNS record type (TXT, CNAME, MX)
+                          type: string
+                        valid:
+                          description: Valid indicates if the DNS record is properly
+                            configured
+                          type: boolean
+                        value:
+                          description: Value is the DNS record value
+                          type: string
+                      type: object
+                    type: array
+                  requiredDnsRecords:
+                    description: RequiredDNSRecords contains the DNS records that
+                      need to be configured
+                    items:
+                      description: DNSRecord represents a DNS record required for
+                        domain configuration
+                      properties:
+                        name:
+                          description: Name is the DNS record name
+                          type: string
+                        priority:
+                          description: Priority is the MX record priority (for MX
+                            records)
+                          type: integer
+                        type:
+                          description: Type is the DNS record type (TXT, CNAME, MX)
+                          type: string
+                        valid:
+                          description: Valid indicates if the DNS record is properly
+                            configured
+                          type: boolean
+                        value:
+                          description: Value is the DNS record value
+                          type: string
+                      type: object
+                    type: array
+                  sendingDnsRecords:
+                    description: Sending DNS records for outgoing mail
+                    items:
+                      description: DNSRecord represents a DNS record required for
+                        domain configuration
+                      properties:
+                        name:
+                          description: Name is the DNS record name
+                          type: string
+                        priority:
+                          description: Priority is the MX record priority (for MX
+                            records)
+                          type: integer
+                        type:
+                          description: Type is the DNS record type (TXT, CNAME, MX)
+                          type: string
+                        valid:
+                          description: Valid indicates if the DNS record is properly
+                            configured
+                          type: boolean
+                        value:
+                          description: Value is the DNS record value
+                          type: string
+                      type: object
+                    type: array
+                  smtpLogin:
+                    description: SMTPLogin is the SMTP login for the domain
+                    type: string
+                  smtpPassword:
+                    description: SMTPPassword is the SMTP password for the domain
                     type: string
                   state:
-                    description: State indicates if the credential is active.
+                    description: State is the current state of the domain (active,
+                      unverified, disabled)
                     type: string
                 type: object
               conditions:

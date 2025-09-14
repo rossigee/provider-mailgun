@@ -34,7 +34,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
@@ -234,7 +234,7 @@ func (m *MockSMTPCredentialClient) DeleteUnsubscribe(ctx context.Context, domain
 func TestSMTPCredentialObserve(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
-	require.NoError(t, v1alpha1.SchemeBuilder.AddToScheme(scheme))
+	require.NoError(t, v1beta1.SchemeBuilder.AddToScheme(scheme))
 	require.NoError(t, apisv1beta1.SchemeBuilder.AddToScheme(scheme))
 
 	type args struct {
@@ -254,13 +254,13 @@ func TestSMTPCredentialObserve(t *testing.T) {
 		"CredentialExistsWithSecret": {
 			reason: "Should return ResourceExists when secret exists (rotation strategy)",
 			args: args{
-				mg: &v1alpha1.SMTPCredential{
+				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-smtp",
 						Namespace: "test-namespace",
 					},
-					Spec: v1alpha1.SMTPCredentialSpec{
-						ForProvider: v1alpha1.SMTPCredentialParameters{
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "test@example.com",
 						},
@@ -298,13 +298,13 @@ func TestSMTPCredentialObserve(t *testing.T) {
 		"CredentialNotFoundNoSecret": {
 			reason: "Should return ResourceExists false when no secret exists (rotation strategy)",
 			args: args{
-				mg: &v1alpha1.SMTPCredential{
+				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-smtp",
 						Namespace: "test-namespace",
 					},
-					Spec: v1alpha1.SMTPCredentialSpec{
-						ForProvider: v1alpha1.SMTPCredentialParameters{
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "notfound@example.com",
 						},
@@ -327,13 +327,13 @@ func TestSMTPCredentialObserve(t *testing.T) {
 		"NoSecretConfigured": {
 			reason: "Should return ResourceExists false when no secret is configured",
 			args: args{
-				mg: &v1alpha1.SMTPCredential{
+				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-smtp",
 						Namespace: "test-namespace",
 					},
-					Spec: v1alpha1.SMTPCredentialSpec{
-						ForProvider: v1alpha1.SMTPCredentialParameters{
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "test@example.com",
 						},
@@ -406,9 +406,9 @@ func TestSMTPCredentialCreate(t *testing.T) {
 		"SuccessfulCreate": {
 			reason: "Should successfully create SMTP credential",
 			args: args{
-				mg: &v1alpha1.SMTPCredential{
-					Spec: v1alpha1.SMTPCredentialSpec{
-						ForProvider: v1alpha1.SMTPCredentialParameters{
+				mg: &v1beta1.SMTPCredential{
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "new@example.com",
 						},
@@ -429,9 +429,9 @@ func TestSMTPCredentialCreate(t *testing.T) {
 		"SuccessfulCreateWithRotation": {
 			reason: "Should successfully create SMTP credential with rotation (delete existing first)",
 			args: args{
-				mg: &v1alpha1.SMTPCredential{
-					Spec: v1alpha1.SMTPCredentialSpec{
-						ForProvider: v1alpha1.SMTPCredentialParameters{
+				mg: &v1beta1.SMTPCredential{
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "existing@example.com",
 						},
@@ -515,9 +515,9 @@ func TestSMTPCredentialUpdate(t *testing.T) {
 		"SuccessfulUpdate": {
 			reason: "Should successfully update SMTP credential password",
 			args: args{
-				mg: &v1alpha1.SMTPCredential{
-					Spec: v1alpha1.SMTPCredentialSpec{
-						ForProvider: v1alpha1.SMTPCredentialParameters{
+				mg: &v1beta1.SMTPCredential{
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain:   "example.com",
 							Login:    "existing@example.com",
 							Password: stringPtr("new-password"),
@@ -574,9 +574,9 @@ func TestSMTPCredentialDelete(t *testing.T) {
 		"SuccessfulDelete": {
 			reason: "Should successfully delete SMTP credential",
 			args: args{
-				mg: &v1alpha1.SMTPCredential{
-					Spec: v1alpha1.SMTPCredentialSpec{
-						ForProvider: v1alpha1.SMTPCredentialParameters{
+				mg: &v1beta1.SMTPCredential{
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "delete@example.com",
 						},
@@ -625,7 +625,7 @@ func stringPtr(s string) *string {
 
 func TestProviderConfigUsageTracker_Track(t *testing.T) {
 	scheme := runtime.NewScheme()
-	require.NoError(t, v1alpha1.SchemeBuilder.AddToScheme(scheme))
+	require.NoError(t, v1beta1.SchemeBuilder.AddToScheme(scheme))
 	require.NoError(t, apisv1beta1.SchemeBuilder.AddToScheme(scheme))
 
 	tests := []struct {
@@ -659,13 +659,13 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 			tracker := newProviderConfigUsageTracker(fakeClient)
 
 			// Create a test SMTPCredential
-			cr := &v1alpha1.SMTPCredential{
+			cr := &v1beta1.SMTPCredential{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-smtp",
 					Namespace: tt.namespace,
 					UID:       types.UID("test-uid-123"),
 				},
-				Spec: v1alpha1.SMTPCredentialSpec{
+				Spec: v1beta1.SMTPCredentialSpec{
 					ResourceSpec: xpv1.ResourceSpec{
 						ProviderConfigReference: &xpv1.Reference{
 							Name: "test-provider-config",
@@ -673,7 +673,7 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 					},
 				},
 			}
-			cr.SetGroupVersionKind(v1alpha1.SMTPCredentialGroupVersionKind)
+			cr.SetGroupVersionKind(v1beta1.SMTPCredentialGroupVersionKind)
 
 			// Track the usage
 			err := tracker.Track(context.Background(), cr)
@@ -713,7 +713,7 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 
 func TestProviderConfigUsageTracker_TrackIdempotent(t *testing.T) {
 	scheme := runtime.NewScheme()
-	require.NoError(t, v1alpha1.SchemeBuilder.AddToScheme(scheme))
+	require.NoError(t, v1beta1.SchemeBuilder.AddToScheme(scheme))
 	require.NoError(t, apisv1beta1.SchemeBuilder.AddToScheme(scheme))
 
 	fakeClient := fake.NewClientBuilder().
@@ -722,13 +722,13 @@ func TestProviderConfigUsageTracker_TrackIdempotent(t *testing.T) {
 
 	tracker := newProviderConfigUsageTracker(fakeClient)
 
-	cr := &v1alpha1.SMTPCredential{
+	cr := &v1beta1.SMTPCredential{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-smtp",
 			Namespace: "test-namespace",
 			UID:       types.UID("test-uid-123"),
 		},
-		Spec: v1alpha1.SMTPCredentialSpec{
+		Spec: v1beta1.SMTPCredentialSpec{
 			ResourceSpec: xpv1.ResourceSpec{
 				ProviderConfigReference: &xpv1.Reference{
 					Name: "test-provider-config",
@@ -736,7 +736,7 @@ func TestProviderConfigUsageTracker_TrackIdempotent(t *testing.T) {
 			},
 		},
 	}
-	cr.SetGroupVersionKind(v1alpha1.SMTPCredentialGroupVersionKind)
+	cr.SetGroupVersionKind(v1beta1.SMTPCredentialGroupVersionKind)
 
 	// Track usage twice - should not error on second attempt
 	err1 := tracker.Track(context.Background(), cr)

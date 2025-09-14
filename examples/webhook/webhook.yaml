@@ -1,6 +1,7 @@
-apiVersion: webhook.mailgun.crossplane.io/v1alpha1
+apiVersion: webhook.mailgun.m.crossplane.io/v1beta1
 kind: Webhook
 metadata:
+  namespace: default
   name: delivery-webhook
 spec:
   forProvider:
@@ -13,9 +14,10 @@ spec:
   providerConfigRef:
     name: default
 ---
-apiVersion: webhook.mailgun.crossplane.io/v1alpha1
+apiVersion: webhook.mailgun.m.crossplane.io/v1beta1
 kind: Webhook
 metadata:
+  namespace: default
   name: open-tracking-webhook
 spec:
   forProvider:
@@ -26,9 +28,10 @@ spec:
   providerConfigRef:
     name: default
 ---
-apiVersion: webhook.mailgun.crossplane.io/v1alpha1
+apiVersion: webhook.mailgun.m.crossplane.io/v1beta1
 kind: Webhook
 metadata:
+  namespace: default
   name: bounce-webhook
 spec:
   forProvider:

@@ -25,11 +25,11 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/rossigee/provider-mailgun/apis/domain/v1alpha1"
-	mailinglistv1alpha1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1alpha1"
-	routev1alpha1 "github.com/rossigee/provider-mailgun/apis/route/v1alpha1"
-	smtpv1alpha1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1alpha1"
-	templatev1alpha1 "github.com/rossigee/provider-mailgun/apis/template/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglistv1beta1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routev1beta1 "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpv1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatev1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/controller/domain"
 	"github.com/rossigee/provider-mailgun/internal/controller/mailinglist"
@@ -529,12 +529,12 @@ func TestCompleteEmailSetupWorkflow(t *testing.T) {
 	t.Run("CreateDomain", func(t *testing.T) {
 		domainExternal := &domain.ExternalForTesting{Client: mockClient}
 
-		domainMg := &v1alpha1.Domain{
+		domainMg := &v1beta1.Domain{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-domain",
 			},
-			Spec: v1alpha1.DomainSpec{
-				ForProvider: v1alpha1.DomainParameters{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{
 					Name: domainName,
 				},
 			},
@@ -556,12 +556,12 @@ func TestCompleteEmailSetupWorkflow(t *testing.T) {
 	t.Run("CreateSMTPCredentials", func(t *testing.T) {
 		smtpExternal := &smtpcredential.ExternalForTesting{Client: mockClient}
 
-		smtpMg := &smtpv1alpha1.SMTPCredential{
+		smtpMg := &smtpv1beta1.SMTPCredential{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-smtp",
 			},
-			Spec: smtpv1alpha1.SMTPCredentialSpec{
-				ForProvider: smtpv1alpha1.SMTPCredentialParameters{
+			Spec: smtpv1beta1.SMTPCredentialSpec{
+				ForProvider: smtpv1beta1.SMTPCredentialParameters{
 					Domain: domainName,
 					Login:  "admin",
 				},
@@ -584,12 +584,12 @@ func TestCompleteEmailSetupWorkflow(t *testing.T) {
 	t.Run("CreateMailingList", func(t *testing.T) {
 		mailingListExternal := &mailinglist.ExternalForTesting{Client: mockClient}
 
-		mailingListMg := &mailinglistv1alpha1.MailingList{
+		mailingListMg := &mailinglistv1beta1.MailingList{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-list",
 			},
-			Spec: mailinglistv1alpha1.MailingListSpec{
-				ForProvider: mailinglistv1alpha1.MailingListParameters{
+			Spec: mailinglistv1beta1.MailingListSpec{
+				ForProvider: mailinglistv1beta1.MailingListParameters{
 					Address:         "newsletter@" + domainName,
 					Name:            stringPtr("Newsletter List"),
 					Description:     stringPtr("Main newsletter mailing list"),
@@ -616,12 +616,12 @@ func TestCompleteEmailSetupWorkflow(t *testing.T) {
 	t.Run("CreateEmailTemplate", func(t *testing.T) {
 		templateExternal := &template.ExternalForTesting{Client: mockClient}
 
-		templateMg := &templatev1alpha1.Template{
+		templateMg := &templatev1beta1.Template{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-template",
 			},
-			Spec: templatev1alpha1.TemplateSpec{
-				ForProvider: templatev1alpha1.TemplateParameters{
+			Spec: templatev1beta1.TemplateSpec{
+				ForProvider: templatev1beta1.TemplateParameters{
 					Domain:      domainName,
 					Name:        "welcome-email",
 					Description: stringPtr("Welcome email template"),
@@ -653,16 +653,16 @@ func TestCompleteEmailSetupWorkflow(t *testing.T) {
 	t.Run("CreateRoutingRule", func(t *testing.T) {
 		routeExternal := &route.ExternalForTesting{Client: mockClient}
 
-		routeMg := &routev1alpha1.Route{
+		routeMg := &routev1beta1.Route{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "test-route",
 			},
-			Spec: routev1alpha1.RouteSpec{
-				ForProvider: routev1alpha1.RouteParameters{
+			Spec: routev1beta1.RouteSpec{
+				ForProvider: routev1beta1.RouteParameters{
 					Priority:    intPtr(10),
 					Description: stringPtr("Newsletter routing rule"),
 					Expression:  "match_recipient(\"newsletter@" + domainName + "\")",
-					Actions: []routev1alpha1.RouteAction{
+					Actions: []routev1beta1.RouteAction{
 						{
 							Type:        "forward",
 							Destination: stringPtr("admin@" + domainName),
@@ -748,9 +748,9 @@ func TestDomainDependencyWorkflow(t *testing.T) {
 	t.Run("CreateDependentResourcesWithoutDomain", func(t *testing.T) {
 		// Try to create SMTP credential without domain
 		smtpExternal := &smtpcredential.ExternalForTesting{Client: mockClient}
-		smtpMg := &smtpv1alpha1.SMTPCredential{
-			Spec: smtpv1alpha1.SMTPCredentialSpec{
-				ForProvider: smtpv1alpha1.SMTPCredentialParameters{
+		smtpMg := &smtpv1beta1.SMTPCredential{
+			Spec: smtpv1beta1.SMTPCredentialSpec{
+				ForProvider: smtpv1beta1.SMTPCredentialParameters{
 					Domain: domainName,
 					Login:  "test",
 				},
@@ -771,9 +771,9 @@ func TestDomainDependencyWorkflow(t *testing.T) {
 
 		// Try to create template without domain
 		templateExternal := &template.ExternalForTesting{Client: mockClient}
-		templateMg := &templatev1alpha1.Template{
-			Spec: templatev1alpha1.TemplateSpec{
-				ForProvider: templatev1alpha1.TemplateParameters{
+		templateMg := &templatev1beta1.Template{
+			Spec: templatev1beta1.TemplateSpec{
+				ForProvider: templatev1beta1.TemplateParameters{
 					Domain: domainName,
 					Name:   "test-template",
 				},
@@ -788,9 +788,9 @@ func TestDomainDependencyWorkflow(t *testing.T) {
 	// Create domain first
 	t.Run("CreateDomain", func(t *testing.T) {
 		domainExternal := &domain.ExternalForTesting{Client: mockClient}
-		domainMg := &v1alpha1.Domain{
-			Spec: v1alpha1.DomainSpec{
-				ForProvider: v1alpha1.DomainParameters{
+		domainMg := &v1beta1.Domain{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{
 					Name: domainName,
 				},
 			},
@@ -804,9 +804,9 @@ func TestDomainDependencyWorkflow(t *testing.T) {
 	t.Run("CreateDependentResourcesWithDomain", func(t *testing.T) {
 		// Create SMTP credential
 		smtpExternal := &smtpcredential.ExternalForTesting{Client: mockClient}
-		smtpMg := &smtpv1alpha1.SMTPCredential{
-			Spec: smtpv1alpha1.SMTPCredentialSpec{
-				ForProvider: smtpv1alpha1.SMTPCredentialParameters{
+		smtpMg := &smtpv1beta1.SMTPCredential{
+			Spec: smtpv1beta1.SMTPCredentialSpec{
+				ForProvider: smtpv1beta1.SMTPCredentialParameters{
 					Domain: domainName,
 					Login:  "test",
 				},
@@ -825,9 +825,9 @@ func TestDomainDependencyWorkflow(t *testing.T) {
 
 		// Create template
 		templateExternal := &template.ExternalForTesting{Client: mockClient}
-		templateMg := &templatev1alpha1.Template{
-			Spec: templatev1alpha1.TemplateSpec{
-				ForProvider: templatev1alpha1.TemplateParameters{
+		templateMg := &templatev1beta1.Template{
+			Spec: templatev1beta1.TemplateSpec{
+				ForProvider: templatev1beta1.TemplateParameters{
 					Domain: domainName,
 					Name:   "test-template",
 				},
@@ -850,9 +850,9 @@ func TestResourceUpdateCascade(t *testing.T) {
 	t.Run("SetupResources", func(t *testing.T) {
 		// Create domain
 		domainExternal := &domain.ExternalForTesting{Client: mockClient}
-		domainMg := &v1alpha1.Domain{
-			Spec: v1alpha1.DomainSpec{
-				ForProvider: v1alpha1.DomainParameters{
+		domainMg := &v1beta1.Domain{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{
 					Name: domainName,
 				},
 			},
@@ -862,9 +862,9 @@ func TestResourceUpdateCascade(t *testing.T) {
 
 		// Create mailing list
 		mailingListExternal := &mailinglist.ExternalForTesting{Client: mockClient}
-		mailingListMg := &mailinglistv1alpha1.MailingList{
-			Spec: mailinglistv1alpha1.MailingListSpec{
-				ForProvider: mailinglistv1alpha1.MailingListParameters{
+		mailingListMg := &mailinglistv1beta1.MailingList{
+			Spec: mailinglistv1beta1.MailingListSpec{
+				ForProvider: mailinglistv1beta1.MailingListParameters{
 					Address:     "test@" + domainName,
 					Name:        stringPtr("Original Name"),
 					AccessLevel: stringPtr("readonly"),
@@ -878,9 +878,9 @@ func TestResourceUpdateCascade(t *testing.T) {
 	// Test updating domain configuration
 	t.Run("UpdateDomainConfiguration", func(t *testing.T) {
 		domainExternal := &domain.ExternalForTesting{Client: mockClient}
-		domainMg := &v1alpha1.Domain{
-			Spec: v1alpha1.DomainSpec{
-				ForProvider: v1alpha1.DomainParameters{
+		domainMg := &v1beta1.Domain{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{
 					Name: domainName,
 				},
 			},
@@ -898,9 +898,9 @@ func TestResourceUpdateCascade(t *testing.T) {
 	// Test updating mailing list settings
 	t.Run("UpdateMailingListSettings", func(t *testing.T) {
 		mailingListExternal := &mailinglist.ExternalForTesting{Client: mockClient}
-		mailingListMg := &mailinglistv1alpha1.MailingList{
-			Spec: mailinglistv1alpha1.MailingListSpec{
-				ForProvider: mailinglistv1alpha1.MailingListParameters{
+		mailingListMg := &mailinglistv1beta1.MailingList{
+			Spec: mailinglistv1beta1.MailingListSpec{
+				ForProvider: mailinglistv1beta1.MailingListParameters{
 					Address:     "test@" + domainName,
 					Name:        stringPtr("Updated Name"),
 					AccessLevel: stringPtr("members"), // Change from readonly to members
@@ -930,9 +930,9 @@ func TestResourceDeletionOrder(t *testing.T) {
 	t.Run("SetupCompleteInfrastructure", func(t *testing.T) {
 		// Create domain
 		domainExternal := &domain.ExternalForTesting{Client: mockClient}
-		domainMg := &v1alpha1.Domain{
-			Spec: v1alpha1.DomainSpec{
-				ForProvider: v1alpha1.DomainParameters{
+		domainMg := &v1beta1.Domain{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{
 					Name: domainName,
 				},
 			},
@@ -942,9 +942,9 @@ func TestResourceDeletionOrder(t *testing.T) {
 
 		// Create dependent resources
 		smtpExternal := &smtpcredential.ExternalForTesting{Client: mockClient}
-		smtpMg := &smtpv1alpha1.SMTPCredential{
-			Spec: smtpv1alpha1.SMTPCredentialSpec{
-				ForProvider: smtpv1alpha1.SMTPCredentialParameters{
+		smtpMg := &smtpv1beta1.SMTPCredential{
+			Spec: smtpv1beta1.SMTPCredentialSpec{
+				ForProvider: smtpv1beta1.SMTPCredentialParameters{
 					Domain: domainName,
 					Login:  "test",
 				},
@@ -960,9 +960,9 @@ func TestResourceDeletionOrder(t *testing.T) {
 		require.NoError(t, err)
 
 		templateExternal := &template.ExternalForTesting{Client: mockClient}
-		templateMg := &templatev1alpha1.Template{
-			Spec: templatev1alpha1.TemplateSpec{
-				ForProvider: templatev1alpha1.TemplateParameters{
+		templateMg := &templatev1beta1.Template{
+			Spec: templatev1beta1.TemplateSpec{
+				ForProvider: templatev1beta1.TemplateParameters{
 					Domain: domainName,
 					Name:   "test-template",
 				},
@@ -976,9 +976,9 @@ func TestResourceDeletionOrder(t *testing.T) {
 	t.Run("DeleteDependentResources", func(t *testing.T) {
 		// Delete SMTP credential
 		smtpExternal := &smtpcredential.ExternalForTesting{Client: mockClient}
-		smtpMg := &smtpv1alpha1.SMTPCredential{
-			Spec: smtpv1alpha1.SMTPCredentialSpec{
-				ForProvider: smtpv1alpha1.SMTPCredentialParameters{
+		smtpMg := &smtpv1beta1.SMTPCredential{
+			Spec: smtpv1beta1.SMTPCredentialSpec{
+				ForProvider: smtpv1beta1.SMTPCredentialParameters{
 					Domain: domainName,
 					Login:  "test",
 				},
@@ -993,9 +993,9 @@ func TestResourceDeletionOrder(t *testing.T) {
 
 		// Delete template
 		templateExternal := &template.ExternalForTesting{Client: mockClient}
-		templateMg := &templatev1alpha1.Template{
-			Spec: templatev1alpha1.TemplateSpec{
-				ForProvider: templatev1alpha1.TemplateParameters{
+		templateMg := &templatev1beta1.Template{
+			Spec: templatev1beta1.TemplateSpec{
+				ForProvider: templatev1beta1.TemplateParameters{
 					Domain: domainName,
 					Name:   "test-template",
 				},
@@ -1008,9 +1008,9 @@ func TestResourceDeletionOrder(t *testing.T) {
 	// Now delete the domain
 	t.Run("DeleteDomain", func(t *testing.T) {
 		domainExternal := &domain.ExternalForTesting{Client: mockClient}
-		domainMg := &v1alpha1.Domain{
-			Spec: v1alpha1.DomainSpec{
-				ForProvider: v1alpha1.DomainParameters{
+		domainMg := &v1beta1.Domain{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{
 					Name: domainName,
 				},
 			},
@@ -1038,9 +1038,9 @@ func TestMultipleDomainScenario(t *testing.T) {
 		for i, domainName := range domains {
 			// Create domain
 			domainExternal := &domain.ExternalForTesting{Client: mockClient}
-			domainMg := &v1alpha1.Domain{
-				Spec: v1alpha1.DomainSpec{
-					ForProvider: v1alpha1.DomainParameters{
+			domainMg := &v1beta1.Domain{
+				Spec: v1beta1.DomainSpec{
+					ForProvider: v1beta1.DomainParameters{
 						Name: domainName,
 					},
 				},
@@ -1050,9 +1050,9 @@ func TestMultipleDomainScenario(t *testing.T) {
 
 			// Create domain-specific mailing list
 			mailingListExternal := &mailinglist.ExternalForTesting{Client: mockClient}
-			mailingListMg := &mailinglistv1alpha1.MailingList{
-				Spec: mailinglistv1alpha1.MailingListSpec{
-					ForProvider: mailinglistv1alpha1.MailingListParameters{
+			mailingListMg := &mailinglistv1beta1.MailingList{
+				Spec: mailinglistv1beta1.MailingListSpec{
+					ForProvider: mailinglistv1beta1.MailingListParameters{
 						Address: "newsletter@" + domainName,
 						Name:    stringPtr("Newsletter " + domainName),
 					},
@@ -1063,9 +1063,9 @@ func TestMultipleDomainScenario(t *testing.T) {
 
 			// Create domain-specific SMTP credential
 			smtpExternal := &smtpcredential.ExternalForTesting{Client: mockClient}
-			smtpMg := &smtpv1alpha1.SMTPCredential{
-				Spec: smtpv1alpha1.SMTPCredentialSpec{
-					ForProvider: smtpv1alpha1.SMTPCredentialParameters{
+			smtpMg := &smtpv1beta1.SMTPCredential{
+				Spec: smtpv1beta1.SMTPCredentialSpec{
+					ForProvider: smtpv1beta1.SMTPCredentialParameters{
 						Domain: domainName,
 						Login:  "admin" + string(rune('0'+i)),
 					},

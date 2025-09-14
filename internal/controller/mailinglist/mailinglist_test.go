@@ -28,7 +28,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/rossigee/provider-mailgun/apis/mailinglist/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
@@ -257,9 +257,9 @@ func TestMailingListObserve(t *testing.T) {
 		"MailingListExists": {
 			reason: "Should return ResourceExists when mailing list exists",
 			args: args{
-				mg: &v1alpha1.MailingList{
-					Spec: v1alpha1.MailingListSpec{
-						ForProvider: v1alpha1.MailingListParameters{
+				mg: &v1beta1.MailingList{
+					Spec: v1beta1.MailingListSpec{
+						ForProvider: v1beta1.MailingListParameters{
 							Address: "test@example.com",
 						},
 					},
@@ -275,9 +275,9 @@ func TestMailingListObserve(t *testing.T) {
 		"MailingListNotFound": {
 			reason: "Should return ResourceExists false when mailing list not found",
 			args: args{
-				mg: &v1alpha1.MailingList{
-					Spec: v1alpha1.MailingListSpec{
-						ForProvider: v1alpha1.MailingListParameters{
+				mg: &v1beta1.MailingList{
+					Spec: v1beta1.MailingListSpec{
+						ForProvider: v1beta1.MailingListParameters{
 							Address: "notfound@example.com",
 						},
 					},
@@ -343,9 +343,9 @@ func TestMailingListCreate(t *testing.T) {
 		"SuccessfulCreate": {
 			reason: "Should successfully create mailing list",
 			args: args{
-				mg: &v1alpha1.MailingList{
-					Spec: v1alpha1.MailingListSpec{
-						ForProvider: v1alpha1.MailingListParameters{
+				mg: &v1beta1.MailingList{
+					Spec: v1beta1.MailingListSpec{
+						ForProvider: v1beta1.MailingListParameters{
 							Address:     "new@example.com",
 							Name:        stringPtr("New List"),
 							AccessLevel: stringPtr("readonly"),
@@ -396,9 +396,9 @@ func TestMailingListUpdate(t *testing.T) {
 		"SuccessfulUpdate": {
 			reason: "Should successfully update mailing list",
 			args: args{
-				mg: &v1alpha1.MailingList{
-					Spec: v1alpha1.MailingListSpec{
-						ForProvider: v1alpha1.MailingListParameters{
+				mg: &v1beta1.MailingList{
+					Spec: v1beta1.MailingListSpec{
+						ForProvider: v1beta1.MailingListParameters{
 							Address:     "existing@example.com",
 							Name:        stringPtr("Updated List"),
 							AccessLevel: stringPtr("members"),
@@ -460,9 +460,9 @@ func TestMailingListDelete(t *testing.T) {
 		"SuccessfulDelete": {
 			reason: "Should successfully delete mailing list",
 			args: args{
-				mg: &v1alpha1.MailingList{
-					Spec: v1alpha1.MailingListSpec{
-						ForProvider: v1alpha1.MailingListParameters{
+				mg: &v1beta1.MailingList{
+					Spec: v1beta1.MailingListSpec{
+						ForProvider: v1beta1.MailingListParameters{
 							Address: "delete@example.com",
 						},
 					},
@@ -537,9 +537,9 @@ func TestMailingListObserveErrors(t *testing.T) {
 			}
 
 			e := &external{service: mockClient}
-			mg := &v1alpha1.MailingList{
-				Spec: v1alpha1.MailingListSpec{
-					ForProvider: v1alpha1.MailingListParameters{
+			mg := &v1beta1.MailingList{
+				Spec: v1beta1.MailingListSpec{
+					ForProvider: v1beta1.MailingListParameters{
 						Address: "test@example.com",
 					},
 				},
@@ -580,9 +580,9 @@ func TestMailingListCreateErrors(t *testing.T) {
 			mockClient := &MockMailingListClient{err: tc.mockErr}
 			e := &external{service: mockClient}
 
-			mg := &v1alpha1.MailingList{
-				Spec: v1alpha1.MailingListSpec{
-					ForProvider: v1alpha1.MailingListParameters{
+			mg := &v1beta1.MailingList{
+				Spec: v1beta1.MailingListSpec{
+					ForProvider: v1beta1.MailingListParameters{
 						Address:     "error@example.com",
 						Name:        stringPtr("Error List"),
 						Description: stringPtr("Error test list"),
@@ -625,9 +625,9 @@ func TestMailingListUpdateErrors(t *testing.T) {
 			mockClient := &MockMailingListClient{err: tc.mockErr}
 			e := &external{service: mockClient}
 
-			mg := &v1alpha1.MailingList{
-				Spec: v1alpha1.MailingListSpec{
-					ForProvider: v1alpha1.MailingListParameters{
+			mg := &v1beta1.MailingList{
+				Spec: v1beta1.MailingListSpec{
+					ForProvider: v1beta1.MailingListParameters{
 						Address:     "error@example.com",
 						Name:        stringPtr("Updated List"),
 						Description: stringPtr("Updated description"),
@@ -669,9 +669,9 @@ func TestMailingListDeleteErrors(t *testing.T) {
 			mockClient := &MockMailingListClient{err: tc.mockErr}
 			e := &external{service: mockClient}
 
-			mg := &v1alpha1.MailingList{
-				Spec: v1alpha1.MailingListSpec{
-					ForProvider: v1alpha1.MailingListParameters{
+			mg := &v1beta1.MailingList{
+				Spec: v1beta1.MailingListSpec{
+					ForProvider: v1beta1.MailingListParameters{
 						Address: "error@example.com",
 					},
 				},
@@ -695,9 +695,9 @@ func TestMailingListEdgeCases(t *testing.T) {
 		e := &external{service: mockClient}
 
 		// Mailing list with only required fields
-		mg := &v1alpha1.MailingList{
-			Spec: v1alpha1.MailingListSpec{
-				ForProvider: v1alpha1.MailingListParameters{
+		mg := &v1beta1.MailingList{
+			Spec: v1beta1.MailingListSpec{
+				ForProvider: v1beta1.MailingListParameters{
 					Address: "minimal@example.com",
 					// Name, Description, AccessLevel, ReplyPreference are nil/empty
 				},
@@ -719,9 +719,9 @@ func TestMailingListEdgeCases(t *testing.T) {
 		e := &external{service: mockClient}
 
 		// Mailing list with all fields specified
-		mg := &v1alpha1.MailingList{
-			Spec: v1alpha1.MailingListSpec{
-				ForProvider: v1alpha1.MailingListParameters{
+		mg := &v1beta1.MailingList{
+			Spec: v1beta1.MailingListSpec{
+				ForProvider: v1beta1.MailingListParameters{
 					Address:         "complete@example.com",
 					Name:            stringPtr("Complete Test List"),
 					Description:     stringPtr("A comprehensive test mailing list with all configuration options"),
@@ -760,9 +760,9 @@ func TestMailingListEdgeCases(t *testing.T) {
 		}
 		e := &external{service: mockClient}
 
-		mg := &v1alpha1.MailingList{
-			Spec: v1alpha1.MailingListSpec{
-				ForProvider: v1alpha1.MailingListParameters{
+		mg := &v1beta1.MailingList{
+			Spec: v1beta1.MailingListSpec{
+				ForProvider: v1beta1.MailingListParameters{
 					Address: "status@example.com",
 				},
 			},
@@ -800,9 +800,9 @@ func TestMailingListEdgeCases(t *testing.T) {
 		e := &external{service: mockClient}
 
 		// Update only the name field
-		mg := &v1alpha1.MailingList{
-			Spec: v1alpha1.MailingListSpec{
-				ForProvider: v1alpha1.MailingListParameters{
+		mg := &v1beta1.MailingList{
+			Spec: v1beta1.MailingListSpec{
+				ForProvider: v1beta1.MailingListParameters{
 					Address: "partial@example.com",
 					Name:    stringPtr("Updated Name Only"),
 					// Description, AccessLevel, ReplyPreference not specified
@@ -834,9 +834,9 @@ func TestMailingListAccessLevelsAndReplyPreferences(t *testing.T) {
 				e := &external{service: mockClient}
 
 				address := fmt.Sprintf("%s-%s@example.com", accessLevel, replyPref)
-				mg := &v1alpha1.MailingList{
-					Spec: v1alpha1.MailingListSpec{
-						ForProvider: v1alpha1.MailingListParameters{
+				mg := &v1beta1.MailingList{
+					Spec: v1beta1.MailingListSpec{
+						ForProvider: v1beta1.MailingListParameters{
 							Address:         address,
 							Name:            stringPtr(fmt.Sprintf("Test %s %s", accessLevel, replyPref)),
 							AccessLevel:     &accessLevel,

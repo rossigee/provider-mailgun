@@ -27,8 +27,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/rossigee/provider-mailgun/apis/template/v1alpha1"
-	domainv1alpha1 "github.com/rossigee/provider-mailgun/apis/domain/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	domainv1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
@@ -252,9 +252,9 @@ func TestTemplateObserve(t *testing.T) {
 		"TemplateExists": {
 			reason: "Should return ResourceExists when template exists",
 			args: args{
-				mg: &v1alpha1.Template{
-					Spec: v1alpha1.TemplateSpec{
-						ForProvider: v1alpha1.TemplateParameters{
+				mg: &v1beta1.Template{
+					Spec: v1beta1.TemplateSpec{
+						ForProvider: v1beta1.TemplateParameters{
 							Domain: "example.com",
 							Name:   "test-template",
 						},
@@ -271,9 +271,9 @@ func TestTemplateObserve(t *testing.T) {
 		"TemplateNotFound": {
 			reason: "Should return ResourceExists false when template not found",
 			args: args{
-				mg: &v1alpha1.Template{
-					Spec: v1alpha1.TemplateSpec{
-						ForProvider: v1alpha1.TemplateParameters{
+				mg: &v1beta1.Template{
+					Spec: v1beta1.TemplateSpec{
+						ForProvider: v1beta1.TemplateParameters{
 							Domain: "example.com",
 							Name:   "nonexistent-template",
 						},
@@ -346,9 +346,9 @@ func TestTemplateCreate(t *testing.T) {
 		"SuccessfulCreate": {
 			reason: "Should successfully create template",
 			args: args{
-				mg: &v1alpha1.Template{
-					Spec: v1alpha1.TemplateSpec{
-						ForProvider: v1alpha1.TemplateParameters{
+				mg: &v1beta1.Template{
+					Spec: v1beta1.TemplateSpec{
+						ForProvider: v1beta1.TemplateParameters{
 							Domain:      "example.com",
 							Name:        "new-template",
 							Description: stringPtr("New test template"),
@@ -399,9 +399,9 @@ func TestTemplateUpdate(t *testing.T) {
 		"SuccessfulUpdate": {
 			reason: "Should successfully update template description",
 			args: args{
-				mg: &v1alpha1.Template{
-					Spec: v1alpha1.TemplateSpec{
-						ForProvider: v1alpha1.TemplateParameters{
+				mg: &v1beta1.Template{
+					Spec: v1beta1.TemplateSpec{
+						ForProvider: v1beta1.TemplateParameters{
 							Domain:      "example.com",
 							Name:        "existing-template",
 							Description: stringPtr("Updated description"),
@@ -458,9 +458,9 @@ func TestTemplateDelete(t *testing.T) {
 		"SuccessfulDelete": {
 			reason: "Should successfully delete template",
 			args: args{
-				mg: &v1alpha1.Template{
-					Spec: v1alpha1.TemplateSpec{
-						ForProvider: v1alpha1.TemplateParameters{
+				mg: &v1beta1.Template{
+					Spec: v1beta1.TemplateSpec{
+						ForProvider: v1beta1.TemplateParameters{
 							Domain: "example.com",
 							Name:   "delete-template",
 						},
@@ -540,9 +540,9 @@ func TestTemplateObserveErrors(t *testing.T) {
 			}
 
 			e := &external{client: mockClient}
-			mg := &v1alpha1.Template{
-				Spec: v1alpha1.TemplateSpec{
-					ForProvider: v1alpha1.TemplateParameters{
+			mg := &v1beta1.Template{
+				Spec: v1beta1.TemplateSpec{
+					ForProvider: v1beta1.TemplateParameters{
 						Domain: "example.com",
 						Name:   "test-template",
 					},
@@ -583,9 +583,9 @@ func TestTemplateCreateErrors(t *testing.T) {
 			mockClient := &MockTemplateClient{err: tc.mockErr}
 			e := &external{client: mockClient}
 
-			mg := &v1alpha1.Template{
-				Spec: v1alpha1.TemplateSpec{
-					ForProvider: v1alpha1.TemplateParameters{
+			mg := &v1beta1.Template{
+				Spec: v1beta1.TemplateSpec{
+					ForProvider: v1beta1.TemplateParameters{
 						Domain:      "example.com",
 						Name:        "error-template",
 						Description: stringPtr("Error test template"),
@@ -629,9 +629,9 @@ func TestTemplateUpdateErrors(t *testing.T) {
 			mockClient := &MockTemplateClient{err: tc.mockErr}
 			e := &external{client: mockClient}
 
-			mg := &v1alpha1.Template{
-				Spec: v1alpha1.TemplateSpec{
-					ForProvider: v1alpha1.TemplateParameters{
+			mg := &v1beta1.Template{
+				Spec: v1beta1.TemplateSpec{
+					ForProvider: v1beta1.TemplateParameters{
 						Domain:      "example.com",
 						Name:        "error-template",
 						Description: stringPtr("Updated description"),
@@ -673,9 +673,9 @@ func TestTemplateDeleteErrors(t *testing.T) {
 			mockClient := &MockTemplateClient{err: tc.mockErr}
 			e := &external{client: mockClient}
 
-			mg := &v1alpha1.Template{
-				Spec: v1alpha1.TemplateSpec{
-					ForProvider: v1alpha1.TemplateParameters{
+			mg := &v1beta1.Template{
+				Spec: v1beta1.TemplateSpec{
+					ForProvider: v1beta1.TemplateParameters{
 						Domain: "example.com",
 						Name:   "error-template",
 					},
@@ -700,9 +700,9 @@ func TestTemplateEdgeCases(t *testing.T) {
 		e := &external{client: mockClient}
 
 		// Template with minimal required fields
-		mg := &v1alpha1.Template{
-			Spec: v1alpha1.TemplateSpec{
-				ForProvider: v1alpha1.TemplateParameters{
+		mg := &v1beta1.Template{
+			Spec: v1beta1.TemplateSpec{
+				ForProvider: v1beta1.TemplateParameters{
 					Domain: "example.com",
 					Name:   "minimal-template",
 					// Description, Template, Engine are nil/empty
@@ -747,9 +747,9 @@ func TestTemplateEdgeCases(t *testing.T) {
 </body>
 </html>`
 
-		mg := &v1alpha1.Template{
-			Spec: v1alpha1.TemplateSpec{
-				ForProvider: v1alpha1.TemplateParameters{
+		mg := &v1beta1.Template{
+			Spec: v1beta1.TemplateSpec{
+				ForProvider: v1beta1.TemplateParameters{
 					Domain:      "example.com",
 					Name:        "complex-template",
 					Description: stringPtr("Complex HTML template with CSS and Mustache syntax"),
@@ -794,9 +794,9 @@ func TestTemplateEdgeCases(t *testing.T) {
 		}
 		e := &external{client: mockClient}
 
-		mg := &v1alpha1.Template{
-			Spec: v1alpha1.TemplateSpec{
-				ForProvider: v1alpha1.TemplateParameters{
+		mg := &v1beta1.Template{
+			Spec: v1beta1.TemplateSpec{
+				ForProvider: v1beta1.TemplateParameters{
 					Domain: "example.com",
 					Name:   "status-template",
 				},
@@ -858,7 +858,7 @@ func TestTemplateInvalidManagedResource(t *testing.T) {
 			e := &external{client: mockClient}
 
 			// Use a different resource type (not Template)
-			invalidMg := &domainv1alpha1.Domain{} // Wrong type
+			invalidMg := &domainv1beta1.Domain{} // Wrong type
 
 			err := op.op(e, context.Background(), invalidMg)
 			// Should handle gracefully without panicking

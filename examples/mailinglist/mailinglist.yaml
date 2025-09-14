@@ -1,6 +1,7 @@
-apiVersion: mailinglist.mailgun.crossplane.io/v1alpha1
+apiVersion: mailinglist.mailgun.m.crossplane.io/v1beta1
 kind: MailingList
 metadata:
+  namespace: default
   name: newsletter-list
 spec:
   forProvider:
@@ -23,9 +24,10 @@ spec:
   providerConfigRef:
     name: default
 ---
-apiVersion: mailinglist.mailgun.crossplane.io/v1alpha1
+apiVersion: mailinglist.mailgun.m.crossplane.io/v1beta1
 kind: MailingList
 metadata:
+  namespace: default
   name: support-list
 spec:
   forProvider:

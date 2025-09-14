@@ -28,7 +28,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/rossigee/provider-mailgun/apis/route/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
@@ -262,12 +262,12 @@ func TestRouteObserve(t *testing.T) {
 		"RouteExists": {
 			reason: "Should return ResourceExists when route exists",
 			args: args{
-				mg: func() *v1alpha1.Route {
-					r := &v1alpha1.Route{
-						Spec: v1alpha1.RouteSpec{
-							ForProvider: v1alpha1.RouteParameters{
+				mg: func() *v1beta1.Route {
+					r := &v1beta1.Route{
+						Spec: v1beta1.RouteSpec{
+							ForProvider: v1beta1.RouteParameters{
 								Expression: "match_recipient(\".*@example.com\")",
-								Actions: []v1alpha1.RouteAction{
+								Actions: []v1beta1.RouteAction{
 									{
 										Type:        "forward",
 										Destination: stringPtr("user@destination.com"),
@@ -293,12 +293,12 @@ func TestRouteObserve(t *testing.T) {
 		"RouteNotFound": {
 			reason: "Should return ResourceExists false when route not found",
 			args: args{
-				mg: func() *v1alpha1.Route {
-					r := &v1alpha1.Route{
-						Spec: v1alpha1.RouteSpec{
-							ForProvider: v1alpha1.RouteParameters{
+				mg: func() *v1beta1.Route {
+					r := &v1beta1.Route{
+						Spec: v1beta1.RouteSpec{
+							ForProvider: v1beta1.RouteParameters{
 								Expression: "match_recipient(\".*@notfound.com\")",
-								Actions: []v1alpha1.RouteAction{
+								Actions: []v1beta1.RouteAction{
 									{Type: "stop"},
 								},
 							},
@@ -375,13 +375,13 @@ func TestRouteCreate(t *testing.T) {
 		"SuccessfulCreate": {
 			reason: "Should successfully create route",
 			args: args{
-				mg: &v1alpha1.Route{
-					Spec: v1alpha1.RouteSpec{
-						ForProvider: v1alpha1.RouteParameters{
+				mg: &v1beta1.Route{
+					Spec: v1beta1.RouteSpec{
+						ForProvider: v1beta1.RouteParameters{
 							Priority:    intPtr(10),
 							Description: stringPtr("New route"),
 							Expression:  "match_recipient(\".*@new.com\")",
-							Actions: []v1alpha1.RouteAction{
+							Actions: []v1beta1.RouteAction{
 								{
 									Type:        "forward",
 									Destination: stringPtr("admin@new.com"),
@@ -433,12 +433,12 @@ func TestRouteDelete(t *testing.T) {
 		"SuccessfulDelete": {
 			reason: "Should successfully delete route",
 			args: args{
-				mg: func() *v1alpha1.Route {
-					r := &v1alpha1.Route{
-						Spec: v1alpha1.RouteSpec{
-							ForProvider: v1alpha1.RouteParameters{
+				mg: func() *v1beta1.Route {
+					r := &v1beta1.Route{
+						Spec: v1beta1.RouteSpec{
+							ForProvider: v1beta1.RouteParameters{
 								Expression: "match_recipient(\".*@delete.com\")",
-								Actions: []v1alpha1.RouteAction{
+								Actions: []v1beta1.RouteAction{
 									{Type: "stop"},
 								},
 							},
@@ -504,14 +504,14 @@ func TestRouteUpdate(t *testing.T) {
 		"SuccessfulUpdate": {
 			reason: "Should successfully update route",
 			args: args{
-				mg: func() *v1alpha1.Route {
-					r := &v1alpha1.Route{
-						Spec: v1alpha1.RouteSpec{
-							ForProvider: v1alpha1.RouteParameters{
+				mg: func() *v1beta1.Route {
+					r := &v1beta1.Route{
+						Spec: v1beta1.RouteSpec{
+							ForProvider: v1beta1.RouteParameters{
 								Priority:    intPtr(20),
 								Description: stringPtr("Updated route"),
 								Expression:  "match_recipient(\".*@updated.com\")",
-								Actions: []v1alpha1.RouteAction{
+								Actions: []v1beta1.RouteAction{
 									{
 										Type:        "forward",
 										Destination: stringPtr("updated@destination.com"),
@@ -608,12 +608,12 @@ func TestRouteObserveErrors(t *testing.T) {
 			}
 
 			e := &external{service: mockClient}
-			mg := func() *v1alpha1.Route {
-				r := &v1alpha1.Route{
-					Spec: v1alpha1.RouteSpec{
-						ForProvider: v1alpha1.RouteParameters{
+			mg := func() *v1beta1.Route {
+				r := &v1beta1.Route{
+					Spec: v1beta1.RouteSpec{
+						ForProvider: v1beta1.RouteParameters{
 							Expression: "match_recipient(\".*@test.com\")",
-							Actions:    []v1alpha1.RouteAction{{Type: "stop"}},
+							Actions:    []v1beta1.RouteAction{{Type: "stop"}},
 						},
 					},
 				}
@@ -658,13 +658,13 @@ func TestRouteCreateErrors(t *testing.T) {
 			mockClient := &MockRouteClient{err: tc.mockErr}
 			e := &external{service: mockClient}
 
-			mg := &v1alpha1.Route{
-				Spec: v1alpha1.RouteSpec{
-					ForProvider: v1alpha1.RouteParameters{
+			mg := &v1beta1.Route{
+				Spec: v1beta1.RouteSpec{
+					ForProvider: v1beta1.RouteParameters{
 						Priority:    intPtr(10),
 						Description: stringPtr("Error test route"),
 						Expression:  "invalid_expression",
-						Actions: []v1alpha1.RouteAction{
+						Actions: []v1beta1.RouteAction{
 							{Type: "stop"},
 						},
 					},
@@ -705,12 +705,12 @@ func TestRouteUpdateErrors(t *testing.T) {
 			mockClient := &MockRouteClient{err: tc.mockErr}
 			e := &external{service: mockClient}
 
-			mg := func() *v1alpha1.Route {
-				r := &v1alpha1.Route{
-					Spec: v1alpha1.RouteSpec{
-						ForProvider: v1alpha1.RouteParameters{
+			mg := func() *v1beta1.Route {
+				r := &v1beta1.Route{
+					Spec: v1beta1.RouteSpec{
+						ForProvider: v1beta1.RouteParameters{
 							Expression: "match_recipient(\".*@error.com\")",
-							Actions:    []v1alpha1.RouteAction{{Type: "stop"}},
+							Actions:    []v1beta1.RouteAction{{Type: "stop"}},
 						},
 					},
 				}
@@ -754,12 +754,12 @@ func TestRouteDeleteErrors(t *testing.T) {
 			mockClient := &MockRouteClient{err: tc.mockErr}
 			e := &external{service: mockClient}
 
-			mg := func() *v1alpha1.Route {
-				r := &v1alpha1.Route{
-					Spec: v1alpha1.RouteSpec{
-						ForProvider: v1alpha1.RouteParameters{
+			mg := func() *v1beta1.Route {
+				r := &v1beta1.Route{
+					Spec: v1beta1.RouteSpec{
+						ForProvider: v1beta1.RouteParameters{
 							Expression: "match_recipient(\".*@error.com\")",
-							Actions:    []v1alpha1.RouteAction{{Type: "stop"}},
+							Actions:    []v1beta1.RouteAction{{Type: "stop"}},
 						},
 					},
 				}
@@ -787,11 +787,11 @@ func TestRouteEdgeCases(t *testing.T) {
 		e := &external{service: mockClient}
 
 		// Route with only required fields
-		mg := &v1alpha1.Route{
-			Spec: v1alpha1.RouteSpec{
-				ForProvider: v1alpha1.RouteParameters{
+		mg := &v1beta1.Route{
+			Spec: v1beta1.RouteSpec{
+				ForProvider: v1beta1.RouteParameters{
 					Expression: "match_recipient(\".*@minimal.com\")",
-					Actions: []v1alpha1.RouteAction{
+					Actions: []v1beta1.RouteAction{
 						{Type: "stop"},
 					},
 					// Priority and Description are nil/empty
@@ -815,13 +815,13 @@ func TestRouteEdgeCases(t *testing.T) {
 		e := &external{service: mockClient}
 
 		// Route with multiple actions and complex expression
-		mg := &v1alpha1.Route{
-			Spec: v1alpha1.RouteSpec{
-				ForProvider: v1alpha1.RouteParameters{
+		mg := &v1beta1.Route{
+			Spec: v1beta1.RouteSpec{
+				ForProvider: v1beta1.RouteParameters{
 					Priority:    intPtr(50),
 					Description: stringPtr("Complex multi-action route for sales team"),
 					Expression:  "match_recipient(\"sales-.*@company.com\") AND match_header(\"X-Priority\", \"high\")",
-					Actions: []v1alpha1.RouteAction{
+					Actions: []v1beta1.RouteAction{
 						{
 							Type:        "forward",
 							Destination: stringPtr("sales-manager@company.com"),
@@ -870,12 +870,12 @@ func TestRouteEdgeCases(t *testing.T) {
 		}
 		e := &external{service: mockClient}
 
-		mg := func() *v1alpha1.Route {
-			r := &v1alpha1.Route{
-				Spec: v1alpha1.RouteSpec{
-					ForProvider: v1alpha1.RouteParameters{
+		mg := func() *v1beta1.Route {
+			r := &v1beta1.Route{
+				Spec: v1beta1.RouteSpec{
+					ForProvider: v1beta1.RouteParameters{
 						Expression: "match_recipient(\".*@status.com\")",
-						Actions:    []v1alpha1.RouteAction{{Type: "forward"}},
+						Actions:    []v1beta1.RouteAction{{Type: "forward"}},
 					},
 				},
 			}
@@ -916,11 +916,11 @@ func TestRouteActionTypes(t *testing.T) {
 			mockClient := &MockRouteClient{}
 			e := &external{service: mockClient}
 
-			mg := &v1alpha1.Route{
-				Spec: v1alpha1.RouteSpec{
-					ForProvider: v1alpha1.RouteParameters{
+			mg := &v1beta1.Route{
+				Spec: v1beta1.RouteSpec{
+					ForProvider: v1beta1.RouteParameters{
 						Expression: fmt.Sprintf("match_recipient(\".*@%s.com\")", action.type_),
-						Actions: []v1alpha1.RouteAction{
+						Actions: []v1beta1.RouteAction{
 							{
 								Type:        action.type_,
 								Destination: action.dest,

@@ -34,7 +34,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	clients "github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/metrics"
@@ -51,12 +51,12 @@ const (
 
 // Setup adds a controller that reconciles SMTPCredential managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
-	name := managed.ControllerName(v1alpha1.SMTPCredentialKind)
+	name := managed.ControllerName(v1beta1.SMTPCredentialKind)
 
 	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
 
 	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1alpha1.SMTPCredentialGroupVersionKind),
+		resource.ManagedKind(v1beta1.SMTPCredentialGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
 			usage:        newProviderConfigUsageTracker(mgr.GetClient()),
@@ -70,7 +70,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		Named(name).
 		WithOptions(o.ForControllerRuntime()).
 		WithEventFilter(resource.DesiredStateChanged()).
-		For(&v1alpha1.SMTPCredential{}).
+		For(&v1beta1.SMTPCredential{}).
 		Complete(r)
 }
 
@@ -88,7 +88,7 @@ type connector struct {
 // 3. Getting the credentials specified by the ProviderConfig.
 // 4. Using the credentials to form a client.
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
-	cr, ok := mg.(*v1alpha1.SMTPCredential)
+	cr, ok := mg.(*v1beta1.SMTPCredential)
 	if !ok {
 		return nil, errors.New(errNotSMTPCredential)
 	}
@@ -202,7 +202,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		"namespace", mg.GetNamespace(),
 	)
 
-	cr, ok := mg.(*v1alpha1.SMTPCredential)
+	cr, ok := mg.(*v1beta1.SMTPCredential)
 	if !ok {
 		err := errors.New(errNotSMTPCredential)
 		logger.Error(nil, "managed resource is not a SMTPCredential", "type", mg.GetObjectKind())
@@ -263,7 +263,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		op.SetAttribute("resource.up_to_date", true)
 
 		// Resource exists and we have credentials stored
-		cr.Status.AtProvider = v1alpha1.SMTPCredentialObservation{
+		cr.Status.AtProvider = v1beta1.SMTPCredentialObservation{
 			Login: cr.Spec.ForProvider.Login,
 			State: "active", // Assume active since we have stored credentials
 		}
@@ -323,7 +323,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		"namespace", mg.GetNamespace(),
 	)
 
-	cr, ok := mg.(*v1alpha1.SMTPCredential)
+	cr, ok := mg.(*v1beta1.SMTPCredential)
 	if !ok {
 		err := errors.New(errNotSMTPCredential)
 		logger.Error(nil, "managed resource is not a SMTPCredential", "type", mg.GetObjectKind())
@@ -409,7 +409,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	meta.SetExternalName(cr, credential.Login)
 
 	// Update observed state
-	cr.Status.AtProvider = v1alpha1.SMTPCredentialObservation{
+	cr.Status.AtProvider = v1beta1.SMTPCredentialObservation{
 		Login:     credential.Login,
 		CreatedAt: credential.CreatedAt,
 		State:     credential.State,
@@ -452,7 +452,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	)
 	defer op.End()
 
-	cr, ok := mg.(*v1alpha1.SMTPCredential)
+	cr, ok := mg.(*v1beta1.SMTPCredential)
 	if !ok {
 		err := errors.New(errNotSMTPCredential)
 		op.RecordError(err)
@@ -489,7 +489,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 	)
 	defer op.End()
 
-	cr, ok := mg.(*v1alpha1.SMTPCredential)
+	cr, ok := mg.(*v1beta1.SMTPCredential)
 	if !ok {
 		err := errors.New(errNotSMTPCredential)
 		op.RecordError(err)

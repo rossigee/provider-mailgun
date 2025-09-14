@@ -1,6 +1,7 @@
-apiVersion: domain.mailgun.crossplane.io/v1alpha1
+apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
+  namespace: default
   name: example-domain
 spec:
   forProvider:
@@ -16,9 +17,10 @@ spec:
   providerConfigRef:
     name: default
 ---
-apiVersion: mailinglist.mailgun.crossplane.io/v1alpha1
+apiVersion: mailinglist.mailgun.m.crossplane.io/v1beta1
 kind: MailingList
 metadata:
+  namespace: default
   name: example-mailing-list
 spec:
   forProvider:
@@ -30,9 +32,10 @@ spec:
   providerConfigRef:
     name: default
 ---
-apiVersion: smtpcredential.mailgun.crossplane.io/v1alpha1
+apiVersion: smtpcredential.mailgun.m.crossplane.io/v1beta1
 kind: SMTPCredential
 metadata:
+  namespace: default
   name: example-smtp-credential
 spec:
   forProvider:
@@ -47,15 +50,17 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
+  namespace: default
   name: smtp-password
   namespace: default
 type: Opaque
 stringData:
   password: "super-secure-smtp-password-123"
 ---
-apiVersion: webhook.mailgun.crossplane.io/v1alpha1
+apiVersion: webhook.mailgun.m.crossplane.io/v1beta1
 kind: Webhook
 metadata:
+  namespace: default
   name: example-webhook
 spec:
   forProvider:
@@ -66,9 +71,10 @@ spec:
   providerConfigRef:
     name: default
 ---
-apiVersion: route.mailgun.crossplane.io/v1alpha1
+apiVersion: route.mailgun.m.crossplane.io/v1beta1
 kind: Route
 metadata:
+  namespace: default
   name: example-route
 spec:
   forProvider:

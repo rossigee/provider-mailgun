@@ -28,7 +28,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
-	"github.com/rossigee/provider-mailgun/apis/webhook/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
@@ -241,9 +241,9 @@ func TestWebhookObserve(t *testing.T) {
 		"WebhookExists": {
 			reason: "Should return ResourceExists when webhook exists",
 			args: args{
-				mg: &v1alpha1.Webhook{
-					Spec: v1alpha1.WebhookSpec{
-						ForProvider: v1alpha1.WebhookParameters{
+				mg: &v1beta1.Webhook{
+					Spec: v1beta1.WebhookSpec{
+						ForProvider: v1beta1.WebhookParameters{
 							DomainRef: xpv1.Reference{
 								Name: "example.com",
 							},
@@ -263,9 +263,9 @@ func TestWebhookObserve(t *testing.T) {
 		"WebhookNotFound": {
 			reason: "Should return ResourceExists false when webhook not found",
 			args: args{
-				mg: &v1alpha1.Webhook{
-					Spec: v1alpha1.WebhookSpec{
-						ForProvider: v1alpha1.WebhookParameters{
+				mg: &v1beta1.Webhook{
+					Spec: v1beta1.WebhookSpec{
+						ForProvider: v1beta1.WebhookParameters{
 							DomainRef: xpv1.Reference{
 								Name: "notfound.com",
 							},
@@ -332,9 +332,9 @@ func TestWebhookCreate(t *testing.T) {
 		"SuccessfulCreate": {
 			reason: "Should successfully create webhook",
 			args: args{
-				mg: &v1alpha1.Webhook{
-					Spec: v1alpha1.WebhookSpec{
-						ForProvider: v1alpha1.WebhookParameters{
+				mg: &v1beta1.Webhook{
+					Spec: v1beta1.WebhookSpec{
+						ForProvider: v1beta1.WebhookParameters{
 							DomainRef: xpv1.Reference{
 								Name: "new.com",
 							},
@@ -389,9 +389,9 @@ func TestWebhookUpdate(t *testing.T) {
 		"SuccessfulUpdate": {
 			reason: "Should successfully update webhook",
 			args: args{
-				mg: &v1alpha1.Webhook{
-					Spec: v1alpha1.WebhookSpec{
-						ForProvider: v1alpha1.WebhookParameters{
+				mg: &v1beta1.Webhook{
+					Spec: v1beta1.WebhookSpec{
+						ForProvider: v1beta1.WebhookParameters{
 							DomainRef: xpv1.Reference{
 								Name: "existing.com",
 							},
@@ -454,9 +454,9 @@ func TestWebhookDelete(t *testing.T) {
 		"SuccessfulDelete": {
 			reason: "Should successfully delete webhook",
 			args: args{
-				mg: &v1alpha1.Webhook{
-					Spec: v1alpha1.WebhookSpec{
-						ForProvider: v1alpha1.WebhookParameters{
+				mg: &v1beta1.Webhook{
+					Spec: v1beta1.WebhookSpec{
+						ForProvider: v1beta1.WebhookParameters{
 							DomainRef: xpv1.Reference{
 								Name: "delete.com",
 							},

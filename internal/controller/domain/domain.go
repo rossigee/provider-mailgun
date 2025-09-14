@@ -31,7 +31,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/rossigee/provider-mailgun/apis/domain/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	clients "github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/features"
@@ -47,7 +47,7 @@ const (
 
 // Setup adds a controller that reconciles Domain managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
-	name := managed.ControllerName(v1alpha1.DomainKind)
+	name := managed.ControllerName(v1beta1.DomainKind)
 
 	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
 	if o.Features.Enabled(features.EnableAlphaManagementPolicies) {
@@ -55,7 +55,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 	}
 
 	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1alpha1.DomainGroupVersionKind),
+		resource.ManagedKind(v1beta1.DomainGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1beta1.ProviderConfigUsage{}),
@@ -69,7 +69,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		Named(name).
 		WithOptions(o.ForControllerRuntime()).
 		WithEventFilter(resource.DesiredStateChanged()).
-		For(&v1alpha1.Domain{}).
+		For(&v1beta1.Domain{}).
 		Complete(r)
 }
 
@@ -87,7 +87,7 @@ type connector struct {
 // 3. Getting the credentials specified by the ProviderConfig.
 // 4. Using the credentials to form a client.
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
-	cr, ok := mg.(*v1alpha1.Domain)
+	cr, ok := mg.(*v1beta1.Domain)
 	if !ok {
 		return nil, errors.New(errNotDomain)
 	}
@@ -181,7 +181,7 @@ func (e *ExternalForTesting) Delete(ctx context.Context, mg resource.Managed) (m
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	cr, ok := mg.(*v1alpha1.Domain)
+	cr, ok := mg.(*v1beta1.Domain)
 	if !ok {
 		return managed.ExternalObservation{}, errors.New(errNotDomain)
 	}
@@ -220,7 +220,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	cr, ok := mg.(*v1alpha1.Domain)
+	cr, ok := mg.(*v1beta1.Domain)
 	if !ok {
 		return managed.ExternalCreation{}, errors.New(errNotDomain)
 	}
@@ -247,7 +247,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-	cr, ok := mg.(*v1alpha1.Domain)
+	cr, ok := mg.(*v1beta1.Domain)
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotDomain)
 	}
@@ -271,7 +271,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
-	cr, ok := mg.(*v1alpha1.Domain)
+	cr, ok := mg.(*v1beta1.Domain)
 	if !ok {
 		return managed.ExternalDelete{}, errors.New(errNotDomain)
 	}
@@ -287,7 +287,7 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 // generateDomainSpec converts the API parameters to client format
-func generateDomainSpec(params v1alpha1.DomainParameters) *clients.DomainSpec {
+func generateDomainSpec(params v1beta1.DomainParameters) *clients.DomainSpec {
 	spec := &clients.DomainSpec{
 		Name: params.Name,
 	}
@@ -321,8 +321,8 @@ func generateDomainSpec(params v1alpha1.DomainParameters) *clients.DomainSpec {
 }
 
 // generateDomainObservation converts the client response to API format
-func generateDomainObservation(domain *clients.Domain) v1alpha1.DomainObservation {
-	obs := v1alpha1.DomainObservation{
+func generateDomainObservation(domain *clients.Domain) v1beta1.DomainObservation {
+	obs := v1beta1.DomainObservation{
 		ID:           domain.Name,
 		State:        domain.State,
 		CreatedAt:    domain.CreatedAt,
@@ -332,9 +332,9 @@ func generateDomainObservation(domain *clients.Domain) v1alpha1.DomainObservatio
 
 	// Convert DNS records
 	if len(domain.RequiredDNSRecords) > 0 {
-		obs.RequiredDNSRecords = make([]v1alpha1.DNSRecord, len(domain.RequiredDNSRecords))
+		obs.RequiredDNSRecords = make([]v1beta1.DNSRecord, len(domain.RequiredDNSRecords))
 		for i, record := range domain.RequiredDNSRecords {
-			obs.RequiredDNSRecords[i] = v1alpha1.DNSRecord{
+			obs.RequiredDNSRecords[i] = v1beta1.DNSRecord{
 				Name:     record.Name,
 				Type:     record.Type,
 				Value:    record.Value,
@@ -345,9 +345,9 @@ func generateDomainObservation(domain *clients.Domain) v1alpha1.DomainObservatio
 	}
 
 	if len(domain.ReceivingDNSRecords) > 0 {
-		obs.ReceivingDNSRecords = make([]v1alpha1.DNSRecord, len(domain.ReceivingDNSRecords))
+		obs.ReceivingDNSRecords = make([]v1beta1.DNSRecord, len(domain.ReceivingDNSRecords))
 		for i, record := range domain.ReceivingDNSRecords {
-			obs.ReceivingDNSRecords[i] = v1alpha1.DNSRecord{
+			obs.ReceivingDNSRecords[i] = v1beta1.DNSRecord{
 				Name:     record.Name,
 				Type:     record.Type,
 				Value:    record.Value,
@@ -358,9 +358,9 @@ func generateDomainObservation(domain *clients.Domain) v1alpha1.DomainObservatio
 	}
 
 	if len(domain.SendingDNSRecords) > 0 {
-		obs.SendingDNSRecords = make([]v1alpha1.DNSRecord, len(domain.SendingDNSRecords))
+		obs.SendingDNSRecords = make([]v1beta1.DNSRecord, len(domain.SendingDNSRecords))
 		for i, record := range domain.SendingDNSRecords {
-			obs.SendingDNSRecords[i] = v1alpha1.DNSRecord{
+			obs.SendingDNSRecords[i] = v1beta1.DNSRecord{
 				Name:     record.Name,
 				Type:     record.Type,
 				Value:    record.Value,

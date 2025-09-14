@@ -1,6 +1,7 @@
-apiVersion: bounce.mailgun.crossplane.io/v1alpha1
+apiVersion: bounce.mailgun.m.crossplane.io/v1beta1
 kind: Bounce
 metadata:
+  namespace: default
   name: example-bounce
 spec:
   forProvider:

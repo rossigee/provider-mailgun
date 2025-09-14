@@ -31,7 +31,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/rossigee/provider-mailgun/apis/bounce/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
@@ -209,7 +209,7 @@ func (m *MockBounceClient) DeleteUnsubscribe(ctx context.Context, domain, addres
 
 func TestBounceObserve(t *testing.T) {
 	scheme := runtime.NewScheme()
-	require.NoError(t, v1alpha1.SchemeBuilder.AddToScheme(scheme))
+	require.NoError(t, v1beta1.SchemeBuilder.AddToScheme(scheme))
 	require.NoError(t, apisv1beta1.SchemeBuilder.AddToScheme(scheme))
 
 	type args struct {
@@ -228,7 +228,7 @@ func TestBounceObserve(t *testing.T) {
 		"BounceExists": {
 			reason: "Should return ResourceExists when bounce exists",
 			args: args{
-				mg: &v1alpha1.Bounce{
+				mg: &v1beta1.Bounce{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-bounce",
 						Namespace: "test-namespace",
@@ -236,8 +236,8 @@ func TestBounceObserve(t *testing.T) {
 							"crossplane.io/external-name": "bounce@example.com",
 						},
 					},
-					Spec: v1alpha1.BounceSpec{
-						ForProvider: v1alpha1.BounceParameters{
+					Spec: v1beta1.BounceSpec{
+						ForProvider: v1beta1.BounceParameters{
 							Address: "bounce@example.com",
 							Code:    stringPtr("550"),
 							Error:   stringPtr("User unknown"),
@@ -258,13 +258,13 @@ func TestBounceObserve(t *testing.T) {
 		"BounceNotFound": {
 			reason: "Should return ResourceExists false when bounce not found",
 			args: args{
-				mg: &v1alpha1.Bounce{
+				mg: &v1beta1.Bounce{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-bounce",
 						Namespace: "test-namespace",
 					},
-					Spec: v1alpha1.BounceSpec{
-						ForProvider: v1alpha1.BounceParameters{
+					Spec: v1beta1.BounceSpec{
+						ForProvider: v1beta1.BounceParameters{
 							Address: "notfound@example.com",
 							Code:    stringPtr("550"),
 							Error:   stringPtr("User unknown"),
@@ -338,9 +338,9 @@ func TestBounceCreate(t *testing.T) {
 		"SuccessfulCreate": {
 			reason: "Should successfully create bounce",
 			args: args{
-				mg: &v1alpha1.Bounce{
-					Spec: v1alpha1.BounceSpec{
-						ForProvider: v1alpha1.BounceParameters{
+				mg: &v1beta1.Bounce{
+					Spec: v1beta1.BounceSpec{
+						ForProvider: v1beta1.BounceParameters{
 							Address: "new@example.com",
 							Code:    stringPtr("550"),
 							Error:   stringPtr("User unknown"),
@@ -400,9 +400,9 @@ func TestBounceUpdate(t *testing.T) {
 		"UpdateNotSupported": {
 			reason: "Update should be no-op for bounces",
 			args: args{
-				mg: &v1alpha1.Bounce{
-					Spec: v1alpha1.BounceSpec{
-						ForProvider: v1alpha1.BounceParameters{
+				mg: &v1beta1.Bounce{
+					Spec: v1beta1.BounceSpec{
+						ForProvider: v1beta1.BounceParameters{
 							Address: "existing@example.com",
 							Code:    stringPtr("550"),
 							Error:   stringPtr("Updated error"),
@@ -453,14 +453,14 @@ func TestBounceDelete(t *testing.T) {
 		"SuccessfulDelete": {
 			reason: "Should successfully delete bounce",
 			args: args{
-				mg: &v1alpha1.Bounce{
+				mg: &v1beta1.Bounce{
 					ObjectMeta: metav1.ObjectMeta{
 						Annotations: map[string]string{
 							"crossplane.io/external-name": "delete@example.com",
 						},
 					},
-					Spec: v1alpha1.BounceSpec{
-						ForProvider: v1alpha1.BounceParameters{
+					Spec: v1beta1.BounceSpec{
+						ForProvider: v1beta1.BounceParameters{
 							Address: "delete@example.com",
 							Code:    stringPtr("550"),
 							Error:   stringPtr("User unknown"),
@@ -520,7 +520,7 @@ func stringPtrValue(s *string) string {
 
 func TestResolveDomainName(t *testing.T) {
 	scheme := runtime.NewScheme()
-	require.NoError(t, v1alpha1.SchemeBuilder.AddToScheme(scheme))
+	require.NoError(t, v1beta1.SchemeBuilder.AddToScheme(scheme))
 	require.NoError(t, apisv1beta1.SchemeBuilder.AddToScheme(scheme))
 
 	cases := map[string]struct {
@@ -542,9 +542,9 @@ func TestResolveDomainName(t *testing.T) {
 			// Setup fake Kubernetes client
 			fakeClient := fake.NewClientBuilder().WithScheme(scheme).Build()
 			e := &external{kube: fakeClient}
-			cr := &v1alpha1.Bounce{
-				Spec: v1alpha1.BounceSpec{
-					ForProvider: v1alpha1.BounceParameters{
+			cr := &v1beta1.Bounce{
+				Spec: v1beta1.BounceSpec{
+					ForProvider: v1beta1.BounceParameters{
 						DomainRef: xpv1.Reference{
 							Name: tc.domainRefName,
 						},

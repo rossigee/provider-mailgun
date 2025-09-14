@@ -30,7 +30,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/rossigee/provider-mailgun/apis/template/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
@@ -49,12 +49,12 @@ const (
 
 // Setup adds a controller that reconciles Template managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
-	name := managed.ControllerName(v1alpha1.TemplateGroupKind.String())
+	name := managed.ControllerName(v1beta1.TemplateGroupKind.String())
 
 	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
 
 	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1alpha1.TemplateGroupVersionKind),
+		resource.ManagedKind(v1beta1.TemplateGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1beta1.ProviderConfigUsage{}),
@@ -69,7 +69,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		Named(name).
 		WithOptions(o.ForControllerRuntime()).
 		WithEventFilter(resource.DesiredStateChanged()).
-		For(&v1alpha1.Template{}).
+		For(&v1beta1.Template{}).
 		Complete(r)
 }
 
@@ -87,7 +87,7 @@ type connector struct {
 // 3. Getting the credentials specified by the ProviderConfig.
 // 4. Using the credentials to form a client.
 func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.ExternalClient, error) {
-	cr, ok := mg.(*v1alpha1.Template)
+	cr, ok := mg.(*v1beta1.Template)
 	if !ok {
 		return nil, errors.New(errNotTemplate)
 	}
@@ -182,7 +182,7 @@ func (e *ExternalForTesting) Delete(ctx context.Context, mg resource.Managed) (m
 }
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
-	cr, ok := mg.(*v1alpha1.Template)
+	cr, ok := mg.(*v1beta1.Template)
 	if !ok {
 		return managed.ExternalObservation{}, errors.New(errNotTemplate)
 	}
@@ -208,7 +208,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		// Find the active version
 		for _, version := range template.Versions {
 			if version.Active {
-				cr.Status.AtProvider.ActiveVersion = &v1alpha1.TemplateVersion{
+				cr.Status.AtProvider.ActiveVersion = &v1beta1.TemplateVersion{
 					Tag:       version.Tag,
 					Engine:    version.Engine,
 					CreatedAt: version.CreatedAt,
@@ -232,7 +232,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
-	cr, ok := mg.(*v1alpha1.Template)
+	cr, ok := mg.(*v1beta1.Template)
 	if !ok {
 		return managed.ExternalCreation{}, errors.New(errNotTemplate)
 	}
@@ -257,7 +257,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
-	cr, ok := mg.(*v1alpha1.Template)
+	cr, ok := mg.(*v1beta1.Template)
 	if !ok {
 		return managed.ExternalUpdate{}, errors.New(errNotTemplate)
 	}
@@ -276,7 +276,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 }
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
-	cr, ok := mg.(*v1alpha1.Template)
+	cr, ok := mg.(*v1beta1.Template)
 	if !ok {
 		return managed.ExternalDelete{}, errors.New(errNotTemplate)
 	}

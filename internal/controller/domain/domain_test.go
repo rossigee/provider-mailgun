@@ -27,7 +27,7 @@ import (
 	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/pkg/resource"
 
-	"github.com/rossigee/provider-mailgun/apis/domain/v1alpha1"
+	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
@@ -245,9 +245,9 @@ func TestDomainObserve(t *testing.T) {
 		"DomainExists": {
 			reason: "Should return ResourceExists when domain exists",
 			args: args{
-				mg: &v1alpha1.Domain{
-					Spec: v1alpha1.DomainSpec{
-						ForProvider: v1alpha1.DomainParameters{
+				mg: &v1beta1.Domain{
+					Spec: v1beta1.DomainSpec{
+						ForProvider: v1beta1.DomainParameters{
 							Name: "example.com",
 						},
 					},
@@ -267,9 +267,9 @@ func TestDomainObserve(t *testing.T) {
 		"DomainNotFound": {
 			reason: "Should return ResourceExists false when domain not found",
 			args: args{
-				mg: &v1alpha1.Domain{
-					Spec: v1alpha1.DomainSpec{
-						ForProvider: v1alpha1.DomainParameters{
+				mg: &v1beta1.Domain{
+					Spec: v1beta1.DomainSpec{
+						ForProvider: v1beta1.DomainParameters{
 							Name: "notfound.com",
 						},
 					},
@@ -338,9 +338,9 @@ func TestDomainCreate(t *testing.T) {
 		"SuccessfulCreate": {
 			reason: "Should successfully create domain",
 			args: args{
-				mg: &v1alpha1.Domain{
-					Spec: v1alpha1.DomainSpec{
-						ForProvider: v1alpha1.DomainParameters{
+				mg: &v1beta1.Domain{
+					Spec: v1beta1.DomainSpec{
+						ForProvider: v1beta1.DomainParameters{
 							Name: "new.com",
 							Type: stringPtr("sending"),
 						},
@@ -393,9 +393,9 @@ func TestDomainUpdate(t *testing.T) {
 		"SuccessfulUpdate": {
 			reason: "Should successfully update domain",
 			args: args{
-				mg: &v1alpha1.Domain{
-					Spec: v1alpha1.DomainSpec{
-						ForProvider: v1alpha1.DomainParameters{
+				mg: &v1beta1.Domain{
+					Spec: v1beta1.DomainSpec{
+						ForProvider: v1beta1.DomainParameters{
 							Name:       "existing.com",
 							SpamAction: stringPtr("block"),
 						},
@@ -458,9 +458,9 @@ func TestDomainDelete(t *testing.T) {
 		"SuccessfulDelete": {
 			reason: "Should successfully delete domain",
 			args: args{
-				mg: &v1alpha1.Domain{
-					Spec: v1alpha1.DomainSpec{
-						ForProvider: v1alpha1.DomainParameters{
+				mg: &v1beta1.Domain{
+					Spec: v1beta1.DomainSpec{
+						ForProvider: v1beta1.DomainParameters{
 							Name: "delete.com",
 						},
 					},

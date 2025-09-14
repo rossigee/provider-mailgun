@@ -1,6 +1,7 @@
-apiVersion: template.mailgun.crossplane.io/v1alpha1
+apiVersion: template.mailgun.m.crossplane.io/v1beta1
 kind: Template
 metadata:
+  namespace: default
   name: welcome-email-template
 spec:
   forProvider:

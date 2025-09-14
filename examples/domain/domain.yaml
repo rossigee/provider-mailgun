@@ -1,7 +1,9 @@
-apiVersion: domain.mailgun.crossplane.io/v1alpha1
+apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
+  namespace: default
   name: example-domain
+  namespace: default
 spec:
   forProvider:
     name: mail.example.com
@@ -18,10 +20,12 @@ spec:
   providerConfigRef:
     name: default
 ---
-apiVersion: domain.mailgun.crossplane.io/v1alpha1
+apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
+  namespace: default
   name: receiving-domain
+  namespace: default
 spec:
   forProvider:
     name: incoming.example.com

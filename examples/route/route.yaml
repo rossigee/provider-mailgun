@@ -1,6 +1,7 @@
-apiVersion: route.mailgun.crossplane.io/v1alpha1
+apiVersion: route.mailgun.m.crossplane.io/v1beta1
 kind: Route
 metadata:
+  namespace: default
   name: support-route
 spec:
   forProvider:
@@ -14,9 +15,10 @@ spec:
   providerConfigRef:
     name: default
 ---
-apiVersion: route.mailgun.crossplane.io/v1alpha1
+apiVersion: route.mailgun.m.crossplane.io/v1beta1
 kind: Route
 metadata:
+  namespace: default
   name: catch-all-route
 spec:
   forProvider:

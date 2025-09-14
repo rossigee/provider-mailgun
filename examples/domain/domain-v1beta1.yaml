@@ -1,6 +1,7 @@
 apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
+  namespace: default
   name: example-domain-v2
   namespace: default
 spec:

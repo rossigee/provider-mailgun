@@ -7,14 +7,14 @@ metadata:
     meta.crossplane.io/source: github.com/rossigee/provider-mailgun
     meta.crossplane.io/license: Apache-2.0
     meta.crossplane.io/description: |
-      Crossplane provider for managing Mailgun resources including domains,
-      mailing lists, routes, webhooks, templates, SMTP credentials, and suppression management.
+      Crossplane v2 provider for managing Mailgun resources with namespace-scoped resources.
+      Includes domains, mailing lists, routes, webhooks, templates, SMTP credentials, and suppression management.
     meta.crossplane.io/readme: |
-      This Crossplane provider enables management of Mailgun resources through
-      Kubernetes manifests. It supports both US and EU regions and provides
-      comprehensive coverage of the Mailgun API.
+      This Crossplane v2 provider enables namespace-scoped management of Mailgun resources through
+      Kubernetes manifests. Breaking change from v0.x: Only namespaced v1beta1 APIs are supported.
 
-      Features:
+      v2 Features:
+      - Namespace-scoped resources for multi-tenancy and isolation
       - Domain management with DNS configuration
       - Mailing list creation and member management
       - Email routing rules
@@ -23,7 +23,9 @@ metadata:
       - SMTP credential management
       - Bounce, complaint, and unsubscribe suppression
       - Support for both US and EU Mailgun regions
-      - Namespace-scoped resources for multi-tenancy
+
+      BREAKING CHANGE: v1alpha1 cluster-scoped APIs have been removed.
+      All resources now use v1beta1 namespaced APIs with .m. API group naming.
 spec:
   controller:
     image: ghcr.io/rossigee/provider-mailgun:v0.9.16

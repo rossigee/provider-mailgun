@@ -6,12 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Architecture Overview
 
-This is a **Crossplane managed resource provider** for Mailgun integration, following standard Crossplane patterns:
+This is a **Crossplane v2 managed resource provider** for Mailgun integration with namespaced resources:
 
-- **Core Resources**: Domain, MailingList, Route, and Webhook management with full CRUD operations
+- **Crossplane v2 Architecture**: Namespace-scoped resources only with `.m.` API group naming (e.g., `mailgun.m.crossplane.io`)
+- **Core Resources**: Domain, MailingList, Route, Webhook, Template, SMTPCredential, and Bounce management with full CRUD operations
 - **External Client Pattern**: Mailgun API abstraction with interface-based design
 - **Cross-Resource References**: Webhooks reference Domains using Kubernetes-native `spec.domainRef`
 - **Provider Configuration**: Authentication via ProviderConfig with Kubernetes secret references
+- **Multi-tenancy**: Namespace isolation for secure multi-tenant deployments
 
 **Key Directory Structure**:
 - `apis/` - CRD definitions (Domain, MailingList, Route, Webhook, etc.)
@@ -108,24 +110,24 @@ type DomainObservation struct {
 
 ## Current Implementation Status
 
-**✅ Complete**:
+**✅ Complete - Crossplane v2 Provider**:
+- ✅ **Crossplane v2 Architecture**: Namespaced resources only with .m. API group naming
+- ✅ **v1beta1 APIs**: All 7 resource types using namespaced v1beta1 APIs
+- ✅ **Breaking Change Migration**: Removed all v1alpha1 cluster-scoped APIs in v0.11.0
+- ✅ Multi-tenancy support through namespace isolation
 - ✅ Project structure and build configuration
-- ✅ API definitions for all four resource types (Domain, MailingList, Route, Webhook)
+- ✅ API definitions for all resource types (Domain, MailingList, Route, Webhook, Template, SMTPCredential, Bounce)
 - ✅ Mailgun client interface and HTTP client implementation
 - ✅ Provider configuration and main entry point
-- ✅ Example manifests for all resources
+- ✅ Example manifests for all resources (updated to v1beta1 namespaced)
 - ✅ DeepCopy code generation for all API types
 - ✅ Crossplane managed resource methods generation
-- ✅ Domain controller implementation (functional)
-- ✅ MailingList controller implementation (functional)
-- ✅ Webhook controller implementation (functional)
-- ✅ Route controller implementation (functional)
-- ✅ Comprehensive test suite (65+ tests, all passing)
+- ✅ All 7 controllers implementation (functional)
+- ✅ Comprehensive test suite (133+ tests, all passing)
 - ✅ Complete integration test coverage for multi-resource workflows
 - ✅ Error handling and network failure test coverage
-- ✅ Enhanced controller test coverage (Template, MailingList, Route controllers)
 - ✅ HTTP client reliability improvements with retry logic and proper body handling
-- ✅ Test performance optimizations (sub-second execution vs previous 28+ seconds)
+- ✅ Test performance optimizations (sub-second execution)
 - ✅ Docker build infrastructure and CI/CD workflows
 - ✅ Docker image build process (Go 1.24.5 compatible)
 - ✅ Kubernetes deployment manifests for golder-secops cluster
@@ -135,8 +137,9 @@ type DomainObservation struct {
 
 **✅ Production Deployment**:
 - Successfully deployed to golder-secops cluster
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.10.0` (current)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.11.0` (current - Crossplane v2 only)
 - All controllers operational with comprehensive test coverage
+- **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
   - HTTP Client: 55.7% coverage (core networking and API communication)
   - Controllers: 47.5-58.7% coverage across all 6 controllers

@@ -280,20 +280,56 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}, nil
 	}
 
-	// If secret doesn't exist or is empty, we need to create/rotate credentials
-	// This handles both new resources and imported ones that need rotation
+	// If secret doesn't exist or is empty, check if we still have evidence of external resource existence
+	// SMTP credentials are write-only in Mailgun API, so we rely on connection secrets AND creation annotations
 	if err != nil {
-		logger.Info("SMTP credential secret not found, treating as new resource",
+		logger.Info("SMTP credential secret not found",
 			"error", err.Error())
 		metrics.RecordSecretOperation("get", "not_found")
 		op.SetAttribute("secret.found", false)
 		op.SetAttribute("secret.reason", "not_found")
 	} else {
-		logger.Info("SMTP credential secret exists but is empty, needs rotation")
+		logger.Info("SMTP credential secret exists but is empty")
 		metrics.RecordSecretOperation("get", "empty")
 		op.SetAttribute("secret.found", true)
 		op.SetAttribute("secret.reason", "empty")
 	}
+
+	// Check if we have evidence of successful external resource creation
+	// Look for crossplane.io/external-create-succeeded annotation
+	annotations := cr.GetAnnotations()
+	if annotations != nil && annotations["crossplane.io/external-create-succeeded"] != "" {
+		logger.Info("SMTP credential has successful creation annotation, treating as existing resource",
+			"createSucceededAt", annotations["crossplane.io/external-create-succeeded"])
+
+		// Resource exists based on creation annotation, but connection secret is missing
+		// Set status based on external name and assume active state
+		cr.Status.AtProvider = v1beta1.SMTPCredentialObservation{
+			Login: externalName,
+			State: "active", // Assume active since we have creation evidence
+		}
+
+		timer.RecordResourceOperation("smtpcredential", "observe", "success")
+		op.SetAttribute("resource.exists", true)
+		op.SetAttribute("resource.up_to_date", true)
+		op.SetAttribute("secret.missing", true)
+
+		// Return that resource exists but provide connection details to recreate the secret
+		return managed.ExternalObservation{
+			ResourceExists:   true,
+			ResourceUpToDate: true,
+			ConnectionDetails: managed.ConnectionDetails{
+				"smtp_host":     []byte("smtp.mailgun.org"),
+				"smtp_port":     []byte("587"),
+				"smtp_username": []byte(externalName),
+				// Note: password is not available since secret is missing
+				// Crossplane will need to trigger a new creation cycle to get the password
+			},
+		}, nil
+	}
+
+	// No evidence of external resource existence
+	logger.Info("no evidence of SMTP credential existence, treating as new resource")
 	timer.RecordResourceOperation("smtpcredential", "observe", "not_found")
 	op.SetAttribute("resource.exists", false)
 	return managed.ExternalObservation{ResourceExists: false}, nil

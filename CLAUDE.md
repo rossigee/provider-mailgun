@@ -137,7 +137,7 @@ type DomainObservation struct {
 
 **✅ Production Deployment**:
 - Successfully deployed to golder-secops cluster
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.11.0` (current - Crossplane v2 only)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.12.0` (current - Crossplane v2 with runtime v1.21.0)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
@@ -205,7 +205,17 @@ The provider is deployed via Flux GitOps:
 - **Health Probes**: Kubernetes liveness and readiness probes configured for port 8080
 - **Secrets**: Uses `harbor-credentials` for image pull authentication
 
-## Recent Improvements (2025-08-14)
+## Recent Improvements (2025-09-15)
+
+### Crossplane Runtime Update (v0.12.0)
+- **Updated crossplane-runtime**: Upgraded from v1.20.0 to v1.21.0-rc.0 to address ProviderConfigUsage namespace creation issues
+- **Fixed Package Building**: Resolved "not exactly one package meta type" error by removing duplicate package.yaml file
+- **Generated Code Completion**: Added missing v1beta1 managed resource code for all resource types
+- **Deployment Status**: Successfully deployed to production with updated runtime
+- **Build System**: Fixed Crossplane package (.xpkg) building process with embedded Docker images
+- **All Tests Passing**: 133+ test functions continue to pass with 36.3% overall coverage
+
+## Previous Improvements (2025-08-14)
 
 ### HTTP Service Consolidation (v0.10.1)
 - **Single HTTP Server**: Consolidated metrics (previously port 9090) and health checks onto single port 8080

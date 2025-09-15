@@ -11,6 +11,7 @@ A Crossplane v2 provider for managing Mailgun resources with complete namespace 
 - **Unified Regional Support**: Single API key works across US and EU regions
 - **Health Monitoring**: Built-in health probes for Kubernetes liveness and readiness checks
 - **Breaking Change v0.11.0**: Removed all v1alpha1 cluster-scoped APIs
+- **Runtime Update v0.12.0**: Updated crossplane-runtime to v1.21.0-rc.0 for improved stability
 
 ## Supported Resources
 

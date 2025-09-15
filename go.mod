@@ -3,7 +3,7 @@ module github.com/rossigee/provider-mailgun
 go 1.23.0
 
 require (
-	github.com/crossplane/crossplane-runtime v1.20.0
+	github.com/crossplane/crossplane-runtime v1.21.0-rc.0
 	github.com/crossplane/crossplane-tools v0.0.0-20230925130601-628280f8bf79
 	github.com/go-logr/logr v1.4.3
 	github.com/pkg/errors v0.9.1

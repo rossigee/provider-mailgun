@@ -22,20 +22,20 @@ import xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 // GetCondition of this ProviderConfig.
 func (p *ProviderConfig) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
-	return p.Status.GetCondition(ct)
+	return p.Status.ProviderConfigStatus.GetCondition(ct)
 }
 
 // GetUsers of this ProviderConfig.
 func (p *ProviderConfig) GetUsers() int64 {
-	return p.Status.Users
+	return p.Status.ProviderConfigStatus.Users
 }
 
 // SetConditions of this ProviderConfig.
 func (p *ProviderConfig) SetConditions(c ...xpv1.Condition) {
-	p.Status.SetConditions(c...)
+	p.Status.ProviderConfigStatus.SetConditions(c...)
 }
 
 // SetUsers of this ProviderConfig.
 func (p *ProviderConfig) SetUsers(i int64) {
-	p.Status.Users = i
+	p.Status.ProviderConfigStatus.Users = i
 }

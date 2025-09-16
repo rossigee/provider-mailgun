@@ -22,60 +22,60 @@ import xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 // GetCondition of this Route.
 func (mg *Route) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
-	return mg.Status.ResourceStatus.GetCondition(ct)
+	return mg.Status.GetCondition(ct)
 }
 
 // GetDeletionPolicy of this Route.
 func (mg *Route) GetDeletionPolicy() xpv1.DeletionPolicy {
-	return mg.Spec.ResourceSpec.DeletionPolicy
+	return mg.Spec.DeletionPolicy
 }
 
 // GetManagementPolicies of this Route.
 func (mg *Route) GetManagementPolicies() xpv1.ManagementPolicies {
-	return mg.Spec.ResourceSpec.ManagementPolicies
+	return mg.Spec.ManagementPolicies
 }
 
 // GetProviderConfigReference of this Route.
 func (mg *Route) GetProviderConfigReference() *xpv1.Reference {
-	return mg.Spec.ResourceSpec.ProviderConfigReference
+	return mg.Spec.ProviderConfigReference
 }
 
 // GetPublishConnectionDetailsTo of this Route.
 func (mg *Route) GetPublishConnectionDetailsTo() *xpv1.PublishConnectionDetailsTo {
-	return mg.Spec.ResourceSpec.PublishConnectionDetailsTo
+	return mg.Spec.PublishConnectionDetailsTo
 }
 
 // GetWriteConnectionSecretToReference of this Route.
 func (mg *Route) GetWriteConnectionSecretToReference() *xpv1.SecretReference {
-	return mg.Spec.ResourceSpec.WriteConnectionSecretToReference
+	return mg.Spec.WriteConnectionSecretToReference
 }
 
 // SetConditions of this Route.
 func (mg *Route) SetConditions(c ...xpv1.Condition) {
-	mg.Status.ResourceStatus.SetConditions(c...)
+	mg.Status.SetConditions(c...)
 }
 
 // SetDeletionPolicy of this Route.
 func (mg *Route) SetDeletionPolicy(r xpv1.DeletionPolicy) {
-	mg.Spec.ResourceSpec.DeletionPolicy = r
+	mg.Spec.DeletionPolicy = r
 }
 
 // SetManagementPolicies of this Route.
 func (mg *Route) SetManagementPolicies(r xpv1.ManagementPolicies) {
-	mg.Spec.ResourceSpec.ManagementPolicies = r
+	mg.Spec.ManagementPolicies = r
 }
 
 // SetProviderConfigReference of this Route.
 func (mg *Route) SetProviderConfigReference(r *xpv1.Reference) {
-	mg.Spec.ResourceSpec.ProviderConfigReference = r
+	mg.Spec.ProviderConfigReference = r
 }
 
 // SetPublishConnectionDetailsTo of this Route.
 func (mg *Route) SetPublishConnectionDetailsTo(r *xpv1.PublishConnectionDetailsTo) {
-	mg.Spec.ResourceSpec.PublishConnectionDetailsTo = r
+	mg.Spec.PublishConnectionDetailsTo = r
 }
 
 // SetWriteConnectionSecretToReference of this Route.
 func (mg *Route) SetWriteConnectionSecretToReference(r *xpv1.SecretReference) {
-	mg.Spec.ResourceSpec.WriteConnectionSecretToReference = r
+	mg.Spec.WriteConnectionSecretToReference = r
 }

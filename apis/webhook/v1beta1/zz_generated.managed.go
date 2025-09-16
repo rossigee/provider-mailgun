@@ -22,60 +22,60 @@ import xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 // GetCondition of this Webhook.
 func (mg *Webhook) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
-	return mg.Status.ResourceStatus.GetCondition(ct)
+	return mg.Status.GetCondition(ct)
 }
 
 // GetDeletionPolicy of this Webhook.
 func (mg *Webhook) GetDeletionPolicy() xpv1.DeletionPolicy {
-	return mg.Spec.ResourceSpec.DeletionPolicy
+	return mg.Spec.DeletionPolicy
 }
 
 // GetManagementPolicies of this Webhook.
 func (mg *Webhook) GetManagementPolicies() xpv1.ManagementPolicies {
-	return mg.Spec.ResourceSpec.ManagementPolicies
+	return mg.Spec.ManagementPolicies
 }
 
 // GetProviderConfigReference of this Webhook.
 func (mg *Webhook) GetProviderConfigReference() *xpv1.Reference {
-	return mg.Spec.ResourceSpec.ProviderConfigReference
+	return mg.Spec.ProviderConfigReference
 }
 
 // GetPublishConnectionDetailsTo of this Webhook.
 func (mg *Webhook) GetPublishConnectionDetailsTo() *xpv1.PublishConnectionDetailsTo {
-	return mg.Spec.ResourceSpec.PublishConnectionDetailsTo
+	return mg.Spec.PublishConnectionDetailsTo
 }
 
 // GetWriteConnectionSecretToReference of this Webhook.
 func (mg *Webhook) GetWriteConnectionSecretToReference() *xpv1.SecretReference {
-	return mg.Spec.ResourceSpec.WriteConnectionSecretToReference
+	return mg.Spec.WriteConnectionSecretToReference
 }
 
 // SetConditions of this Webhook.
 func (mg *Webhook) SetConditions(c ...xpv1.Condition) {
-	mg.Status.ResourceStatus.SetConditions(c...)
+	mg.Status.SetConditions(c...)
 }
 
 // SetDeletionPolicy of this Webhook.
 func (mg *Webhook) SetDeletionPolicy(r xpv1.DeletionPolicy) {
-	mg.Spec.ResourceSpec.DeletionPolicy = r
+	mg.Spec.DeletionPolicy = r
 }
 
 // SetManagementPolicies of this Webhook.
 func (mg *Webhook) SetManagementPolicies(r xpv1.ManagementPolicies) {
-	mg.Spec.ResourceSpec.ManagementPolicies = r
+	mg.Spec.ManagementPolicies = r
 }
 
 // SetProviderConfigReference of this Webhook.
 func (mg *Webhook) SetProviderConfigReference(r *xpv1.Reference) {
-	mg.Spec.ResourceSpec.ProviderConfigReference = r
+	mg.Spec.ProviderConfigReference = r
 }
 
 // SetPublishConnectionDetailsTo of this Webhook.
 func (mg *Webhook) SetPublishConnectionDetailsTo(r *xpv1.PublishConnectionDetailsTo) {
-	mg.Spec.ResourceSpec.PublishConnectionDetailsTo = r
+	mg.Spec.PublishConnectionDetailsTo = r
 }
 
 // SetWriteConnectionSecretToReference of this Webhook.
 func (mg *Webhook) SetWriteConnectionSecretToReference(r *xpv1.SecretReference) {
-	mg.Spec.ResourceSpec.WriteConnectionSecretToReference = r
+	mg.Spec.WriteConnectionSecretToReference = r
 }

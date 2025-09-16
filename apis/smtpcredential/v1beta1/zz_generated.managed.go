@@ -22,60 +22,60 @@ import xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
 
 // GetCondition of this SMTPCredential.
 func (mg *SMTPCredential) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
-	return mg.Status.ResourceStatus.GetCondition(ct)
+	return mg.Status.GetCondition(ct)
 }
 
 // GetDeletionPolicy of this SMTPCredential.
 func (mg *SMTPCredential) GetDeletionPolicy() xpv1.DeletionPolicy {
-	return mg.Spec.ResourceSpec.DeletionPolicy
+	return mg.Spec.DeletionPolicy
 }
 
 // GetManagementPolicies of this SMTPCredential.
 func (mg *SMTPCredential) GetManagementPolicies() xpv1.ManagementPolicies {
-	return mg.Spec.ResourceSpec.ManagementPolicies
+	return mg.Spec.ManagementPolicies
 }
 
 // GetProviderConfigReference of this SMTPCredential.
 func (mg *SMTPCredential) GetProviderConfigReference() *xpv1.Reference {
-	return mg.Spec.ResourceSpec.ProviderConfigReference
+	return mg.Spec.ProviderConfigReference
 }
 
 // GetPublishConnectionDetailsTo of this SMTPCredential.
 func (mg *SMTPCredential) GetPublishConnectionDetailsTo() *xpv1.PublishConnectionDetailsTo {
-	return mg.Spec.ResourceSpec.PublishConnectionDetailsTo
+	return mg.Spec.PublishConnectionDetailsTo
 }
 
 // GetWriteConnectionSecretToReference of this SMTPCredential.
 func (mg *SMTPCredential) GetWriteConnectionSecretToReference() *xpv1.SecretReference {
-	return mg.Spec.ResourceSpec.WriteConnectionSecretToReference
+	return mg.Spec.WriteConnectionSecretToReference
 }
 
 // SetConditions of this SMTPCredential.
 func (mg *SMTPCredential) SetConditions(c ...xpv1.Condition) {
-	mg.Status.ResourceStatus.SetConditions(c...)
+	mg.Status.SetConditions(c...)
 }
 
 // SetDeletionPolicy of this SMTPCredential.
 func (mg *SMTPCredential) SetDeletionPolicy(r xpv1.DeletionPolicy) {
-	mg.Spec.ResourceSpec.DeletionPolicy = r
+	mg.Spec.DeletionPolicy = r
 }
 
 // SetManagementPolicies of this SMTPCredential.
 func (mg *SMTPCredential) SetManagementPolicies(r xpv1.ManagementPolicies) {
-	mg.Spec.ResourceSpec.ManagementPolicies = r
+	mg.Spec.ManagementPolicies = r
 }
 
 // SetProviderConfigReference of this SMTPCredential.
 func (mg *SMTPCredential) SetProviderConfigReference(r *xpv1.Reference) {
-	mg.Spec.ResourceSpec.ProviderConfigReference = r
+	mg.Spec.ProviderConfigReference = r
 }
 
 // SetPublishConnectionDetailsTo of this SMTPCredential.
 func (mg *SMTPCredential) SetPublishConnectionDetailsTo(r *xpv1.PublishConnectionDetailsTo) {
-	mg.Spec.ResourceSpec.PublishConnectionDetailsTo = r
+	mg.Spec.PublishConnectionDetailsTo = r
 }
 
 // SetWriteConnectionSecretToReference of this SMTPCredential.
 func (mg *SMTPCredential) SetWriteConnectionSecretToReference(r *xpv1.SecretReference) {
-	mg.Spec.ResourceSpec.WriteConnectionSecretToReference = r
+	mg.Spec.WriteConnectionSecretToReference = r
 }

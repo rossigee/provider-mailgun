@@ -28,4 +28,4 @@ metadata:
       All resources now use v1beta1 namespaced APIs with .m. API group naming.
 spec:
   controller:
-    image: ghcr.io/rossigee/provider-mailgun:v0.12.2
+    image: ghcr.io/rossigee/provider-mailgun:v0.12.3

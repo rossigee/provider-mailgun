@@ -57,6 +57,9 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
 
+	// Debug: Log the actual response body to understand what Mailgun returns
+	fmt.Printf("DEBUG: CreateSMTPCredential response body: %s\n", string(responseBody))
+
 	// Try to parse as credential response first (if Mailgun returns the credential directly)
 	var credentialResponse struct {
 		Login     string `json:"login"`
@@ -74,12 +77,26 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 		}, nil
 	}
 
-	// Fallback: parse as message response (current API behavior)
+	// Parse as credentials response (new API behavior with generated passwords)
 	var createResponse struct {
-		Message string `json:"message"`
+		Message     string            `json:"message"`
+		Note        string            `json:"note"`
+		Credentials map[string]string `json:"credentials"`
 	}
 	if err := json.Unmarshal(responseBody, &createResponse); err != nil {
 		return nil, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Check if we have credentials with the password
+	if createResponse.Credentials != nil {
+		if password, exists := createResponse.Credentials[credential.Login]; exists {
+			fmt.Printf("DEBUG: Found password in credentials response for %s (length: %d)\n", credential.Login, len(password))
+			return &SMTPCredential{
+				Login:    credential.Login,
+				Password: password,
+				State:    "active", // Newly created credentials are active
+			}, nil
+		}
 	}
 
 	// Verify the creation was successful by checking the message
@@ -88,7 +105,8 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 	}
 
 	// If we only got a success message, we need to fetch the credential to get the password
-	// This happens when Mailgun generates the password
+	// This happens when Mailgun generates the password but credentials object is empty
+	fmt.Printf("DEBUG: No password in credentials response, falling back to GET\n")
 	return c.GetSMTPCredential(ctx, domain, credential.Login)
 }
 

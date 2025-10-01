@@ -23,11 +23,16 @@ import (
 )
 
 // CreateComplaint creates a new complaint suppression entry for a domain
-func (c *mailgunClient) CreateComplaint(ctx context.Context, domain string, complaint *ComplaintSpec) (*Complaint, error) {
+func (c *mailgunClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
+	// Type assert to ComplaintSpec
+	complaintSpec, ok := complaint.(*ComplaintSpec)
+	if !ok {
+		return nil, fmt.Errorf("invalid complaint parameter type")
+	}
 	path := fmt.Sprintf("/domains/%s/complaints", domain)
 
 	params := map[string]interface{}{
-		"address": complaint.Address,
+		"address": complaintSpec.Address,
 	}
 
 	body := strings.NewReader(createFormData(params))
@@ -41,11 +46,11 @@ func (c *mailgunClient) CreateComplaint(ctx context.Context, domain string, comp
 		return nil, fmt.Errorf("failed to handle response: %w", err)
 	}
 
-	return &result, nil
+	return interface{}(&result), nil
 }
 
 // GetComplaint retrieves a complaint suppression entry
-func (c *mailgunClient) GetComplaint(ctx context.Context, domain, address string) (*Complaint, error) {
+func (c *mailgunClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
 	path := fmt.Sprintf("/domains/%s/complaints/%s", domain, address)
 
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
@@ -58,7 +63,7 @@ func (c *mailgunClient) GetComplaint(ctx context.Context, domain, address string
 		return nil, fmt.Errorf("failed to handle response: %w", err)
 	}
 
-	return &result, nil
+	return interface{}(&result), nil
 }
 
 // DeleteComplaint deletes a complaint suppression entry

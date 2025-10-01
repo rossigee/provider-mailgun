@@ -24,11 +24,11 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/controller"
-	"github.com/crossplane/crossplane-runtime/pkg/event"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
@@ -51,19 +51,16 @@ const (
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1beta1.TemplateGroupKind.String())
 
-	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
-
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1beta1.TemplateGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
-			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1beta1.ProviderConfigUsage{}),
+			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
 			newServiceFn: clients.NewClient,
 		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
-		managed.WithConnectionPublishers(cps...))
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
@@ -201,22 +198,17 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	cr.Status.AtProvider.CreatedAt = template.CreatedAt
 	cr.Status.AtProvider.CreatedBy = template.CreatedBy
 
-	// Count versions and find active version
-	if len(template.Versions) > 0 {
-		cr.Status.AtProvider.VersionCount = len(template.Versions)
+	// Update version count from observation
+	cr.Status.AtProvider.VersionCount = template.VersionCount
 
-		// Find the active version
-		for _, version := range template.Versions {
-			if version.Active {
-				cr.Status.AtProvider.ActiveVersion = &v1beta1.TemplateVersion{
-					Tag:       version.Tag,
-					Engine:    version.Engine,
-					CreatedAt: version.CreatedAt,
-					Comment:   version.Comment,
-					Active:    version.Active,
-				}
-				break
-			}
+	// Set active version if available
+	if template.ActiveVersion != nil {
+		cr.Status.AtProvider.ActiveVersion = &v1beta1.TemplateVersion{
+			Tag:       template.ActiveVersion.Tag,
+			Engine:    template.ActiveVersion.Engine,
+			CreatedAt: template.ActiveVersion.CreatedAt,
+			Comment:   template.ActiveVersion.Comment,
+			Active:    template.ActiveVersion.Active,
 		}
 	}
 
@@ -239,16 +231,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	cr.SetConditions(xpv1.Creating())
 
-	templateSpec := &clients.TemplateSpec{
-		Name:        cr.Spec.ForProvider.Name,
-		Description: cr.Spec.ForProvider.Description,
-		Template:    cr.Spec.ForProvider.Template,
-		Engine:      cr.Spec.ForProvider.Engine,
-		Comment:     cr.Spec.ForProvider.Comment,
-		Tag:         cr.Spec.ForProvider.Tag,
-	}
-
-	_, err := c.client.CreateTemplate(ctx, cr.Spec.ForProvider.Domain, templateSpec)
+	_, err := c.client.CreateTemplate(ctx, cr.Spec.ForProvider.Domain, &cr.Spec.ForProvider)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, errCreateTemplate)
 	}
@@ -263,11 +246,11 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	// Only description can be updated for templates
-	templateSpec := &clients.TemplateSpec{
+	updateParams := &v1beta1.TemplateParameters{
 		Description: cr.Spec.ForProvider.Description,
 	}
 
-	_, err := c.client.UpdateTemplate(ctx, cr.Spec.ForProvider.Domain, cr.Spec.ForProvider.Name, templateSpec)
+	_, err := c.client.UpdateTemplate(ctx, cr.Spec.ForProvider.Domain, cr.Spec.ForProvider.Name, updateParams)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, errUpdateTemplate)
 	}

@@ -25,19 +25,21 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 )
 
 func TestCreateDomain(t *testing.T) {
 	tests := []struct {
 		name           string
-		domainSpec     *DomainSpec
+		domainSpec     *domaintypes.DomainParameters
 		serverResponse func(w http.ResponseWriter, r *http.Request)
-		expectedDomain *Domain
+		expectedDomain *domaintypes.DomainObservation
 		expectedError  bool
 	}{
 		{
 			name: "successful creation with minimal params",
-			domainSpec: &DomainSpec{
+			domainSpec: &domaintypes.DomainParameters{
 				Name: "test.com",
 			},
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
@@ -71,14 +73,13 @@ func TestCreateDomain(t *testing.T) {
 				}
 				_ = json.NewEncoder(w).Encode(response)
 			},
-			expectedDomain: &Domain{
-				Name:         "test.com",
-				Type:         "sending",
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:           "test.com",
 				State:        "unverified",
 				CreatedAt:    "2025-01-01T00:00:00Z",
 				SMTPLogin:    "postmaster@test.com",
 				SMTPPassword: "generated-password",
-				RequiredDNSRecords: []DNSRecord{
+				RequiredDNSRecords: []domaintypes.DNSRecord{
 					{
 						Name:     "test.com",
 						Type:     "TXT",
@@ -92,7 +93,7 @@ func TestCreateDomain(t *testing.T) {
 		},
 		{
 			name: "successful creation with all params",
-			domainSpec: &DomainSpec{
+			domainSpec: &domaintypes.DomainParameters{
 				Name:               "full.com",
 				Type:               stringPtr("receiving"),
 				ForceDKIMAuthority: boolPtr(true),
@@ -126,16 +127,15 @@ func TestCreateDomain(t *testing.T) {
 				}
 				_ = json.NewEncoder(w).Encode(response)
 			},
-			expectedDomain: &Domain{
-				Name:  "full.com",
-				Type:  "receiving",
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:    "full.com",
 				State: "active",
 			},
 			expectedError: false,
 		},
 		{
 			name: "server error",
-			domainSpec: &DomainSpec{
+			domainSpec: &domaintypes.DomainParameters{
 				Name: "error.com",
 			},
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
@@ -180,7 +180,7 @@ func TestGetDomain(t *testing.T) {
 		name           string
 		domainName     string
 		serverResponse func(w http.ResponseWriter, r *http.Request)
-		expectedDomain *Domain
+		expectedDomain *domaintypes.DomainObservation
 		expectedError  bool
 	}{
 		{
@@ -203,9 +203,8 @@ func TestGetDomain(t *testing.T) {
 				}
 				_ = json.NewEncoder(w).Encode(response)
 			},
-			expectedDomain: &Domain{
-				Name:         "example.com",
-				Type:         "sending",
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:           "example.com",
 				State:        "active",
 				CreatedAt:    "2025-01-01T00:00:00Z",
 				SMTPLogin:    "postmaster@example.com",
@@ -257,15 +256,15 @@ func TestUpdateDomain(t *testing.T) {
 	tests := []struct {
 		name           string
 		domainName     string
-		domainSpec     *DomainSpec
+		domainSpec     *domaintypes.DomainParameters
 		serverResponse func(w http.ResponseWriter, r *http.Request)
-		expectedDomain *Domain
+		expectedDomain *domaintypes.DomainObservation
 		expectedError  bool
 	}{
 		{
 			name:       "successful update",
 			domainName: "update.com",
-			domainSpec: &DomainSpec{
+			domainSpec: &domaintypes.DomainParameters{
 				SpamAction: stringPtr("tag"),
 				WebScheme:  stringPtr("https"),
 				Wildcard:   boolPtr(false),
@@ -291,9 +290,8 @@ func TestUpdateDomain(t *testing.T) {
 				}
 				_ = json.NewEncoder(w).Encode(response)
 			},
-			expectedDomain: &Domain{
-				Name:  "update.com",
-				Type:  "sending",
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:    "update.com",
 				State: "active",
 			},
 			expectedError: false,
@@ -301,7 +299,7 @@ func TestUpdateDomain(t *testing.T) {
 		{
 			name:       "domain not found",
 			domainName: "notfound.com",
-			domainSpec: &DomainSpec{
+			domainSpec: &domaintypes.DomainParameters{
 				SpamAction: stringPtr("disabled"),
 			},
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {

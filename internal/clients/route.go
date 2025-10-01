@@ -22,10 +22,28 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 )
 
+// convertRouteActions converts client RouteAction slice to API RouteAction slice
+func convertRouteActions(clientActions []RouteAction) []routetypes.RouteAction {
+	if clientActions == nil {
+		return nil
+	}
+
+	apiActions := make([]routetypes.RouteAction, len(clientActions))
+	for i, action := range clientActions {
+		apiActions[i] = routetypes.RouteAction{
+			Type:        action.Type,
+			Destination: action.Destination,
+		}
+	}
+	return apiActions
+}
+
 // CreateRoute creates a new route in Mailgun
-func (c *mailgunClient) CreateRoute(ctx context.Context, route *RouteSpec) (*Route, error) {
+func (c *mailgunClient) CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	params := map[string]interface{}{
 		"expression": route.Expression,
 	}
@@ -63,11 +81,21 @@ func (c *mailgunClient) CreateRoute(ctx context.Context, route *RouteSpec) (*Rou
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	return result.Route, nil
+	// Convert client Route to API RouteObservation
+	observation := &routetypes.RouteObservation{
+		ID:          result.Route.ID,
+		Expression:  result.Route.Expression,
+		Priority:    result.Route.Priority,
+		Description: result.Route.Description,
+		Actions:     convertRouteActions(result.Route.Actions),
+		CreatedAt:   result.Route.CreatedAt,
+	}
+
+	return observation, nil
 }
 
 // GetRoute retrieves a route from Mailgun
-func (c *mailgunClient) GetRoute(ctx context.Context, id string) (*Route, error) {
+func (c *mailgunClient) GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error) {
 	path := fmt.Sprintf("/routes/%s", id)
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
@@ -81,11 +109,21 @@ func (c *mailgunClient) GetRoute(ctx context.Context, id string) (*Route, error)
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	return result.Route, nil
+	// Convert client Route to API RouteObservation
+	observation := &routetypes.RouteObservation{
+		ID:          result.Route.ID,
+		Expression:  result.Route.Expression,
+		Priority:    result.Route.Priority,
+		Description: result.Route.Description,
+		Actions:     convertRouteActions(result.Route.Actions),
+		CreatedAt:   result.Route.CreatedAt,
+	}
+
+	return observation, nil
 }
 
 // UpdateRoute updates an existing route in Mailgun
-func (c *mailgunClient) UpdateRoute(ctx context.Context, id string, route *RouteSpec) (*Route, error) {
+func (c *mailgunClient) UpdateRoute(ctx context.Context, id string, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	params := map[string]interface{}{
 		"expression": route.Expression,
 	}
@@ -124,7 +162,17 @@ func (c *mailgunClient) UpdateRoute(ctx context.Context, id string, route *Route
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	return result.Route, nil
+	// Convert client Route to API RouteObservation
+	observation := &routetypes.RouteObservation{
+		ID:          result.Route.ID,
+		Expression:  result.Route.Expression,
+		Priority:    result.Route.Priority,
+		Description: result.Route.Description,
+		Actions:     convertRouteActions(result.Route.Actions),
+		CreatedAt:   result.Route.CreatedAt,
+	}
+
+	return observation, nil
 }
 
 // DeleteRoute deletes a route from Mailgun

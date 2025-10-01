@@ -25,25 +25,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
-	"github.com/rossigee/provider-mailgun/internal/clients"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 // MockMailingListClient for testing
 type MockMailingListClient struct {
-	mailingLists map[string]*clients.MailingList
+	mailingLists map[string]*v1beta1.MailingListObservation
 	err          error
 }
 
-func (m *MockMailingListClient) CreateMailingList(ctx context.Context, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockMailingListClient) CreateMailingList(ctx context.Context, list *v1beta1.MailingListParameters) (*v1beta1.MailingListObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
-	result := &clients.MailingList{
+	result := &v1beta1.MailingListObservation{
 		Address:         list.Address,
 		Name:            "Test List",
 		Description:     "Test mailing list",
@@ -67,14 +72,14 @@ func (m *MockMailingListClient) CreateMailingList(ctx context.Context, list *cli
 	}
 
 	if m.mailingLists == nil {
-		m.mailingLists = make(map[string]*clients.MailingList)
+		m.mailingLists = make(map[string]*v1beta1.MailingListObservation)
 	}
 	m.mailingLists[list.Address] = result
 
 	return result, nil
 }
 
-func (m *MockMailingListClient) GetMailingList(ctx context.Context, address string) (*clients.MailingList, error) {
+func (m *MockMailingListClient) GetMailingList(ctx context.Context, address string) (*v1beta1.MailingListObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -86,7 +91,7 @@ func (m *MockMailingListClient) GetMailingList(ctx context.Context, address stri
 	return nil, errors.New("mailing list not found (404)")
 }
 
-func (m *MockMailingListClient) UpdateMailingList(ctx context.Context, address string, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockMailingListClient) UpdateMailingList(ctx context.Context, address string, list *v1beta1.MailingListParameters) (*v1beta1.MailingListObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -121,15 +126,15 @@ func (m *MockMailingListClient) DeleteMailingList(ctx context.Context, address s
 }
 
 // Implement other required client methods as no-ops
-func (m *MockMailingListClient) CreateDomain(ctx context.Context, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockMailingListClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) GetDomain(ctx context.Context, name string) (*clients.Domain, error) {
+func (m *MockMailingListClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) UpdateDomain(ctx context.Context, name string, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockMailingListClient) UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -137,15 +142,15 @@ func (m *MockMailingListClient) DeleteDomain(ctx context.Context, name string) e
 	return errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) CreateRoute(ctx context.Context, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockMailingListClient) CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) GetRoute(ctx context.Context, id string) (*clients.Route, error) {
+func (m *MockMailingListClient) GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) UpdateRoute(ctx context.Context, id string, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockMailingListClient) UpdateRoute(ctx context.Context, id string, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -153,15 +158,15 @@ func (m *MockMailingListClient) DeleteRoute(ctx context.Context, id string) erro
 	return errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) CreateWebhook(ctx context.Context, domain string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockMailingListClient) CreateWebhook(ctx context.Context, domain string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) GetWebhook(ctx context.Context, domain, eventType string) (*clients.Webhook, error) {
+func (m *MockMailingListClient) GetWebhook(ctx context.Context, domain, eventType string) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockMailingListClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -169,15 +174,15 @@ func (m *MockMailingListClient) DeleteWebhook(ctx context.Context, domain, event
 	return errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) CreateSMTPCredential(ctx context.Context, domain string, credential *clients.SMTPCredentialSpec) (*clients.SMTPCredential, error) {
+func (m *MockMailingListClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) GetSMTPCredential(ctx context.Context, domain, login string) (*clients.SMTPCredential, error) {
+func (m *MockMailingListClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*clients.SMTPCredential, error) {
+func (m *MockMailingListClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -185,15 +190,15 @@ func (m *MockMailingListClient) DeleteSMTPCredential(ctx context.Context, domain
 	return errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) CreateTemplate(ctx context.Context, domain string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockMailingListClient) CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) GetTemplate(ctx context.Context, domain, name string) (*clients.Template, error) {
+func (m *MockMailingListClient) GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) UpdateTemplate(ctx context.Context, domain, name string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockMailingListClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -202,11 +207,11 @@ func (m *MockMailingListClient) DeleteTemplate(ctx context.Context, domain, name
 }
 
 // Bounce suppression operations
-func (m *MockMailingListClient) CreateBounce(ctx context.Context, domain string, bounce *clients.BounceSpec) (*clients.Bounce, error) {
+func (m *MockMailingListClient) CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) GetBounce(ctx context.Context, domain, address string) (*clients.Bounce, error) {
+func (m *MockMailingListClient) GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -215,11 +220,11 @@ func (m *MockMailingListClient) DeleteBounce(ctx context.Context, domain, addres
 }
 
 // Complaint suppression operations
-func (m *MockMailingListClient) CreateComplaint(ctx context.Context, domain string, complaint *clients.ComplaintSpec) (*clients.Complaint, error) {
+func (m *MockMailingListClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) GetComplaint(ctx context.Context, domain, address string) (*clients.Complaint, error) {
+func (m *MockMailingListClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -228,11 +233,11 @@ func (m *MockMailingListClient) DeleteComplaint(ctx context.Context, domain, add
 }
 
 // Unsubscribe suppression operations
-func (m *MockMailingListClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *clients.UnsubscribeSpec) (*clients.Unsubscribe, error) {
+func (m *MockMailingListClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockMailingListClient) GetUnsubscribe(ctx context.Context, domain, address string) (*clients.Unsubscribe, error) {
+func (m *MockMailingListClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -298,7 +303,7 @@ func TestMailingListObserve(t *testing.T) {
 
 			// Pre-populate with test mailing list for "exists" test
 			if name == "MailingListExists" {
-				mockClient.mailingLists = map[string]*clients.MailingList{
+				mockClient.mailingLists = map[string]*v1beta1.MailingListObservation{
 					"test@example.com": {
 						Address:         "test@example.com",
 						Name:            "Test List",
@@ -417,7 +422,7 @@ func TestMailingListUpdate(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockMailingListClient{
-				mailingLists: map[string]*clients.MailingList{
+				mailingLists: map[string]*v1beta1.MailingListObservation{
 					"existing@example.com": {
 						Address:         "existing@example.com",
 						Name:            "Original List",
@@ -477,7 +482,7 @@ func TestMailingListDelete(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockMailingListClient{
-				mailingLists: map[string]*clients.MailingList{
+				mailingLists: map[string]*v1beta1.MailingListObservation{
 					"delete@example.com": {
 						Address:         "delete@example.com",
 						Name:            "Delete List",
@@ -746,7 +751,7 @@ func TestMailingListEdgeCases(t *testing.T) {
 
 	t.Run("MailingListStatusUpdate", func(t *testing.T) {
 		mockClient := &MockMailingListClient{
-			mailingLists: map[string]*clients.MailingList{
+			mailingLists: map[string]*v1beta1.MailingListObservation{
 				"status@example.com": {
 					Address:         "status@example.com",
 					Name:            "Status Test List",
@@ -785,7 +790,7 @@ func TestMailingListEdgeCases(t *testing.T) {
 
 	t.Run("PartialFieldUpdate", func(t *testing.T) {
 		mockClient := &MockMailingListClient{
-			mailingLists: map[string]*clients.MailingList{
+			mailingLists: map[string]*v1beta1.MailingListObservation{
 				"partial@example.com": {
 					Address:         "partial@example.com",
 					Name:            "Original Name",

@@ -27,5 +27,5 @@ spec:
   {{- if .Values.packageManager.skipDependencyResolution }}
   skipDependencyResolution: {{ .Values.packageManager.skipDependencyResolution }}
   {{- end }}
-  controllerConfigRef:
-    name: {{ include "provider-mailgun.fullname" . }}-config
+  runtimeConfigRef:
+    name: {{ include "provider-mailgun.fullname" . }}-runtime-config

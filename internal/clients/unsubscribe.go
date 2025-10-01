@@ -23,14 +23,19 @@ import (
 )
 
 // CreateUnsubscribe creates a new unsubscribe suppression entry for a domain
-func (c *mailgunClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *UnsubscribeSpec) (*Unsubscribe, error) {
+func (c *mailgunClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
+	// Type assert to UnsubscribeSpec
+	unsubscribeSpec, ok := unsubscribe.(*UnsubscribeSpec)
+	if !ok {
+		return nil, fmt.Errorf("invalid unsubscribe parameter type")
+	}
 	path := fmt.Sprintf("/domains/%s/unsubscribes", domain)
 
 	params := map[string]interface{}{
-		"address": unsubscribe.Address,
+		"address": unsubscribeSpec.Address,
 	}
-	if unsubscribe.Tags != nil {
-		params["tags"] = *unsubscribe.Tags
+	if unsubscribeSpec.Tags != nil {
+		params["tags"] = *unsubscribeSpec.Tags
 	}
 
 	body := strings.NewReader(createFormData(params))
@@ -44,11 +49,11 @@ func (c *mailgunClient) CreateUnsubscribe(ctx context.Context, domain string, un
 		return nil, fmt.Errorf("failed to handle response: %w", err)
 	}
 
-	return &result, nil
+	return interface{}(&result), nil
 }
 
 // GetUnsubscribe retrieves an unsubscribe suppression entry
-func (c *mailgunClient) GetUnsubscribe(ctx context.Context, domain, address string) (*Unsubscribe, error) {
+func (c *mailgunClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
 	path := fmt.Sprintf("/domains/%s/unsubscribes/%s", domain, address)
 
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
@@ -61,7 +66,7 @@ func (c *mailgunClient) GetUnsubscribe(ctx context.Context, domain, address stri
 		return nil, fmt.Errorf("failed to handle response: %w", err)
 	}
 
-	return &result, nil
+	return interface{}(&result), nil
 }
 
 // DeleteUnsubscribe deletes an unsubscribe suppression entry

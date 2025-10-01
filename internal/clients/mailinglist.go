@@ -22,10 +22,12 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 )
 
 // CreateMailingList creates a new mailing list in Mailgun
-func (c *mailgunClient) CreateMailingList(ctx context.Context, list *MailingListSpec) (*MailingList, error) {
+func (c *mailgunClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	params := map[string]interface{}{
 		"address": list.Address,
 	}
@@ -56,11 +58,22 @@ func (c *mailgunClient) CreateMailingList(ctx context.Context, list *MailingList
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	return result.List, nil
+	// Convert client MailingList to API MailingListObservation
+	observation := &mailinglisttypes.MailingListObservation{
+		Address:         result.List.Address,
+		Name:            result.List.Name,
+		Description:     result.List.Description,
+		AccessLevel:     result.List.AccessLevel,
+		ReplyPreference: result.List.ReplyPreference,
+		CreatedAt:       result.List.CreatedAt,
+		MembersCount:    result.List.MembersCount,
+	}
+
+	return observation, nil
 }
 
 // GetMailingList retrieves a mailing list from Mailgun
-func (c *mailgunClient) GetMailingList(ctx context.Context, address string) (*MailingList, error) {
+func (c *mailgunClient) GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error) {
 	path := fmt.Sprintf("/lists/%s", address)
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
@@ -74,11 +87,22 @@ func (c *mailgunClient) GetMailingList(ctx context.Context, address string) (*Ma
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	return result.List, nil
+	// Convert client MailingList to API MailingListObservation
+	observation := &mailinglisttypes.MailingListObservation{
+		Address:         result.List.Address,
+		Name:            result.List.Name,
+		Description:     result.List.Description,
+		AccessLevel:     result.List.AccessLevel,
+		ReplyPreference: result.List.ReplyPreference,
+		CreatedAt:       result.List.CreatedAt,
+		MembersCount:    result.List.MembersCount,
+	}
+
+	return observation, nil
 }
 
 // UpdateMailingList updates an existing mailing list in Mailgun
-func (c *mailgunClient) UpdateMailingList(ctx context.Context, address string, list *MailingListSpec) (*MailingList, error) {
+func (c *mailgunClient) UpdateMailingList(ctx context.Context, address string, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	params := map[string]interface{}{}
 
 	if list.Name != nil {
@@ -108,7 +132,18 @@ func (c *mailgunClient) UpdateMailingList(ctx context.Context, address string, l
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	return result.List, nil
+	// Convert client MailingList to API MailingListObservation
+	observation := &mailinglisttypes.MailingListObservation{
+		Address:         result.List.Address,
+		Name:            result.List.Name,
+		Description:     result.List.Description,
+		AccessLevel:     result.List.AccessLevel,
+		ReplyPreference: result.List.ReplyPreference,
+		CreatedAt:       result.List.CreatedAt,
+		MembersCount:    result.List.MembersCount,
+	}
+
+	return observation, nil
 }
 
 // DeleteMailingList deletes a mailing list from Mailgun

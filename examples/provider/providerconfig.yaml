@@ -1,4 +1,4 @@
-apiVersion: mailgun.crossplane.io/v1beta1
+apiVersion: mailgun.m.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: default
@@ -13,7 +13,7 @@ spec:
       name: mailgun-secret
       key: password
 ---
-apiVersion: mailgun.crossplane.io/v1beta1
+apiVersion: mailgun.m.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: eu-region

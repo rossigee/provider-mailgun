@@ -28,6 +28,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 // Route Client Tests
@@ -44,11 +50,11 @@ func TestRouteOperations(t *testing.T) {
 			name:   "CreateRoute success",
 			method: "POST",
 			operation: func(client Client) error {
-				spec := &RouteSpec{
+				spec := &routetypes.RouteParameters{
 					Priority:    intPtr(10),
 					Description: stringPtr("Test route"),
 					Expression:  "match_recipient(\"test@example.com\")",
-					Actions:     []RouteAction{{Type: "forward", Destination: stringPtr("admin@example.com")}},
+					Actions:     []routetypes.RouteAction{{Type: "forward", Destination: stringPtr("admin@example.com")}},
 				}
 				_, err := client.CreateRoute(context.Background(), spec)
 				return err
@@ -132,7 +138,7 @@ func TestWebhookOperations(t *testing.T) {
 			name:   "CreateWebhook success",
 			method: "POST",
 			operation: func(client Client) error {
-				spec := &WebhookSpec{
+				spec := &webhooktypes.WebhookParameters{
 					EventType: "delivered",
 					URL:       "https://example.com/webhook",
 					Username:  stringPtr("user"),
@@ -218,7 +224,7 @@ func TestSMTPCredentialOperations(t *testing.T) {
 			name:   "CreateSMTPCredential success",
 			method: "POST",
 			operation: func(client Client) error {
-				spec := &SMTPCredentialSpec{
+				spec := &smtpcredentialtypes.SMTPCredentialParameters{
 					Login:    "test@example.com",
 					Password: stringPtr("password123"),
 				}
@@ -341,7 +347,7 @@ func TestTemplateOperations(t *testing.T) {
 			name:   "CreateTemplate success",
 			method: "POST",
 			operation: func(client Client) error {
-				spec := &TemplateSpec{
+				spec := &templatetypes.TemplateParameters{
 					Name:        "test-template",
 					Description: stringPtr("Test template"),
 					Template:    stringPtr("Hello {{name}}!"),
@@ -428,7 +434,7 @@ func TestErrorHandling(t *testing.T) {
 			statusCode: 400,
 			response:   "Bad Request: Invalid parameters",
 			operation: func(client Client) error {
-				_, err := client.CreateDomain(context.Background(), &DomainSpec{Name: ""})
+				_, err := client.CreateDomain(context.Background(), &domaintypes.DomainParameters{Name: ""})
 				return err
 			},
 		},
@@ -639,7 +645,7 @@ func TestContextCancellation(t *testing.T) {
 		{
 			name: "CreateDomain with Cancelled Context",
 			operation: func(ctx context.Context, client Client) error {
-				_, err := client.CreateDomain(ctx, &DomainSpec{Name: "test.com"})
+				_, err := client.CreateDomain(ctx, &domaintypes.DomainParameters{Name: "test.com"})
 				return err
 			},
 		},

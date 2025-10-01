@@ -35,7 +35,7 @@ rules:
     verbs: ["*"]
 
   # Provider-specific resources
-  - apiGroups: ["mailgun.crossplane.io"]
+  - apiGroups: ["mailgun.m.crossplane.io"]
     resources: ["*"]
     verbs: ["*"]
 

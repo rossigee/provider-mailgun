@@ -24,17 +24,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/controller"
-	"github.com/crossplane/crossplane-runtime/pkg/event"
-	"github.com/crossplane/crossplane-runtime/pkg/meta"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	clients "github.com/rossigee/provider-mailgun/internal/clients"
-	"github.com/rossigee/provider-mailgun/internal/features"
 )
 
 const (
@@ -49,21 +48,16 @@ const (
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1beta1.DomainKind)
 
-	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
-	if o.Features.Enabled(features.EnableAlphaManagementPolicies) {
-		cps = append(cps, managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme()))
-	}
-
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1beta1.DomainGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
-			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1beta1.ProviderConfigUsage{}),
-			newServiceFn: clients.NewClient}),
+			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
+			newServiceFn: clients.NewClient,
+		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
-		managed.WithConnectionPublishers(cps...))
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
@@ -194,10 +188,9 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.Wrap(err, "failed to get domain")
 	}
 
-	currentSpec := generateDomainSpec(cr.Spec.ForProvider)
-	upToDate := isDomainUpToDate(domain, currentSpec)
+	upToDate := isDomainUpToDate(domain, &cr.Spec.ForProvider)
 
-	cr.Status.AtProvider = generateDomainObservation(domain)
+	cr.Status.AtProvider = *domain
 
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -227,14 +220,13 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	cr.SetConditions(xpv1.Creating())
 
-	domainSpec := generateDomainSpec(cr.Spec.ForProvider)
-	domain, err := c.service.CreateDomain(ctx, domainSpec)
+	domain, err := c.service.CreateDomain(ctx, &cr.Spec.ForProvider)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, "failed to create domain")
 	}
 
-	meta.SetExternalName(cr, domain.Name)
-	cr.Status.AtProvider = generateDomainObservation(domain)
+	meta.SetExternalName(cr, cr.Spec.ForProvider.Name)
+	cr.Status.AtProvider = *domain
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
@@ -252,13 +244,12 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, errors.New(errNotDomain)
 	}
 
-	domainSpec := generateDomainSpec(cr.Spec.ForProvider)
-	domain, err := c.service.UpdateDomain(ctx, cr.Spec.ForProvider.Name, domainSpec)
+	domain, err := c.service.UpdateDomain(ctx, cr.Spec.ForProvider.Name, &cr.Spec.ForProvider)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, "failed to update domain")
 	}
 
-	cr.Status.AtProvider = generateDomainObservation(domain)
+	cr.Status.AtProvider = *domain
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
@@ -286,102 +277,16 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalDelete{}, nil
 }
 
-// generateDomainSpec converts the API parameters to client format
-func generateDomainSpec(params v1beta1.DomainParameters) *clients.DomainSpec {
-	spec := &clients.DomainSpec{
-		Name: params.Name,
-	}
 
-	if params.Type != nil {
-		spec.Type = params.Type
-	}
-	if params.ForceDKIMAuthority != nil {
-		spec.ForceDKIMAuthority = params.ForceDKIMAuthority
-	}
-	if params.DKIMKeySize != nil {
-		spec.DKIMKeySize = params.DKIMKeySize
-	}
-	if params.SMTPPassword != nil {
-		spec.SMTPPassword = params.SMTPPassword
-	}
-	if params.SpamAction != nil {
-		spec.SpamAction = params.SpamAction
-	}
-	if params.WebScheme != nil {
-		spec.WebScheme = params.WebScheme
-	}
-	if params.Wildcard != nil {
-		spec.Wildcard = params.Wildcard
-	}
-	if len(params.IPs) > 0 {
-		spec.IPs = params.IPs
-	}
-
-	return spec
-}
-
-// generateDomainObservation converts the client response to API format
-func generateDomainObservation(domain *clients.Domain) v1beta1.DomainObservation {
-	obs := v1beta1.DomainObservation{
-		ID:           domain.Name,
-		State:        domain.State,
-		CreatedAt:    domain.CreatedAt,
-		SMTPLogin:    domain.SMTPLogin,
-		SMTPPassword: domain.SMTPPassword,
-	}
-
-	// Convert DNS records
-	if len(domain.RequiredDNSRecords) > 0 {
-		obs.RequiredDNSRecords = make([]v1beta1.DNSRecord, len(domain.RequiredDNSRecords))
-		for i, record := range domain.RequiredDNSRecords {
-			obs.RequiredDNSRecords[i] = v1beta1.DNSRecord{
-				Name:     record.Name,
-				Type:     record.Type,
-				Value:    record.Value,
-				Priority: record.Priority,
-				Valid:    record.Valid,
-			}
-		}
-	}
-
-	if len(domain.ReceivingDNSRecords) > 0 {
-		obs.ReceivingDNSRecords = make([]v1beta1.DNSRecord, len(domain.ReceivingDNSRecords))
-		for i, record := range domain.ReceivingDNSRecords {
-			obs.ReceivingDNSRecords[i] = v1beta1.DNSRecord{
-				Name:     record.Name,
-				Type:     record.Type,
-				Value:    record.Value,
-				Priority: record.Priority,
-				Valid:    record.Valid,
-			}
-		}
-	}
-
-	if len(domain.SendingDNSRecords) > 0 {
-		obs.SendingDNSRecords = make([]v1beta1.DNSRecord, len(domain.SendingDNSRecords))
-		for i, record := range domain.SendingDNSRecords {
-			obs.SendingDNSRecords[i] = v1beta1.DNSRecord{
-				Name:     record.Name,
-				Type:     record.Type,
-				Value:    record.Value,
-				Priority: record.Priority,
-				Valid:    record.Valid,
-			}
-		}
-	}
-
-	return obs
-}
 
 // isDomainUpToDate checks if the external resource is up to date
-func isDomainUpToDate(domain *clients.Domain, desired *clients.DomainSpec) bool {
+func isDomainUpToDate(domain *v1beta1.DomainObservation, desired *v1beta1.DomainParameters) bool {
 	// Compare updatable fields only
 	// Note: Most domain fields cannot be updated after creation in Mailgun
 	// We only check the fields that can be modified
 
-	if desired.SpamAction != nil && domain.Type != *desired.SpamAction {
-		return false
-	}
+	// SpamAction is write-only and cannot be read back from Mailgun API
+	// so we cannot compare it in the observation
 	// WebScheme and Wildcard are write-only fields in Mailgun API
 	// They are not returned in the domain response, so we cannot compare them
 	// We assume they are up to date since they were set during creation/update

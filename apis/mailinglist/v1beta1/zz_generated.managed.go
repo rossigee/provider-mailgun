@@ -18,64 +18,54 @@ limitations under the License.
 
 package v1beta1
 
-import xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+import xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
 // GetCondition of this MailingList.
 func (mg *MailingList) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
-	return mg.Status.GetCondition(ct)
+	return mg.Status.ResourceStatus.GetCondition(ct)
 }
 
 // GetDeletionPolicy of this MailingList.
 func (mg *MailingList) GetDeletionPolicy() xpv1.DeletionPolicy {
-	return mg.Spec.DeletionPolicy
+	return mg.Spec.ResourceSpec.DeletionPolicy
 }
 
 // GetManagementPolicies of this MailingList.
 func (mg *MailingList) GetManagementPolicies() xpv1.ManagementPolicies {
-	return mg.Spec.ManagementPolicies
+	return mg.Spec.ResourceSpec.ManagementPolicies
 }
 
 // GetProviderConfigReference of this MailingList.
 func (mg *MailingList) GetProviderConfigReference() *xpv1.Reference {
-	return mg.Spec.ProviderConfigReference
-}
-
-// GetPublishConnectionDetailsTo of this MailingList.
-func (mg *MailingList) GetPublishConnectionDetailsTo() *xpv1.PublishConnectionDetailsTo {
-	return mg.Spec.PublishConnectionDetailsTo
+	return mg.Spec.ResourceSpec.ProviderConfigReference
 }
 
 // GetWriteConnectionSecretToReference of this MailingList.
 func (mg *MailingList) GetWriteConnectionSecretToReference() *xpv1.SecretReference {
-	return mg.Spec.WriteConnectionSecretToReference
+	return mg.Spec.ResourceSpec.WriteConnectionSecretToReference
 }
 
 // SetConditions of this MailingList.
 func (mg *MailingList) SetConditions(c ...xpv1.Condition) {
-	mg.Status.SetConditions(c...)
+	mg.Status.ResourceStatus.SetConditions(c...)
 }
 
 // SetDeletionPolicy of this MailingList.
 func (mg *MailingList) SetDeletionPolicy(r xpv1.DeletionPolicy) {
-	mg.Spec.DeletionPolicy = r
+	mg.Spec.ResourceSpec.DeletionPolicy = r
 }
 
 // SetManagementPolicies of this MailingList.
 func (mg *MailingList) SetManagementPolicies(r xpv1.ManagementPolicies) {
-	mg.Spec.ManagementPolicies = r
+	mg.Spec.ResourceSpec.ManagementPolicies = r
 }
 
 // SetProviderConfigReference of this MailingList.
 func (mg *MailingList) SetProviderConfigReference(r *xpv1.Reference) {
-	mg.Spec.ProviderConfigReference = r
-}
-
-// SetPublishConnectionDetailsTo of this MailingList.
-func (mg *MailingList) SetPublishConnectionDetailsTo(r *xpv1.PublishConnectionDetailsTo) {
-	mg.Spec.PublishConnectionDetailsTo = r
+	mg.Spec.ResourceSpec.ProviderConfigReference = r
 }
 
 // SetWriteConnectionSecretToReference of this MailingList.
 func (mg *MailingList) SetWriteConnectionSecretToReference(r *xpv1.SecretReference) {
-	mg.Spec.WriteConnectionSecretToReference = r
+	mg.Spec.ResourceSpec.WriteConnectionSecretToReference = r
 }

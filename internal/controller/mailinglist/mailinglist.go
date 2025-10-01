@@ -24,17 +24,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/controller"
-	"github.com/crossplane/crossplane-runtime/pkg/event"
-	"github.com/crossplane/crossplane-runtime/pkg/meta"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	clients "github.com/rossigee/provider-mailgun/internal/clients"
-	"github.com/rossigee/provider-mailgun/internal/features"
 )
 
 const (
@@ -49,21 +48,16 @@ const (
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1beta1.MailingListKind)
 
-	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
-	if o.Features.Enabled(features.EnableAlphaManagementPolicies) {
-		cps = append(cps, managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme()))
-	}
-
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1beta1.MailingListGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
-			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1beta1.ProviderConfigUsage{}),
-			newServiceFn: clients.NewClient}),
+			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
+			newServiceFn: clients.NewClient,
+		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
-		managed.WithConnectionPublishers(cps...))
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
@@ -194,10 +188,9 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.Wrap(err, "failed to get mailing list")
 	}
 
-	currentSpec := generateMailingListSpec(cr.Spec.ForProvider)
-	upToDate := isMailingListUpToDate(mailingList, currentSpec)
+	upToDate := isMailingListUpToDate(mailingList, &cr.Spec.ForProvider)
 
-	cr.Status.AtProvider = generateMailingListObservation(mailingList)
+	cr.Status.AtProvider = *mailingList
 
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -224,14 +217,13 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	cr.SetConditions(xpv1.Creating())
 
-	mailingListSpec := generateMailingListSpec(cr.Spec.ForProvider)
-	mailingList, err := c.service.CreateMailingList(ctx, mailingListSpec)
+	mailingList, err := c.service.CreateMailingList(ctx, &cr.Spec.ForProvider)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, "failed to create mailing list")
 	}
 
 	meta.SetExternalName(cr, mailingList.Address)
-	cr.Status.AtProvider = generateMailingListObservation(mailingList)
+	cr.Status.AtProvider = *mailingList
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
@@ -246,13 +238,12 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalUpdate{}, errors.New(errNotMailingList)
 	}
 
-	mailingListSpec := generateMailingListSpec(cr.Spec.ForProvider)
-	mailingList, err := c.service.UpdateMailingList(ctx, cr.Spec.ForProvider.Address, mailingListSpec)
+	mailingList, err := c.service.UpdateMailingList(ctx, cr.Spec.ForProvider.Address, &cr.Spec.ForProvider)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, "failed to update mailing list")
 	}
 
-	cr.Status.AtProvider = generateMailingListObservation(mailingList)
+	cr.Status.AtProvider = *mailingList
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
@@ -277,43 +268,9 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalDelete{}, nil
 }
 
-// generateMailingListSpec converts the API parameters to client format
-func generateMailingListSpec(params v1beta1.MailingListParameters) *clients.MailingListSpec {
-	spec := &clients.MailingListSpec{
-		Address: params.Address,
-	}
-
-	if params.Name != nil {
-		spec.Name = params.Name
-	}
-	if params.Description != nil {
-		spec.Description = params.Description
-	}
-	if params.AccessLevel != nil {
-		spec.AccessLevel = params.AccessLevel
-	}
-	if params.ReplyPreference != nil {
-		spec.ReplyPreference = params.ReplyPreference
-	}
-
-	return spec
-}
-
-// generateMailingListObservation converts the client response to API format
-func generateMailingListObservation(mailingList *clients.MailingList) v1beta1.MailingListObservation {
-	return v1beta1.MailingListObservation{
-		Address:         mailingList.Address,
-		Name:            mailingList.Name,
-		Description:     mailingList.Description,
-		AccessLevel:     mailingList.AccessLevel,
-		ReplyPreference: mailingList.ReplyPreference,
-		CreatedAt:       mailingList.CreatedAt,
-		MembersCount:    mailingList.MembersCount,
-	}
-}
 
 // isMailingListUpToDate checks if the external resource is up to date
-func isMailingListUpToDate(mailingList *clients.MailingList, desired *clients.MailingListSpec) bool {
+func isMailingListUpToDate(mailingList *v1beta1.MailingListObservation, desired *v1beta1.MailingListParameters) bool {
 	// Compare updatable fields
 	if desired.Name != nil && mailingList.Name != *desired.Name {
 		return false

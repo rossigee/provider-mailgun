@@ -18,4 +18,4 @@ keywords:
   - cloud-native
 annotations:
   crossplane.io/provider: "true"
-  crossplane.io/provider-group: "mailgun.crossplane.io"
+  crossplane.io/provider-group: "mailgun.m.crossplane.io"

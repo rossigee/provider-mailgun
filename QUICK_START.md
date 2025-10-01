@@ -22,10 +22,11 @@ kubectl patch secret mailgun-creds -n crossplane-system -p '{"stringData":{"cred
 ### Step 3: Test with Domain
 ```bash
 kubectl apply -f - <<EOF
-apiVersion: domain.mailgun.crossplane.io/v1alpha1
+apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: my-domain
+  namespace: default
 spec:
   forProvider:
     name: mail.yourdomain.com
@@ -45,10 +46,11 @@ kubectl describe domain my-domain
 
 ### SMTP Credentials
 ```yaml
-apiVersion: smtpcredential.mailgun.crossplane.io/v1alpha1
+apiVersion: smtpcredential.mailgun.m.crossplane.io/v1beta1
 kind: SMTPCredential
 metadata:
   name: app-smtp
+  namespace: default
 spec:
   forProvider:
     login: "app@yourdomain.com"
@@ -62,10 +64,11 @@ spec:
 
 ### Webhook
 ```yaml
-apiVersion: webhook.mailgun.crossplane.io/v1alpha1
+apiVersion: webhook.mailgun.m.crossplane.io/v1beta1
 kind: Webhook
 metadata:
   name: delivery-webhook
+  namespace: default
 spec:
   forProvider:
     kind: delivered
@@ -77,10 +80,11 @@ spec:
 
 ### Mailing List
 ```yaml
-apiVersion: mailinglist.mailgun.crossplane.io/v1alpha1
+apiVersion: mailinglist.mailgun.m.crossplane.io/v1beta1
 kind: MailingList
 metadata:
   name: newsletter
+  namespace: default
 spec:
   forProvider:
     address: newsletter@yourdomain.com

@@ -22,10 +22,28 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
+// convertWebhookToObservation converts client Webhook to API WebhookObservation
+func convertWebhookToObservation(clientWebhook *Webhook) *webhooktypes.WebhookObservation {
+	if clientWebhook == nil {
+		return nil
+	}
+
+	return &webhooktypes.WebhookObservation{
+		ID:        clientWebhook.ID,
+		EventType: clientWebhook.EventType,
+		URL:       clientWebhook.URL,
+		Username:  clientWebhook.Username,
+		CreatedAt: clientWebhook.CreatedAt,
+		Domain:    clientWebhook.Domain,
+	}
+}
+
 // CreateWebhook creates a new webhook in Mailgun
-func (c *mailgunClient) CreateWebhook(ctx context.Context, domain string, webhook *WebhookSpec) (*Webhook, error) {
+func (c *mailgunClient) CreateWebhook(ctx context.Context, domain string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	params := map[string]interface{}{
 		"url": webhook.URL,
 	}
@@ -55,11 +73,11 @@ func (c *mailgunClient) CreateWebhook(ctx context.Context, domain string, webhoo
 	result.Webhook.Domain = domain
 	result.Webhook.EventType = webhook.EventType
 
-	return result.Webhook, nil
+	return convertWebhookToObservation(result.Webhook), nil
 }
 
 // GetWebhook retrieves a webhook from Mailgun
-func (c *mailgunClient) GetWebhook(ctx context.Context, domain, eventType string) (*Webhook, error) {
+func (c *mailgunClient) GetWebhook(ctx context.Context, domain, eventType string) (*webhooktypes.WebhookObservation, error) {
 	path := fmt.Sprintf("/domains/%s/webhooks/%s", domain, eventType)
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
@@ -77,11 +95,11 @@ func (c *mailgunClient) GetWebhook(ctx context.Context, domain, eventType string
 	result.Webhook.Domain = domain
 	result.Webhook.EventType = eventType
 
-	return result.Webhook, nil
+	return convertWebhookToObservation(result.Webhook), nil
 }
 
 // UpdateWebhook updates an existing webhook in Mailgun
-func (c *mailgunClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *WebhookSpec) (*Webhook, error) {
+func (c *mailgunClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	params := map[string]interface{}{
 		"url": webhook.URL,
 	}
@@ -111,7 +129,7 @@ func (c *mailgunClient) UpdateWebhook(ctx context.Context, domain, eventType str
 	result.Webhook.Domain = domain
 	result.Webhook.EventType = eventType
 
-	return result.Webhook, nil
+	return convertWebhookToObservation(result.Webhook), nil
 }
 
 // DeleteWebhook deletes a webhook from Mailgun

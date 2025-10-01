@@ -24,27 +24,31 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/template/v1beta1"
-	domainv1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
-	"github.com/rossigee/provider-mailgun/internal/clients"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 // MockTemplateClient for testing
 type MockTemplateClient struct {
-	templates map[string]*clients.Template
+	templates map[string]*v1beta1.TemplateObservation
 	err       error
 }
 
-func (m *MockTemplateClient) CreateTemplate(ctx context.Context, domain string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockTemplateClient) CreateTemplate(ctx context.Context, domain string, template *v1beta1.TemplateParameters) (*v1beta1.TemplateObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
 	key := domain + "/" + template.Name
-	result := &clients.Template{
+	result := &v1beta1.TemplateObservation{
 		Name:      template.Name,
 		CreatedAt: "2025-01-01T00:00:00Z",
 		CreatedBy: "api",
@@ -56,27 +60,24 @@ func (m *MockTemplateClient) CreateTemplate(ctx context.Context, domain string, 
 	}
 
 	if template.Template != nil {
-		result.Versions = []clients.TemplateVersion{
-			{
-				Tag:       "v1.0",
-				Engine:    "mustache",
-				CreatedAt: "2025-01-01T00:00:00Z",
-				Comment:   "Initial version",
-				Active:    true,
-				Template:  *template.Template,
-			},
+		result.ActiveVersion = &v1beta1.TemplateVersion{
+			Tag:       "v1.0",
+			Engine:    "mustache",
+			CreatedAt: "2025-01-01T00:00:00Z",
+			Comment:   "Initial version",
+			Active:    true,
 		}
 	}
 
 	if m.templates == nil {
-		m.templates = make(map[string]*clients.Template)
+		m.templates = make(map[string]*v1beta1.TemplateObservation)
 	}
 	m.templates[key] = result
 
 	return result, nil
 }
 
-func (m *MockTemplateClient) GetTemplate(ctx context.Context, domain, name string) (*clients.Template, error) {
+func (m *MockTemplateClient) GetTemplate(ctx context.Context, domain, name string) (*v1beta1.TemplateObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -89,7 +90,7 @@ func (m *MockTemplateClient) GetTemplate(ctx context.Context, domain, name strin
 	return nil, errors.New("template not found (404)")
 }
 
-func (m *MockTemplateClient) UpdateTemplate(ctx context.Context, domain, name string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockTemplateClient) UpdateTemplate(ctx context.Context, domain, name string, template *v1beta1.TemplateParameters) (*v1beta1.TemplateObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -116,15 +117,15 @@ func (m *MockTemplateClient) DeleteTemplate(ctx context.Context, domain, name st
 }
 
 // Implement other required client methods as no-ops
-func (m *MockTemplateClient) CreateDomain(ctx context.Context, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockTemplateClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) GetDomain(ctx context.Context, name string) (*clients.Domain, error) {
+func (m *MockTemplateClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) UpdateDomain(ctx context.Context, name string, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockTemplateClient) UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -132,15 +133,15 @@ func (m *MockTemplateClient) DeleteDomain(ctx context.Context, name string) erro
 	return errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) CreateMailingList(ctx context.Context, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockTemplateClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) GetMailingList(ctx context.Context, address string) (*clients.MailingList, error) {
+func (m *MockTemplateClient) GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) UpdateMailingList(ctx context.Context, address string, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockTemplateClient) UpdateMailingList(ctx context.Context, address string, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -148,15 +149,15 @@ func (m *MockTemplateClient) DeleteMailingList(ctx context.Context, address stri
 	return errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) CreateRoute(ctx context.Context, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockTemplateClient) CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) GetRoute(ctx context.Context, id string) (*clients.Route, error) {
+func (m *MockTemplateClient) GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) UpdateRoute(ctx context.Context, id string, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockTemplateClient) UpdateRoute(ctx context.Context, id string, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -164,15 +165,15 @@ func (m *MockTemplateClient) DeleteRoute(ctx context.Context, id string) error {
 	return errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) CreateWebhook(ctx context.Context, domain string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockTemplateClient) CreateWebhook(ctx context.Context, domain string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) GetWebhook(ctx context.Context, domain, eventType string) (*clients.Webhook, error) {
+func (m *MockTemplateClient) GetWebhook(ctx context.Context, domain, eventType string) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockTemplateClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -180,15 +181,15 @@ func (m *MockTemplateClient) DeleteWebhook(ctx context.Context, domain, eventTyp
 	return errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) CreateSMTPCredential(ctx context.Context, domain string, credential *clients.SMTPCredentialSpec) (*clients.SMTPCredential, error) {
+func (m *MockTemplateClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) GetSMTPCredential(ctx context.Context, domain, login string) (*clients.SMTPCredential, error) {
+func (m *MockTemplateClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*clients.SMTPCredential, error) {
+func (m *MockTemplateClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -197,11 +198,11 @@ func (m *MockTemplateClient) DeleteSMTPCredential(ctx context.Context, domain, l
 }
 
 // Bounce suppression operations
-func (m *MockTemplateClient) CreateBounce(ctx context.Context, domain string, bounce *clients.BounceSpec) (*clients.Bounce, error) {
+func (m *MockTemplateClient) CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) GetBounce(ctx context.Context, domain, address string) (*clients.Bounce, error) {
+func (m *MockTemplateClient) GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -210,11 +211,11 @@ func (m *MockTemplateClient) DeleteBounce(ctx context.Context, domain, address s
 }
 
 // Complaint suppression operations
-func (m *MockTemplateClient) CreateComplaint(ctx context.Context, domain string, complaint *clients.ComplaintSpec) (*clients.Complaint, error) {
+func (m *MockTemplateClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) GetComplaint(ctx context.Context, domain, address string) (*clients.Complaint, error) {
+func (m *MockTemplateClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -223,11 +224,11 @@ func (m *MockTemplateClient) DeleteComplaint(ctx context.Context, domain, addres
 }
 
 // Unsubscribe suppression operations
-func (m *MockTemplateClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *clients.UnsubscribeSpec) (*clients.Unsubscribe, error) {
+func (m *MockTemplateClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockTemplateClient) GetUnsubscribe(ctx context.Context, domain, address string) (*clients.Unsubscribe, error) {
+func (m *MockTemplateClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -295,20 +296,18 @@ func TestTemplateObserve(t *testing.T) {
 
 			// Pre-populate with test template for "exists" test
 			if name == "TemplateExists" {
-				mockClient.templates = map[string]*clients.Template{
+				mockClient.templates = map[string]*v1beta1.TemplateObservation{
 					"example.com/test-template": {
 						Name:        "test-template",
 						Description: "Test template",
 						CreatedAt:   "2025-01-01T00:00:00Z",
 						CreatedBy:   "api",
-						Versions: []clients.TemplateVersion{
-							{
-								Tag:       "v1.0",
-								Engine:    "mustache",
-								CreatedAt: "2025-01-01T00:00:00Z",
-								Comment:   "Initial version",
-								Active:    true,
-							},
+						ActiveVersion: &v1beta1.TemplateVersion{
+							Tag:       "v1.0",
+							Engine:    "mustache",
+							CreatedAt: "2025-01-01T00:00:00Z",
+							Comment:   "Initial version",
+							Active:    true,
 						},
 					},
 				}
@@ -418,7 +417,7 @@ func TestTemplateUpdate(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockTemplateClient{
-				templates: map[string]*clients.Template{
+				templates: map[string]*v1beta1.TemplateObservation{
 					"example.com/existing-template": {
 						Name:        "existing-template",
 						Description: "Old description",
@@ -476,7 +475,7 @@ func TestTemplateDelete(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockTemplateClient{
-				templates: map[string]*clients.Template{
+				templates: map[string]*v1beta1.TemplateObservation{
 					"example.com/delete-template": {
 						Name:        "delete-template",
 						Description: "Template to delete",
@@ -767,31 +766,29 @@ func TestTemplateEdgeCases(t *testing.T) {
 		template, exists := mockClient.templates[key]
 		assert.True(t, exists)
 		assert.Equal(t, "complex-template", template.Name)
-		assert.Len(t, template.Versions, 1)
-		assert.Equal(t, complexTemplate, template.Versions[0].Template)
+		assert.NotNil(t, template.ActiveVersion)
+		// Template content verification removed as ActiveVersion doesn't store template content
 	})
 
 	t.Run("TemplateStatusUpdate", func(t *testing.T) {
 		mockClient := &MockTemplateClient{
-			templates: map[string]*clients.Template{
+			templates: map[string]*v1beta1.TemplateObservation{
 				"example.com/status-template": {
 					Name:        "status-template",
 					Description: "Template for status testing",
 					CreatedAt:   "2025-01-01T00:00:00Z",
 					CreatedBy:   "test-user",
-					Versions: []clients.TemplateVersion{
-						{
-							Tag:       "v1.0",
-							Engine:    "mustache",
-							CreatedAt: "2025-01-01T00:00:00Z",
-							Comment:   "Initial version",
-							Active:    true,
-							Template:  "Hello {{name}}!",
-						},
+					ActiveVersion: &v1beta1.TemplateVersion{
+						Tag:       "v1.0",
+						Engine:    "mustache",
+						CreatedAt: "2025-01-01T00:00:00Z",
+						Comment:   "Initial version",
+						Active:    true,
+						// Template content stored separately
 					},
 				},
-			},
-		}
+		},
+	}
 		e := &external{client: mockClient}
 
 		mg := &v1beta1.Template{
@@ -858,7 +855,7 @@ func TestTemplateInvalidManagedResource(t *testing.T) {
 			e := &external{client: mockClient}
 
 			// Use a different resource type (not Template)
-			invalidMg := &domainv1beta1.Domain{} // Wrong type
+			invalidMg := &domaintypes.Domain{} // Wrong type
 
 			err := op.op(e, context.Background(), invalidMg)
 			// Should handle gracefully without panicking

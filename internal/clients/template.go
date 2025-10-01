@@ -20,10 +20,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 )
 
 // CreateTemplate creates a new email template for a domain
-func (c *mailgunClient) CreateTemplate(ctx context.Context, domain string, template *TemplateSpec) (*Template, error) {
+func (c *mailgunClient) CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	path := fmt.Sprintf("/domains/%s/templates", domain)
 
 	params := map[string]interface{}{
@@ -59,11 +61,20 @@ func (c *mailgunClient) CreateTemplate(ctx context.Context, domain string, templ
 		return nil, fmt.Errorf("failed to handle response: %w", err)
 	}
 
-	return result.Template, nil
+	// Convert client Template to API TemplateObservation
+	observation := &templatetypes.TemplateObservation{
+		Name:         result.Template.Name,
+		Description:  result.Template.Description,
+		CreatedAt:    result.Template.CreatedAt,
+		CreatedBy:    result.Template.CreatedBy,
+		VersionCount: len(result.Template.Versions),
+	}
+
+	return observation, nil
 }
 
 // GetTemplate retrieves a template by name
-func (c *mailgunClient) GetTemplate(ctx context.Context, domain, name string) (*Template, error) {
+func (c *mailgunClient) GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error) {
 	path := fmt.Sprintf("/domains/%s/templates/%s", domain, name)
 
 	// Request with active flag to get the active version content
@@ -79,11 +90,20 @@ func (c *mailgunClient) GetTemplate(ctx context.Context, domain, name string) (*
 		return nil, fmt.Errorf("failed to handle response: %w", err)
 	}
 
-	return result.Template, nil
+	// Convert client Template to API TemplateObservation
+	observation := &templatetypes.TemplateObservation{
+		Name:         result.Template.Name,
+		Description:  result.Template.Description,
+		CreatedAt:    result.Template.CreatedAt,
+		CreatedBy:    result.Template.CreatedBy,
+		VersionCount: len(result.Template.Versions),
+	}
+
+	return observation, nil
 }
 
 // UpdateTemplate updates a template's description
-func (c *mailgunClient) UpdateTemplate(ctx context.Context, domain, name string, template *TemplateSpec) (*Template, error) {
+func (c *mailgunClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	path := fmt.Sprintf("/domains/%s/templates/%s", domain, name)
 
 	params := map[string]interface{}{}
@@ -112,7 +132,16 @@ func (c *mailgunClient) UpdateTemplate(ctx context.Context, domain, name string,
 		return c.GetTemplate(ctx, domain, name)
 	}
 
-	return result.Template, nil
+	// Convert client Template to API TemplateObservation
+	observation := &templatetypes.TemplateObservation{
+		Name:         result.Template.Name,
+		Description:  result.Template.Description,
+		CreatedAt:    result.Template.CreatedAt,
+		CreatedBy:    result.Template.CreatedBy,
+		VersionCount: len(result.Template.Versions),
+	}
+
+	return observation, nil
 }
 
 // DeleteTemplate deletes a template and all its versions

@@ -22,10 +22,25 @@ import (
 	"fmt"
 	"io"
 	"strings"
+
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 )
 
+// convertSMTPCredentialToObservation converts client SMTPCredential to API SMTPCredentialObservation
+func convertSMTPCredentialToObservation(clientCred *SMTPCredential) *smtpcredentialtypes.SMTPCredentialObservation {
+	if clientCred == nil {
+		return nil
+	}
+
+	return &smtpcredentialtypes.SMTPCredentialObservation{
+		Login:     clientCred.Login,
+		CreatedAt: clientCred.CreatedAt,
+		State:     clientCred.State,
+	}
+}
+
 // CreateSMTPCredential creates a new SMTP credential for a domain
-func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string, credential *SMTPCredentialSpec) (*SMTPCredential, error) {
+func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	path := fmt.Sprintf("/domains/%s/credentials", domain)
 
 	params := map[string]interface{}{
@@ -69,12 +84,12 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 	}
 
 	if err := json.Unmarshal(responseBody, &credentialResponse); err == nil && credentialResponse.Login != "" {
-		return &SMTPCredential{
+		return convertSMTPCredentialToObservation(&SMTPCredential{
 			Login:     credentialResponse.Login,
 			Password:  credentialResponse.Password,
 			CreatedAt: credentialResponse.CreatedAt,
 			State:     credentialResponse.State,
-		}, nil
+		}), nil
 	}
 
 	// Parse as credentials response (new API behavior with generated passwords)
@@ -91,11 +106,11 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 	if createResponse.Credentials != nil {
 		if password, exists := createResponse.Credentials[credential.Login]; exists {
 			fmt.Printf("DEBUG: Found password in credentials response for %s (length: %d)\n", credential.Login, len(password))
-			return &SMTPCredential{
+			return convertSMTPCredentialToObservation(&SMTPCredential{
 				Login:    credential.Login,
 				Password: password,
 				State:    "active", // Newly created credentials are active
-			}, nil
+			}), nil
 		}
 	}
 
@@ -111,7 +126,7 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 }
 
 // GetSMTPCredential retrieves an SMTP credential
-func (c *mailgunClient) GetSMTPCredential(ctx context.Context, domain, login string) (*SMTPCredential, error) {
+func (c *mailgunClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	// List all credentials and find the matching one
 	path := fmt.Sprintf("/domains/%s/credentials", domain)
 
@@ -130,7 +145,7 @@ func (c *mailgunClient) GetSMTPCredential(ctx context.Context, domain, login str
 	// Find the credential with matching login
 	for _, cred := range result.Items {
 		if cred.Login == login {
-			return &cred, nil
+			return convertSMTPCredentialToObservation(&cred), nil
 		}
 	}
 
@@ -138,7 +153,7 @@ func (c *mailgunClient) GetSMTPCredential(ctx context.Context, domain, login str
 }
 
 // UpdateSMTPCredential updates the password for an SMTP credential
-func (c *mailgunClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*SMTPCredential, error) {
+func (c *mailgunClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	path := fmt.Sprintf("/domains/%s/credentials/%s", domain, login)
 
 	params := map[string]interface{}{
@@ -154,13 +169,13 @@ func (c *mailgunClient) UpdateSMTPCredential(ctx context.Context, domain, login 
 	var result SMTPCredential
 	if err := c.handleResponse(resp, &result); err != nil {
 		// Some endpoints return empty response on success, so we handle that
-		return &SMTPCredential{
+		return convertSMTPCredentialToObservation(&SMTPCredential{
 			Login: login,
 			State: "active",
-		}, nil
+		}), nil
 	}
 
-	return &result, nil
+	return convertSMTPCredentialToObservation(&result), nil
 }
 
 // DeleteSMTPCredential deletes an SMTP credential

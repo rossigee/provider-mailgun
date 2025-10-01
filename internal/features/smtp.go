@@ -31,6 +31,7 @@ import (
 	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/errors"
 	"github.com/rossigee/provider-mailgun/internal/tracing"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 )
 
 // SMTPCredentialManager provides advanced SMTP credential management
@@ -135,7 +136,7 @@ func DefaultRotationPolicy() *RotationPolicy {
 
 // EnhancedSMTPCredential represents an SMTP credential with advanced features
 type EnhancedSMTPCredential struct {
-	*clients.SMTPCredential
+	*smtpcredentialtypes.SMTPCredentialObservation
 
 	// IPAllowlist contains allowed IP addresses/ranges
 	IPAllowlist []IPAllowlistEntry
@@ -333,7 +334,7 @@ func IsIPAllowed(ip string, allowlist []IPAllowlistEntry) bool {
 func (m *SMTPCredentialManager) CreateCredentialWithFeatures(
 	ctx context.Context,
 	domain string,
-	spec *clients.SMTPCredentialSpec,
+	spec *smtpcredentialtypes.SMTPCredentialParameters,
 	policy *PasswordPolicy,
 	allowlist []IPAllowlistEntry,
 	rotationPolicy *RotationPolicy,
@@ -391,10 +392,10 @@ func (m *SMTPCredentialManager) CreateCredentialWithFeatures(
 
 	// Build enhanced credential
 	enhanced := &EnhancedSMTPCredential{
-		SMTPCredential: credential,
-		IPAllowlist:    allowlist,
-		RotationPolicy: rotationPolicy,
-		Tags:           tags,
+		SMTPCredentialObservation: credential,
+		IPAllowlist:               allowlist,
+		RotationPolicy:            rotationPolicy,
+		Tags:                      tags,
 	}
 
 	// Set rotation schedule if enabled
@@ -447,8 +448,8 @@ func (m *SMTPCredentialManager) RotateCredential(
 
 	now := time.Now()
 	enhanced := &EnhancedSMTPCredential{
-		SMTPCredential: credential,
-		LastRotated:    &now,
+		SMTPCredentialObservation: credential,
+		LastRotated:               &now,
 	}
 
 	op.SetAttribute("credential.login", login)

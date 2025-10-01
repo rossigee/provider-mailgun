@@ -20,10 +20,12 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 )
 
 // CreateBounce creates a new bounce suppression entry for a domain
-func (c *mailgunClient) CreateBounce(ctx context.Context, domain string, bounce *BounceSpec) (*Bounce, error) {
+func (c *mailgunClient) CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error) {
 	path := fmt.Sprintf("/domains/%s/bounces", domain)
 
 	params := map[string]interface{}{
@@ -47,11 +49,16 @@ func (c *mailgunClient) CreateBounce(ctx context.Context, domain string, bounce 
 		return nil, fmt.Errorf("failed to handle response: %w", err)
 	}
 
-	return &result, nil
+	// Convert client Bounce to API BounceObservation
+	observation := &bouncetypes.BounceObservation{
+		CreatedAt: &result.CreatedAt,
+	}
+
+	return observation, nil
 }
 
 // GetBounce retrieves a bounce suppression entry
-func (c *mailgunClient) GetBounce(ctx context.Context, domain, address string) (*Bounce, error) {
+func (c *mailgunClient) GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error) {
 	path := fmt.Sprintf("/domains/%s/bounces/%s", domain, address)
 
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
@@ -64,7 +71,12 @@ func (c *mailgunClient) GetBounce(ctx context.Context, domain, address string) (
 		return nil, fmt.Errorf("failed to handle response: %w", err)
 	}
 
-	return &result, nil
+	// Convert client Bounce to API BounceObservation
+	observation := &bouncetypes.BounceObservation{
+		CreatedAt: &result.CreatedAt,
+	}
+
+	return observation, nil
 }
 
 // DeleteBounce deletes a bounce suppression entry

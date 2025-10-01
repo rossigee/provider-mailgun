@@ -25,21 +25,23 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 )
 
 func TestCreateMailingList(t *testing.T) {
 	tests := []struct {
 		name         string
-		listSpec     *MailingListSpec
-		expectedList *MailingList
+		listSpec     *mailinglisttypes.MailingListParameters
+		expectedList *mailinglisttypes.MailingListObservation
 		expectedError bool
 	}{
 		{
 			name: "successful creation with minimal params",
-			listSpec: &MailingListSpec{
+			listSpec: &mailinglisttypes.MailingListParameters{
 				Address: "test@example.com",
 			},
-			expectedList: &MailingList{
+			expectedList: &mailinglisttypes.MailingListObservation{
 				Address:         "test@example.com",
 				Name:            "Test List",
 				AccessLevel:     "readonly",
@@ -51,14 +53,14 @@ func TestCreateMailingList(t *testing.T) {
 		},
 		{
 			name: "successful creation with all params",
-			listSpec: &MailingListSpec{
+			listSpec: &mailinglisttypes.MailingListParameters{
 				Address:         "full@example.com",
 				Name:            stringPtr("Full List"),
 				Description:     stringPtr("Complete test list"),
 				AccessLevel:     stringPtr("members"),
 				ReplyPreference: stringPtr("sender"),
 			},
-			expectedList: &MailingList{
+			expectedList: &mailinglisttypes.MailingListObservation{
 				Address:         "full@example.com",
 				Name:            "Full List",
 				Description:     "Complete test list",
@@ -88,8 +90,18 @@ func TestCreateMailingList(t *testing.T) {
 				}
 
 				w.WriteHeader(http.StatusOK)
+				// Return raw MailingList data that would come from Mailgun API
+				mailingListData := map[string]interface{}{
+					"address":          tt.expectedList.Address,
+					"name":             tt.expectedList.Name,
+					"description":      tt.expectedList.Description,
+					"access_level":     tt.expectedList.AccessLevel,
+					"reply_preference": tt.expectedList.ReplyPreference,
+					"created_at":       tt.expectedList.CreatedAt,
+					"members_count":    tt.expectedList.MembersCount,
+				}
 				response := map[string]interface{}{
-					"list": tt.expectedList,
+					"list": mailingListData,
 				}
 				_ = json.NewEncoder(w).Encode(response)
 			}))
@@ -118,14 +130,14 @@ func TestGetMailingList(t *testing.T) {
 	tests := []struct {
 		name          string
 		address       string
-		expectedList  *MailingList
+		expectedList  *mailinglisttypes.MailingListObservation
 		expectedError bool
 		statusCode    int
 	}{
 		{
 			name:    "successful get",
 			address: "get@example.com",
-			expectedList: &MailingList{
+			expectedList: &mailinglisttypes.MailingListObservation{
 				Address:         "get@example.com",
 				Name:            "Get List",
 				Description:     "List for testing get",
@@ -154,8 +166,18 @@ func TestGetMailingList(t *testing.T) {
 
 				w.WriteHeader(tt.statusCode)
 				if tt.statusCode == 200 {
+					// Return raw MailingList data that would come from Mailgun API
+					mailingListData := map[string]interface{}{
+						"address":          tt.expectedList.Address,
+						"name":             tt.expectedList.Name,
+						"description":      tt.expectedList.Description,
+						"access_level":     tt.expectedList.AccessLevel,
+						"reply_preference": tt.expectedList.ReplyPreference,
+						"created_at":       tt.expectedList.CreatedAt,
+						"members_count":    tt.expectedList.MembersCount,
+					}
 					response := map[string]interface{}{
-						"list": tt.expectedList,
+						"list": mailingListData,
 					}
 					_ = json.NewEncoder(w).Encode(response)
 				} else {
@@ -185,7 +207,7 @@ func TestGetMailingList(t *testing.T) {
 }
 
 func TestUpdateMailingList(t *testing.T) {
-	listSpec := &MailingListSpec{
+	listSpec := &mailinglisttypes.MailingListParameters{
 		Name:            stringPtr("Updated List"),
 		Description:     stringPtr("Updated description"),
 		AccessLevel:     stringPtr("members"),

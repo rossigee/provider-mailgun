@@ -24,26 +24,31 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
 
 	"github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
-	"github.com/rossigee/provider-mailgun/internal/clients"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 )
 
 // MockWebhookClient for testing
 type MockWebhookClient struct {
-	webhooks map[string]*clients.Webhook
+	webhooks map[string]*v1beta1.WebhookObservation
 	err      error
 }
 
-func (m *MockWebhookClient) CreateWebhook(ctx context.Context, domain string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockWebhookClient) CreateWebhook(ctx context.Context, domain string, webhook *v1beta1.WebhookParameters) (*v1beta1.WebhookObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
-	result := &clients.Webhook{
+	result := &v1beta1.WebhookObservation{
 		ID:        "webhook_123",
 		EventType: webhook.EventType,
 		URL:       webhook.URL,
@@ -56,14 +61,14 @@ func (m *MockWebhookClient) CreateWebhook(ctx context.Context, domain string, we
 
 	key := domain + "/" + webhook.EventType
 	if m.webhooks == nil {
-		m.webhooks = make(map[string]*clients.Webhook)
+		m.webhooks = make(map[string]*v1beta1.WebhookObservation)
 	}
 	m.webhooks[key] = result
 
 	return result, nil
 }
 
-func (m *MockWebhookClient) GetWebhook(ctx context.Context, domain, eventType string) (*clients.Webhook, error) {
+func (m *MockWebhookClient) GetWebhook(ctx context.Context, domain, eventType string) (*v1beta1.WebhookObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -76,7 +81,7 @@ func (m *MockWebhookClient) GetWebhook(ctx context.Context, domain, eventType st
 	return nil, errors.New("webhook not found (404)")
 }
 
-func (m *MockWebhookClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockWebhookClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *v1beta1.WebhookParameters) (*v1beta1.WebhookObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -105,15 +110,15 @@ func (m *MockWebhookClient) DeleteWebhook(ctx context.Context, domain, eventType
 }
 
 // Implement other required client methods as no-ops
-func (m *MockWebhookClient) CreateDomain(ctx context.Context, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockWebhookClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) GetDomain(ctx context.Context, name string) (*clients.Domain, error) {
+func (m *MockWebhookClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) UpdateDomain(ctx context.Context, name string, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockWebhookClient) UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -121,15 +126,15 @@ func (m *MockWebhookClient) DeleteDomain(ctx context.Context, name string) error
 	return errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) CreateMailingList(ctx context.Context, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockWebhookClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) GetMailingList(ctx context.Context, address string) (*clients.MailingList, error) {
+func (m *MockWebhookClient) GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) UpdateMailingList(ctx context.Context, address string, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockWebhookClient) UpdateMailingList(ctx context.Context, address string, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -137,15 +142,15 @@ func (m *MockWebhookClient) DeleteMailingList(ctx context.Context, address strin
 	return errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) CreateRoute(ctx context.Context, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockWebhookClient) CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) GetRoute(ctx context.Context, id string) (*clients.Route, error) {
+func (m *MockWebhookClient) GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) UpdateRoute(ctx context.Context, id string, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockWebhookClient) UpdateRoute(ctx context.Context, id string, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -153,15 +158,15 @@ func (m *MockWebhookClient) DeleteRoute(ctx context.Context, id string) error {
 	return errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) CreateSMTPCredential(ctx context.Context, domain string, credential *clients.SMTPCredentialSpec) (*clients.SMTPCredential, error) {
+func (m *MockWebhookClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) GetSMTPCredential(ctx context.Context, domain, login string) (*clients.SMTPCredential, error) {
+func (m *MockWebhookClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*clients.SMTPCredential, error) {
+func (m *MockWebhookClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -169,15 +174,15 @@ func (m *MockWebhookClient) DeleteSMTPCredential(ctx context.Context, domain, lo
 	return errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) CreateTemplate(ctx context.Context, domain string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockWebhookClient) CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) GetTemplate(ctx context.Context, domain, name string) (*clients.Template, error) {
+func (m *MockWebhookClient) GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) UpdateTemplate(ctx context.Context, domain, name string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockWebhookClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -186,11 +191,11 @@ func (m *MockWebhookClient) DeleteTemplate(ctx context.Context, domain, name str
 }
 
 // Bounce suppression operations
-func (m *MockWebhookClient) CreateBounce(ctx context.Context, domain string, bounce *clients.BounceSpec) (*clients.Bounce, error) {
+func (m *MockWebhookClient) CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) GetBounce(ctx context.Context, domain, address string) (*clients.Bounce, error) {
+func (m *MockWebhookClient) GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -199,11 +204,11 @@ func (m *MockWebhookClient) DeleteBounce(ctx context.Context, domain, address st
 }
 
 // Complaint suppression operations
-func (m *MockWebhookClient) CreateComplaint(ctx context.Context, domain string, complaint *clients.ComplaintSpec) (*clients.Complaint, error) {
+func (m *MockWebhookClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) GetComplaint(ctx context.Context, domain, address string) (*clients.Complaint, error) {
+func (m *MockWebhookClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -212,11 +217,11 @@ func (m *MockWebhookClient) DeleteComplaint(ctx context.Context, domain, address
 }
 
 // Unsubscribe suppression operations
-func (m *MockWebhookClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *clients.UnsubscribeSpec) (*clients.Unsubscribe, error) {
+func (m *MockWebhookClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockWebhookClient) GetUnsubscribe(ctx context.Context, domain, address string) (*clients.Unsubscribe, error) {
+func (m *MockWebhookClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -290,7 +295,7 @@ func TestWebhookObserve(t *testing.T) {
 
 			// Pre-populate with test webhook for "exists" test
 			if name == "WebhookExists" {
-				mockClient.webhooks = map[string]*clients.Webhook{
+				mockClient.webhooks = map[string]*v1beta1.WebhookObservation{
 					"example.com/delivered": {
 						ID:        "webhook_123",
 						EventType: "delivered",
@@ -413,7 +418,7 @@ func TestWebhookUpdate(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockWebhookClient{
-				webhooks: map[string]*clients.Webhook{
+				webhooks: map[string]*v1beta1.WebhookObservation{
 					"existing.com/delivered": {
 						ID:        "webhook_existing",
 						EventType: "delivered",
@@ -475,7 +480,7 @@ func TestWebhookDelete(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockWebhookClient{
-				webhooks: map[string]*clients.Webhook{
+				webhooks: map[string]*v1beta1.WebhookObservation{
 					"delete.com/opened": {
 						ID:        "webhook_delete",
 						EventType: "opened",

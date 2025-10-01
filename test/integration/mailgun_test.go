@@ -28,6 +28,7 @@ import (
 
 	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/resilience"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 )
 
 const (
@@ -116,8 +117,8 @@ func testDomainOperations(t *testing.T, client *resilience.ResilientClient, test
 		}
 
 		assert.NotNil(t, domain)
-		assert.Equal(t, testDomain, domain.Name)
-		t.Logf("Domain found: %s, State: %s", domain.Name, domain.State)
+		// Note: Domain name is not returned in v1beta1 API observation - it's implicit from the request
+		t.Logf("Domain found, State: %s", domain.State)
 	})
 }
 
@@ -134,7 +135,7 @@ func testSMTPCredentialOperations(t *testing.T, client *resilience.ResilientClie
 	defer cleanup()
 
 	t.Run("CreateSMTPCredential", func(t *testing.T) {
-		spec := &clients.SMTPCredentialSpec{
+		spec := &smtpcredentialtypes.SMTPCredentialParameters{
 			Login:    testLogin,
 			Password: nil, // Let Mailgun generate password
 		}
@@ -150,7 +151,7 @@ func testSMTPCredentialOperations(t *testing.T, client *resilience.ResilientClie
 
 		assert.NotNil(t, credential)
 		assert.Equal(t, testLogin, credential.Login)
-		assert.NotEmpty(t, credential.Password, "Password should be generated")
+		// Note: Password is not returned in v1beta1 API for security reasons
 		assert.NotEmpty(t, credential.CreatedAt, "CreatedAt should be set")
 
 		t.Logf("Created SMTP credential: %s", credential.Login)

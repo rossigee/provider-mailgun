@@ -24,54 +24,55 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
-	"github.com/rossigee/provider-mailgun/internal/clients"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 // MockDomainClient for testing
 type MockDomainClient struct {
-	domains map[string]*clients.Domain
+	domains map[string]*v1beta1.DomainObservation
 	err     error
 }
 
-func (m *MockDomainClient) CreateDomain(ctx context.Context, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockDomainClient) CreateDomain(ctx context.Context, domain *v1beta1.DomainParameters) (*v1beta1.DomainObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
-	result := &clients.Domain{
-		Name:         domain.Name,
-		Type:         "sending",
+	result := &v1beta1.DomainObservation{
+		ID:           domain.Name,
 		State:        "active",
 		CreatedAt:    "2025-01-01T00:00:00Z",
 		SMTPLogin:    "postmaster@" + domain.Name,
 		SMTPPassword: "generated-password",
-		RequiredDNSRecords: []clients.DNSRecord{
+		RequiredDNSRecords: []v1beta1.DNSRecord{
 			{
-				Name:  domain.Name,
-				Type:  "TXT",
-				Value: "v=spf1 include:mailgun.org ~all",
-				Valid: boolPtr(false),
+				Name:     domain.Name,
+				Type:     "TXT",
+				Value:    "v=spf1 include:mailgun.org ~all",
+				Priority: nil,
+				Valid:    boolPtr(false),
 			},
 		},
 	}
 
-	if domain.Type != nil {
-		result.Type = *domain.Type
-	}
-
 	if m.domains == nil {
-		m.domains = make(map[string]*clients.Domain)
+		m.domains = make(map[string]*v1beta1.DomainObservation)
 	}
 	m.domains[domain.Name] = result
 
 	return result, nil
 }
 
-func (m *MockDomainClient) GetDomain(ctx context.Context, name string) (*clients.Domain, error) {
+func (m *MockDomainClient) GetDomain(ctx context.Context, name string) (*v1beta1.DomainObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -83,16 +84,13 @@ func (m *MockDomainClient) GetDomain(ctx context.Context, name string) (*clients
 	return nil, errors.New("domain not found (404)")
 }
 
-func (m *MockDomainClient) UpdateDomain(ctx context.Context, name string, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockDomainClient) UpdateDomain(ctx context.Context, name string, domain *v1beta1.DomainParameters) (*v1beta1.DomainObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
 	if existing, exists := m.domains[name]; exists {
-		// Update fields that can be modified
-		if domain.SpamAction != nil {
-			existing.Type = *domain.SpamAction // Using Type field to represent spam action for simplicity
-		}
+		// Return the existing domain (no actual updates in mock)
 		return existing, nil
 	}
 
@@ -109,15 +107,15 @@ func (m *MockDomainClient) DeleteDomain(ctx context.Context, name string) error 
 }
 
 // Implement other required client methods as no-ops
-func (m *MockDomainClient) CreateMailingList(ctx context.Context, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockDomainClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) GetMailingList(ctx context.Context, address string) (*clients.MailingList, error) {
+func (m *MockDomainClient) GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) UpdateMailingList(ctx context.Context, address string, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockDomainClient) UpdateMailingList(ctx context.Context, address string, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -125,15 +123,15 @@ func (m *MockDomainClient) DeleteMailingList(ctx context.Context, address string
 	return errors.New("not implemented")
 }
 
-func (m *MockDomainClient) CreateRoute(ctx context.Context, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockDomainClient) CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) GetRoute(ctx context.Context, id string) (*clients.Route, error) {
+func (m *MockDomainClient) GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) UpdateRoute(ctx context.Context, id string, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockDomainClient) UpdateRoute(ctx context.Context, id string, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -141,15 +139,15 @@ func (m *MockDomainClient) DeleteRoute(ctx context.Context, id string) error {
 	return errors.New("not implemented")
 }
 
-func (m *MockDomainClient) CreateWebhook(ctx context.Context, domain string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockDomainClient) CreateWebhook(ctx context.Context, domain string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) GetWebhook(ctx context.Context, domain, eventType string) (*clients.Webhook, error) {
+func (m *MockDomainClient) GetWebhook(ctx context.Context, domain, eventType string) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockDomainClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -157,15 +155,15 @@ func (m *MockDomainClient) DeleteWebhook(ctx context.Context, domain, eventType 
 	return errors.New("not implemented")
 }
 
-func (m *MockDomainClient) CreateSMTPCredential(ctx context.Context, domain string, credential *clients.SMTPCredentialSpec) (*clients.SMTPCredential, error) {
+func (m *MockDomainClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) GetSMTPCredential(ctx context.Context, domain, login string) (*clients.SMTPCredential, error) {
+func (m *MockDomainClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*clients.SMTPCredential, error) {
+func (m *MockDomainClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -173,15 +171,15 @@ func (m *MockDomainClient) DeleteSMTPCredential(ctx context.Context, domain, log
 	return errors.New("not implemented")
 }
 
-func (m *MockDomainClient) CreateTemplate(ctx context.Context, domain string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockDomainClient) CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) GetTemplate(ctx context.Context, domain, name string) (*clients.Template, error) {
+func (m *MockDomainClient) GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) UpdateTemplate(ctx context.Context, domain, name string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockDomainClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -190,11 +188,11 @@ func (m *MockDomainClient) DeleteTemplate(ctx context.Context, domain, name stri
 }
 
 // Bounce suppression operations
-func (m *MockDomainClient) CreateBounce(ctx context.Context, domain string, bounce *clients.BounceSpec) (*clients.Bounce, error) {
+func (m *MockDomainClient) CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) GetBounce(ctx context.Context, domain, address string) (*clients.Bounce, error) {
+func (m *MockDomainClient) GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -203,11 +201,11 @@ func (m *MockDomainClient) DeleteBounce(ctx context.Context, domain, address str
 }
 
 // Complaint suppression operations
-func (m *MockDomainClient) CreateComplaint(ctx context.Context, domain string, complaint *clients.ComplaintSpec) (*clients.Complaint, error) {
+func (m *MockDomainClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) GetComplaint(ctx context.Context, domain, address string) (*clients.Complaint, error) {
+func (m *MockDomainClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -216,11 +214,11 @@ func (m *MockDomainClient) DeleteComplaint(ctx context.Context, domain, address 
 }
 
 // Unsubscribe suppression operations
-func (m *MockDomainClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *clients.UnsubscribeSpec) (*clients.Unsubscribe, error) {
+func (m *MockDomainClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockDomainClient) GetUnsubscribe(ctx context.Context, domain, address string) (*clients.Unsubscribe, error) {
+func (m *MockDomainClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -290,10 +288,9 @@ func TestDomainObserve(t *testing.T) {
 
 			// Pre-populate with test domain for "exists" test
 			if name == "DomainExists" {
-				mockClient.domains = map[string]*clients.Domain{
+				mockClient.domains = map[string]*v1beta1.DomainObservation{
 					"example.com": {
-						Name:         "example.com",
-						Type:         "sending",
+						ID:           "example.com",
 						State:        "active",
 						CreatedAt:    "2025-01-01T00:00:00Z",
 						SMTPLogin:    "postmaster@example.com",
@@ -416,10 +413,9 @@ func TestDomainUpdate(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockDomainClient{
-				domains: map[string]*clients.Domain{
+				domains: map[string]*v1beta1.DomainObservation{
 					"existing.com": {
-						Name:         "existing.com",
-						Type:         "sending",
+						ID:           "existing.com",
 						State:        "active",
 						CreatedAt:    "2025-01-01T00:00:00Z",
 						SMTPLogin:    "postmaster@existing.com",
@@ -475,10 +471,9 @@ func TestDomainDelete(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockDomainClient{
-				domains: map[string]*clients.Domain{
+				domains: map[string]*v1beta1.DomainObservation{
 					"delete.com": {
-						Name:  "delete.com",
-						Type:  "sending",
+						ID:    "delete.com",
 						State: "active",
 					},
 				},

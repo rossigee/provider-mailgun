@@ -22,10 +22,31 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 )
 
+// convertDNSRecords converts client DNSRecord slice to API DNSRecord slice
+func convertDNSRecords(clientRecords []DNSRecord) []domaintypes.DNSRecord {
+	if clientRecords == nil {
+		return nil
+	}
+
+	apiRecords := make([]domaintypes.DNSRecord, len(clientRecords))
+	for i, record := range clientRecords {
+		apiRecords[i] = domaintypes.DNSRecord{
+			Name:     record.Name,
+			Type:     record.Type,
+			Value:    record.Value,
+			Priority: record.Priority,
+			Valid:    record.Valid,
+		}
+	}
+	return apiRecords
+}
+
 // CreateDomain creates a new domain in Mailgun
-func (c *mailgunClient) CreateDomain(ctx context.Context, domain *DomainSpec) (*Domain, error) {
+func (c *mailgunClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	params := map[string]interface{}{
 		"name": domain.Name,
 	}
@@ -68,11 +89,23 @@ func (c *mailgunClient) CreateDomain(ctx context.Context, domain *DomainSpec) (*
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	return result.Domain, nil
+	// Convert client Domain to API DomainObservation
+	observation := &domaintypes.DomainObservation{
+		ID:                   result.Domain.Name, // Mailgun uses name as ID
+		State:                result.Domain.State,
+		CreatedAt:            result.Domain.CreatedAt,
+		SMTPLogin:            result.Domain.SMTPLogin,
+		SMTPPassword:         result.Domain.SMTPPassword,
+		RequiredDNSRecords:   convertDNSRecords(result.Domain.RequiredDNSRecords),
+		ReceivingDNSRecords:  convertDNSRecords(result.Domain.ReceivingDNSRecords),
+		SendingDNSRecords:    convertDNSRecords(result.Domain.SendingDNSRecords),
+	}
+
+	return observation, nil
 }
 
 // GetDomain retrieves a domain from Mailgun
-func (c *mailgunClient) GetDomain(ctx context.Context, name string) (*Domain, error) {
+func (c *mailgunClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
 	path := fmt.Sprintf("/domains/%s", name)
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
@@ -86,11 +119,23 @@ func (c *mailgunClient) GetDomain(ctx context.Context, name string) (*Domain, er
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	return result.Domain, nil
+	// Convert client Domain to API DomainObservation
+	observation := &domaintypes.DomainObservation{
+		ID:                   result.Domain.Name, // Mailgun uses name as ID
+		State:                result.Domain.State,
+		CreatedAt:            result.Domain.CreatedAt,
+		SMTPLogin:            result.Domain.SMTPLogin,
+		SMTPPassword:         result.Domain.SMTPPassword,
+		RequiredDNSRecords:   convertDNSRecords(result.Domain.RequiredDNSRecords),
+		ReceivingDNSRecords:  convertDNSRecords(result.Domain.ReceivingDNSRecords),
+		SendingDNSRecords:    convertDNSRecords(result.Domain.SendingDNSRecords),
+	}
+
+	return observation, nil
 }
 
 // UpdateDomain updates an existing domain in Mailgun
-func (c *mailgunClient) UpdateDomain(ctx context.Context, name string, domain *DomainSpec) (*Domain, error) {
+func (c *mailgunClient) UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	params := map[string]interface{}{}
 
 	if domain.SpamAction != nil {
@@ -117,7 +162,19 @@ func (c *mailgunClient) UpdateDomain(ctx context.Context, name string, domain *D
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	return result.Domain, nil
+	// Convert client Domain to API DomainObservation
+	observation := &domaintypes.DomainObservation{
+		ID:                   result.Domain.Name, // Mailgun uses name as ID
+		State:                result.Domain.State,
+		CreatedAt:            result.Domain.CreatedAt,
+		SMTPLogin:            result.Domain.SMTPLogin,
+		SMTPPassword:         result.Domain.SMTPPassword,
+		RequiredDNSRecords:   convertDNSRecords(result.Domain.RequiredDNSRecords),
+		ReceivingDNSRecords:  convertDNSRecords(result.Domain.ReceivingDNSRecords),
+		SendingDNSRecords:    convertDNSRecords(result.Domain.SendingDNSRecords),
+	}
+
+	return observation, nil
 }
 
 // DeleteDomain deletes a domain from Mailgun

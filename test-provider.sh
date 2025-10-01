@@ -45,15 +45,15 @@ fi
 # Validate CRDs are installed
 echo "🔍 Checking CRDs..."
 CRDS=(
-    "domains.domain.mailgun.crossplane.io"
-    "mailinglists.mailinglist.mailgun.crossplane.io"
-    "routes.route.mailgun.crossplane.io"
-    "webhooks.webhook.mailgun.crossplane.io"
-    "smtpcredentials.smtpcredential.mailgun.crossplane.io"
-    "templates.template.mailgun.crossplane.io"
-    "bounces.bounce.mailgun.crossplane.io"
-    "providerconfigs.mailgun.crossplane.io"
-    "providerconfigusages.mailgun.crossplane.io"
+    "domains.domain.mailgun.m.crossplane.io"
+    "mailinglists.mailinglist.mailgun.m.crossplane.io"
+    "routes.route.mailgun.m.crossplane.io"
+    "webhooks.webhook.mailgun.m.crossplane.io"
+    "smtpcredentials.smtpcredential.mailgun.m.crossplane.io"
+    "templates.template.mailgun.m.crossplane.io"
+    "bounces.bounce.mailgun.m.crossplane.io"
+    "providerconfigs.mailgun.m.crossplane.io"
+    "providerconfigusages.mailgun.m.crossplane.io"
 )
 
 for crd in "${CRDS[@]}"; do

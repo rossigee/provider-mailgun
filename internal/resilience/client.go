@@ -20,6 +20,13 @@ import (
 	"context"
 
 	"github.com/rossigee/provider-mailgun/internal/clients"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 // ResilientClient wraps a Mailgun client with retry and circuit breaker logic
@@ -46,8 +53,8 @@ func NewResilientClient(client clients.Client, retryConfig *RetryConfig) *Resili
 
 // SMTP Credential operations with resilience
 
-func (r *ResilientClient) CreateSMTPCredential(ctx context.Context, domain string, credential *clients.SMTPCredentialSpec) (*clients.SMTPCredential, error) {
-	var result *clients.SMTPCredential
+func (r *ResilientClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
+	var result *smtpcredentialtypes.SMTPCredentialObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "create_smtp_credential", r.retryConfig, func() error {
@@ -63,8 +70,8 @@ func (r *ResilientClient) CreateSMTPCredential(ctx context.Context, domain strin
 	return result, nil
 }
 
-func (r *ResilientClient) GetSMTPCredential(ctx context.Context, domain, login string) (*clients.SMTPCredential, error) {
-	var result *clients.SMTPCredential
+func (r *ResilientClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
+	var result *smtpcredentialtypes.SMTPCredentialObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "get_smtp_credential", r.retryConfig, func() error {
@@ -80,8 +87,8 @@ func (r *ResilientClient) GetSMTPCredential(ctx context.Context, domain, login s
 	return result, nil
 }
 
-func (r *ResilientClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*clients.SMTPCredential, error) {
-	var result *clients.SMTPCredential
+func (r *ResilientClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
+	var result *smtpcredentialtypes.SMTPCredentialObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "update_smtp_credential", r.retryConfig, func() error {
@@ -107,8 +114,8 @@ func (r *ResilientClient) DeleteSMTPCredential(ctx context.Context, domain, logi
 
 // Template operations with resilience
 
-func (r *ResilientClient) CreateTemplate(ctx context.Context, domain string, template *clients.TemplateSpec) (*clients.Template, error) {
-	var result *clients.Template
+func (r *ResilientClient) CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
+	var result *templatetypes.TemplateObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "create_template", r.retryConfig, func() error {
@@ -124,8 +131,8 @@ func (r *ResilientClient) CreateTemplate(ctx context.Context, domain string, tem
 	return result, nil
 }
 
-func (r *ResilientClient) GetTemplate(ctx context.Context, domain, name string) (*clients.Template, error) {
-	var result *clients.Template
+func (r *ResilientClient) GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error) {
+	var result *templatetypes.TemplateObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "get_template", r.retryConfig, func() error {
@@ -141,8 +148,8 @@ func (r *ResilientClient) GetTemplate(ctx context.Context, domain, name string) 
 	return result, nil
 }
 
-func (r *ResilientClient) UpdateTemplate(ctx context.Context, domain, name string, template *clients.TemplateSpec) (*clients.Template, error) {
-	var result *clients.Template
+func (r *ResilientClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
+	var result *templatetypes.TemplateObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "update_template", r.retryConfig, func() error {
@@ -168,8 +175,8 @@ func (r *ResilientClient) DeleteTemplate(ctx context.Context, domain, name strin
 
 // Domain operations with resilience
 
-func (r *ResilientClient) CreateDomain(ctx context.Context, domain *clients.DomainSpec) (*clients.Domain, error) {
-	var result *clients.Domain
+func (r *ResilientClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
+	var result *domaintypes.DomainObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "create_domain", r.retryConfig, func() error {
@@ -185,8 +192,8 @@ func (r *ResilientClient) CreateDomain(ctx context.Context, domain *clients.Doma
 	return result, nil
 }
 
-func (r *ResilientClient) GetDomain(ctx context.Context, name string) (*clients.Domain, error) {
-	var result *clients.Domain
+func (r *ResilientClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	var result *domaintypes.DomainObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "get_domain", r.retryConfig, func() error {
@@ -202,8 +209,8 @@ func (r *ResilientClient) GetDomain(ctx context.Context, name string) (*clients.
 	return result, nil
 }
 
-func (r *ResilientClient) UpdateDomain(ctx context.Context, name string, domain *clients.DomainSpec) (*clients.Domain, error) {
-	var result *clients.Domain
+func (r *ResilientClient) UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
+	var result *domaintypes.DomainObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "update_domain", r.retryConfig, func() error {
@@ -229,8 +236,8 @@ func (r *ResilientClient) DeleteDomain(ctx context.Context, name string) error {
 
 // Mailing List operations with resilience
 
-func (r *ResilientClient) CreateMailingList(ctx context.Context, list *clients.MailingListSpec) (*clients.MailingList, error) {
-	var result *clients.MailingList
+func (r *ResilientClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
+	var result *mailinglisttypes.MailingListObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "create_mailing_list", r.retryConfig, func() error {
@@ -246,8 +253,8 @@ func (r *ResilientClient) CreateMailingList(ctx context.Context, list *clients.M
 	return result, nil
 }
 
-func (r *ResilientClient) GetMailingList(ctx context.Context, address string) (*clients.MailingList, error) {
-	var result *clients.MailingList
+func (r *ResilientClient) GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error) {
+	var result *mailinglisttypes.MailingListObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "get_mailing_list", r.retryConfig, func() error {
@@ -263,8 +270,8 @@ func (r *ResilientClient) GetMailingList(ctx context.Context, address string) (*
 	return result, nil
 }
 
-func (r *ResilientClient) UpdateMailingList(ctx context.Context, address string, list *clients.MailingListSpec) (*clients.MailingList, error) {
-	var result *clients.MailingList
+func (r *ResilientClient) UpdateMailingList(ctx context.Context, address string, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
+	var result *mailinglisttypes.MailingListObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "update_mailing_list", r.retryConfig, func() error {
@@ -290,8 +297,8 @@ func (r *ResilientClient) DeleteMailingList(ctx context.Context, address string)
 
 // Route operations with resilience
 
-func (r *ResilientClient) CreateRoute(ctx context.Context, route *clients.RouteSpec) (*clients.Route, error) {
-	var result *clients.Route
+func (r *ResilientClient) CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
+	var result *routetypes.RouteObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "create_route", r.retryConfig, func() error {
@@ -307,8 +314,8 @@ func (r *ResilientClient) CreateRoute(ctx context.Context, route *clients.RouteS
 	return result, nil
 }
 
-func (r *ResilientClient) GetRoute(ctx context.Context, id string) (*clients.Route, error) {
-	var result *clients.Route
+func (r *ResilientClient) GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error) {
+	var result *routetypes.RouteObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "get_route", r.retryConfig, func() error {
@@ -324,8 +331,8 @@ func (r *ResilientClient) GetRoute(ctx context.Context, id string) (*clients.Rou
 	return result, nil
 }
 
-func (r *ResilientClient) UpdateRoute(ctx context.Context, id string, route *clients.RouteSpec) (*clients.Route, error) {
-	var result *clients.Route
+func (r *ResilientClient) UpdateRoute(ctx context.Context, id string, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
+	var result *routetypes.RouteObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "update_route", r.retryConfig, func() error {
@@ -351,8 +358,8 @@ func (r *ResilientClient) DeleteRoute(ctx context.Context, id string) error {
 
 // Webhook operations with resilience
 
-func (r *ResilientClient) CreateWebhook(ctx context.Context, domain string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
-	var result *clients.Webhook
+func (r *ResilientClient) CreateWebhook(ctx context.Context, domain string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
+	var result *webhooktypes.WebhookObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "create_webhook", r.retryConfig, func() error {
@@ -368,8 +375,8 @@ func (r *ResilientClient) CreateWebhook(ctx context.Context, domain string, webh
 	return result, nil
 }
 
-func (r *ResilientClient) GetWebhook(ctx context.Context, domain, eventType string) (*clients.Webhook, error) {
-	var result *clients.Webhook
+func (r *ResilientClient) GetWebhook(ctx context.Context, domain, eventType string) (*webhooktypes.WebhookObservation, error) {
+	var result *webhooktypes.WebhookObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "get_webhook", r.retryConfig, func() error {
@@ -385,8 +392,8 @@ func (r *ResilientClient) GetWebhook(ctx context.Context, domain, eventType stri
 	return result, nil
 }
 
-func (r *ResilientClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
-	var result *clients.Webhook
+func (r *ResilientClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
+	var result *webhooktypes.WebhookObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "update_webhook", r.retryConfig, func() error {
@@ -412,8 +419,8 @@ func (r *ResilientClient) DeleteWebhook(ctx context.Context, domain, eventType s
 
 // Bounce operations with resilience
 
-func (r *ResilientClient) CreateBounce(ctx context.Context, domain string, bounce *clients.BounceSpec) (*clients.Bounce, error) {
-	var result *clients.Bounce
+func (r *ResilientClient) CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error) {
+	var result *bouncetypes.BounceObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "create_bounce", r.retryConfig, func() error {
@@ -429,8 +436,8 @@ func (r *ResilientClient) CreateBounce(ctx context.Context, domain string, bounc
 	return result, nil
 }
 
-func (r *ResilientClient) GetBounce(ctx context.Context, domain, address string) (*clients.Bounce, error) {
-	var result *clients.Bounce
+func (r *ResilientClient) GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error) {
+	var result *bouncetypes.BounceObservation
 	var err error
 
 	retryErr := WithRetry(ctx, "get_bounce", r.retryConfig, func() error {
@@ -456,8 +463,8 @@ func (r *ResilientClient) DeleteBounce(ctx context.Context, domain, address stri
 
 // Complaint operations with resilience
 
-func (r *ResilientClient) CreateComplaint(ctx context.Context, domain string, complaint *clients.ComplaintSpec) (*clients.Complaint, error) {
-	var result *clients.Complaint
+func (r *ResilientClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
+	var result interface{}
 	var err error
 
 	retryErr := WithRetry(ctx, "create_complaint", r.retryConfig, func() error {
@@ -473,8 +480,8 @@ func (r *ResilientClient) CreateComplaint(ctx context.Context, domain string, co
 	return result, nil
 }
 
-func (r *ResilientClient) GetComplaint(ctx context.Context, domain, address string) (*clients.Complaint, error) {
-	var result *clients.Complaint
+func (r *ResilientClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
+	var result interface{}
 	var err error
 
 	retryErr := WithRetry(ctx, "get_complaint", r.retryConfig, func() error {
@@ -500,8 +507,8 @@ func (r *ResilientClient) DeleteComplaint(ctx context.Context, domain, address s
 
 // Unsubscribe operations with resilience
 
-func (r *ResilientClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *clients.UnsubscribeSpec) (*clients.Unsubscribe, error) {
-	var result *clients.Unsubscribe
+func (r *ResilientClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
+	var result interface{}
 	var err error
 
 	retryErr := WithRetry(ctx, "create_unsubscribe", r.retryConfig, func() error {
@@ -517,8 +524,8 @@ func (r *ResilientClient) CreateUnsubscribe(ctx context.Context, domain string, 
 	return result, nil
 }
 
-func (r *ResilientClient) GetUnsubscribe(ctx context.Context, domain, address string) (*clients.Unsubscribe, error) {
-	var result *clients.Unsubscribe
+func (r *ResilientClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
+	var result interface{}
 	var err error
 
 	retryErr := WithRetry(ctx, "get_unsubscribe", r.retryConfig, func() error {

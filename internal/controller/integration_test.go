@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//go:build integration
+
 package controller
 
 import (
@@ -25,11 +27,13 @@ import (
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	bouncev1beta1 "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglistv1beta1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	routev1beta1 "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	smtpv1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatev1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhookv1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/controller/domain"
 	"github.com/rossigee/provider-mailgun/internal/controller/mailinglist"
@@ -37,6 +41,9 @@ import (
 	"github.com/rossigee/provider-mailgun/internal/controller/smtpcredential"
 	"github.com/rossigee/provider-mailgun/internal/controller/template"
 )
+
+// stringPtr returns a pointer to a string
+func stringPtr(s string) *string { return &s }
 
 // IntegrationMockClient provides a unified mock for all Mailgun resources
 // Used for testing multi-resource workflows and dependencies
@@ -62,30 +69,29 @@ func NewIntegrationMockClient() *IntegrationMockClient {
 }
 
 // Domain operations
-func (m *IntegrationMockClient) CreateDomain(ctx context.Context, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *IntegrationMockClient) CreateDomain(ctx context.Context, domain *v1beta1.DomainParameters) (*v1beta1.DomainObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
-	result := &clients.Domain{
-		Name:              domain.Name,
-		State:             "active",
-		CreatedAt:         "2025-01-01T00:00:00Z",
-		SMTPLogin:         "postmaster@" + domain.Name,
-		RequiredDNSRecords: []clients.DNSRecord{
-			{
-				Type:  "TXT",
-				Name:  domain.Name,
-				Value: "v=spf1 include:mailgun.org ~all",
-			},
-		},
+	result := &v1beta1.DomainObservation{
+		ID:        domain.Name,
+		State:     "active",
+		CreatedAt: "2025-01-01T00:00:00Z",
+		SMTPLogin: "postmaster@" + domain.Name,
 	}
 
-	m.domains[domain.Name] = result
+	// Store in internal format for mock consistency
+	m.domains[domain.Name] = &clients.Domain{
+		Name:      domain.Name,
+		State:     "active",
+		CreatedAt: "2025-01-01T00:00:00Z",
+		SMTPLogin: "postmaster@" + domain.Name,
+	}
 	return result, nil
 }
 
-func (m *IntegrationMockClient) GetDomain(ctx context.Context, name string) (*clients.Domain, error) {
+func (m *IntegrationMockClient) GetDomain(ctx context.Context, name string) (*v1beta1.DomainObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -96,7 +102,7 @@ func (m *IntegrationMockClient) GetDomain(ctx context.Context, name string) (*cl
 	return nil, errors.New("domain not found (404)")
 }
 
-func (m *IntegrationMockClient) UpdateDomain(ctx context.Context, name string, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *IntegrationMockClient) UpdateDomain(ctx context.Context, name string, domain *v1beta1.DomainParameters) (*v1beta1.DomainObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -117,7 +123,7 @@ func (m *IntegrationMockClient) DeleteDomain(ctx context.Context, name string) e
 }
 
 // MailingList operations
-func (m *IntegrationMockClient) CreateMailingList(ctx context.Context, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *IntegrationMockClient) CreateMailingList(ctx context.Context, list *mailinglistv1beta1.MailingListParameters) (*mailinglistv1beta1.MailingListObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -149,7 +155,7 @@ func (m *IntegrationMockClient) CreateMailingList(ctx context.Context, list *cli
 	return result, nil
 }
 
-func (m *IntegrationMockClient) GetMailingList(ctx context.Context, address string) (*clients.MailingList, error) {
+func (m *IntegrationMockClient) GetMailingList(ctx context.Context, address string) (*mailinglistv1beta1.MailingListObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -160,7 +166,7 @@ func (m *IntegrationMockClient) GetMailingList(ctx context.Context, address stri
 	return nil, errors.New("mailing list not found (404)")
 }
 
-func (m *IntegrationMockClient) UpdateMailingList(ctx context.Context, address string, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *IntegrationMockClient) UpdateMailingList(ctx context.Context, address string, list *mailinglistv1beta1.MailingListParameters) (*mailinglistv1beta1.MailingListObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -192,7 +198,7 @@ func (m *IntegrationMockClient) DeleteMailingList(ctx context.Context, address s
 }
 
 // Route operations
-func (m *IntegrationMockClient) CreateRoute(ctx context.Context, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *IntegrationMockClient) CreateRoute(ctx context.Context, route *routev1beta1.RouteParameters) (*routev1beta1.RouteObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -226,7 +232,7 @@ func (m *IntegrationMockClient) CreateRoute(ctx context.Context, route *clients.
 	return result, nil
 }
 
-func (m *IntegrationMockClient) GetRoute(ctx context.Context, id string) (*clients.Route, error) {
+func (m *IntegrationMockClient) GetRoute(ctx context.Context, id string) (*routev1beta1.RouteObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -237,7 +243,7 @@ func (m *IntegrationMockClient) GetRoute(ctx context.Context, id string) (*clien
 	return nil, errors.New("route not found (404)")
 }
 
-func (m *IntegrationMockClient) UpdateRoute(ctx context.Context, id string, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *IntegrationMockClient) UpdateRoute(ctx context.Context, id string, route *routev1beta1.RouteParameters) (*routev1beta1.RouteObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -273,7 +279,7 @@ func (m *IntegrationMockClient) DeleteRoute(ctx context.Context, id string) erro
 }
 
 // Webhook operations
-func (m *IntegrationMockClient) CreateWebhook(ctx context.Context, domain string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *IntegrationMockClient) CreateWebhook(ctx context.Context, domain string, webhook *webhookv1beta1.WebhookParameters) (*webhookv1beta1.WebhookObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -294,7 +300,7 @@ func (m *IntegrationMockClient) CreateWebhook(ctx context.Context, domain string
 	return result, nil
 }
 
-func (m *IntegrationMockClient) GetWebhook(ctx context.Context, domain, eventType string) (*clients.Webhook, error) {
+func (m *IntegrationMockClient) GetWebhook(ctx context.Context, domain, eventType string) (*webhookv1beta1.WebhookObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -306,7 +312,7 @@ func (m *IntegrationMockClient) GetWebhook(ctx context.Context, domain, eventTyp
 	return nil, errors.New("webhook not found (404)")
 }
 
-func (m *IntegrationMockClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *IntegrationMockClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhookv1beta1.WebhookParameters) (*webhookv1beta1.WebhookObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -329,7 +335,7 @@ func (m *IntegrationMockClient) DeleteWebhook(ctx context.Context, domain, event
 }
 
 // SMTP Credential operations
-func (m *IntegrationMockClient) CreateSMTPCredential(ctx context.Context, domain string, credential *clients.SMTPCredentialSpec) (*clients.SMTPCredential, error) {
+func (m *IntegrationMockClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpv1beta1.SMTPCredentialParameters) (*smtpv1beta1.SMTPCredentialObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -351,7 +357,7 @@ func (m *IntegrationMockClient) CreateSMTPCredential(ctx context.Context, domain
 	return result, nil
 }
 
-func (m *IntegrationMockClient) GetSMTPCredential(ctx context.Context, domain, login string) (*clients.SMTPCredential, error) {
+func (m *IntegrationMockClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpv1beta1.SMTPCredentialObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -363,7 +369,7 @@ func (m *IntegrationMockClient) GetSMTPCredential(ctx context.Context, domain, l
 	return nil, errors.New("SMTP credential not found (404)")
 }
 
-func (m *IntegrationMockClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*clients.SMTPCredential, error) {
+func (m *IntegrationMockClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpv1beta1.SMTPCredentialObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -386,7 +392,7 @@ func (m *IntegrationMockClient) DeleteSMTPCredential(ctx context.Context, domain
 }
 
 // Template operations
-func (m *IntegrationMockClient) CreateTemplate(ctx context.Context, domain string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *IntegrationMockClient) CreateTemplate(ctx context.Context, domain string, template *templatev1beta1.TemplateParameters) (*templatev1beta1.TemplateObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -424,7 +430,7 @@ func (m *IntegrationMockClient) CreateTemplate(ctx context.Context, domain strin
 	return result, nil
 }
 
-func (m *IntegrationMockClient) GetTemplate(ctx context.Context, domain, name string) (*clients.Template, error) {
+func (m *IntegrationMockClient) GetTemplate(ctx context.Context, domain, name string) (*templatev1beta1.TemplateObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -436,7 +442,7 @@ func (m *IntegrationMockClient) GetTemplate(ctx context.Context, domain, name st
 	return nil, errors.New("template not found (404)")
 }
 
-func (m *IntegrationMockClient) UpdateTemplate(ctx context.Context, domain, name string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *IntegrationMockClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatev1beta1.TemplateParameters) (*templatev1beta1.TemplateObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -461,11 +467,11 @@ func (m *IntegrationMockClient) DeleteTemplate(ctx context.Context, domain, name
 }
 
 // Suppression operations (simplified for integration tests)
-func (m *IntegrationMockClient) CreateBounce(ctx context.Context, domain string, bounce *clients.BounceSpec) (*clients.Bounce, error) {
+func (m *IntegrationMockClient) CreateBounce(ctx context.Context, domain string, bounce *bouncev1beta1.BounceParameters) (*bouncev1beta1.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *IntegrationMockClient) GetBounce(ctx context.Context, domain, address string) (*clients.Bounce, error) {
+func (m *IntegrationMockClient) GetBounce(ctx context.Context, domain, address string) (*bouncev1beta1.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -473,11 +479,11 @@ func (m *IntegrationMockClient) DeleteBounce(ctx context.Context, domain, addres
 	return errors.New("not implemented")
 }
 
-func (m *IntegrationMockClient) CreateComplaint(ctx context.Context, domain string, complaint *clients.ComplaintSpec) (*clients.Complaint, error) {
+func (m *IntegrationMockClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *IntegrationMockClient) GetComplaint(ctx context.Context, domain, address string) (*clients.Complaint, error) {
+func (m *IntegrationMockClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -485,11 +491,11 @@ func (m *IntegrationMockClient) DeleteComplaint(ctx context.Context, domain, add
 	return errors.New("not implemented")
 }
 
-func (m *IntegrationMockClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *clients.UnsubscribeSpec) (*clients.Unsubscribe, error) {
+func (m *IntegrationMockClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *IntegrationMockClient) GetUnsubscribe(ctx context.Context, domain, address string) (*clients.Unsubscribe, error) {
+func (m *IntegrationMockClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 

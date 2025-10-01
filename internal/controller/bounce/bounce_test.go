@@ -27,43 +27,45 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
-	"github.com/rossigee/provider-mailgun/internal/clients"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 // MockBounceClient for testing
 type MockBounceClient struct {
-	bounces map[string]*clients.Bounce
+	bounces map[string]*v1beta1.BounceObservation
 	err     error
 }
 
-func (m *MockBounceClient) CreateBounce(ctx context.Context, domain string, bounce *clients.BounceSpec) (*clients.Bounce, error) {
+func (m *MockBounceClient) CreateBounce(ctx context.Context, domain string, bounce *v1beta1.BounceParameters) (*v1beta1.BounceObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
 	key := domain + "/" + bounce.Address
-	result := &clients.Bounce{
-		Address:   bounce.Address,
-		Code:      stringPtrValue(bounce.Code),
-		Error:     stringPtrValue(bounce.Error),
-		CreatedAt: "2025-01-01T00:00:00Z",
+	result := &v1beta1.BounceObservation{
+		CreatedAt: stringPtr("2025-01-01T00:00:00Z"),
 	}
 
 	if m.bounces == nil {
-		m.bounces = make(map[string]*clients.Bounce)
+		m.bounces = make(map[string]*v1beta1.BounceObservation)
 	}
 	m.bounces[key] = result
 
 	return result, nil
 }
 
-func (m *MockBounceClient) GetBounce(ctx context.Context, domain, address string) (*clients.Bounce, error) {
+func (m *MockBounceClient) GetBounce(ctx context.Context, domain, address string) (*v1beta1.BounceObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -86,48 +88,18 @@ func (m *MockBounceClient) DeleteBounce(ctx context.Context, domain, address str
 	return nil
 }
 
-// Implement other required client methods as no-ops
-func (m *MockBounceClient) CreateSMTPCredential(ctx context.Context, domain string, credential *clients.SMTPCredentialSpec) (*clients.SMTPCredential, error) {
+// Implement other required client methods as no-ops with v1beta1 types
+
+// Domain operations
+func (m *MockBounceClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) GetSMTPCredential(ctx context.Context, domain, login string) (*clients.SMTPCredential, error) {
+func (m *MockBounceClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*clients.SMTPCredential, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (m *MockBounceClient) DeleteSMTPCredential(ctx context.Context, domain, login string) error {
-	return errors.New("not implemented")
-}
-
-func (m *MockBounceClient) CreateTemplate(ctx context.Context, domain string, template *clients.TemplateSpec) (*clients.Template, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (m *MockBounceClient) GetTemplate(ctx context.Context, domain, name string) (*clients.Template, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (m *MockBounceClient) UpdateTemplate(ctx context.Context, domain, name string, template *clients.TemplateSpec) (*clients.Template, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (m *MockBounceClient) DeleteTemplate(ctx context.Context, domain, name string) error {
-	return errors.New("not implemented")
-}
-
-func (m *MockBounceClient) CreateDomain(ctx context.Context, domain *clients.DomainSpec) (*clients.Domain, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (m *MockBounceClient) GetDomain(ctx context.Context, name string) (*clients.Domain, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (m *MockBounceClient) UpdateDomain(ctx context.Context, name string, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockBounceClient) UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -135,15 +107,16 @@ func (m *MockBounceClient) DeleteDomain(ctx context.Context, name string) error 
 	return errors.New("not implemented")
 }
 
-func (m *MockBounceClient) CreateMailingList(ctx context.Context, list *clients.MailingListSpec) (*clients.MailingList, error) {
+// MailingList operations
+func (m *MockBounceClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) GetMailingList(ctx context.Context, address string) (*clients.MailingList, error) {
+func (m *MockBounceClient) GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) UpdateMailingList(ctx context.Context, address string, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockBounceClient) UpdateMailingList(ctx context.Context, address string, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -151,15 +124,16 @@ func (m *MockBounceClient) DeleteMailingList(ctx context.Context, address string
 	return errors.New("not implemented")
 }
 
-func (m *MockBounceClient) CreateRoute(ctx context.Context, route *clients.RouteSpec) (*clients.Route, error) {
+// Route operations
+func (m *MockBounceClient) CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) GetRoute(ctx context.Context, id string) (*clients.Route, error) {
+func (m *MockBounceClient) GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) UpdateRoute(ctx context.Context, id string, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockBounceClient) UpdateRoute(ctx context.Context, id string, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -167,15 +141,16 @@ func (m *MockBounceClient) DeleteRoute(ctx context.Context, id string) error {
 	return errors.New("not implemented")
 }
 
-func (m *MockBounceClient) CreateWebhook(ctx context.Context, domain string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+// Webhook operations
+func (m *MockBounceClient) CreateWebhook(ctx context.Context, domain string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) GetWebhook(ctx context.Context, domain, eventType string) (*clients.Webhook, error) {
+func (m *MockBounceClient) GetWebhook(ctx context.Context, domain, eventType string) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockBounceClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -183,11 +158,45 @@ func (m *MockBounceClient) DeleteWebhook(ctx context.Context, domain, eventType 
 	return errors.New("not implemented")
 }
 
-func (m *MockBounceClient) CreateComplaint(ctx context.Context, domain string, complaint *clients.ComplaintSpec) (*clients.Complaint, error) {
+// SMTPCredential operations
+func (m *MockBounceClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) GetComplaint(ctx context.Context, domain, address string) (*clients.Complaint, error) {
+func (m *MockBounceClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockBounceClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockBounceClient) DeleteSMTPCredential(ctx context.Context, domain, login string) error {
+	return errors.New("not implemented")
+}
+
+// Template operations
+func (m *MockBounceClient) CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockBounceClient) GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockBounceClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockBounceClient) DeleteTemplate(ctx context.Context, domain, name string) error {
+	return errors.New("not implemented")
+}
+
+func (m *MockBounceClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (m *MockBounceClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -195,11 +204,11 @@ func (m *MockBounceClient) DeleteComplaint(ctx context.Context, domain, address 
 	return errors.New("not implemented")
 }
 
-func (m *MockBounceClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *clients.UnsubscribeSpec) (*clients.Unsubscribe, error) {
+func (m *MockBounceClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockBounceClient) GetUnsubscribe(ctx context.Context, domain, address string) (*clients.Unsubscribe, error) {
+func (m *MockBounceClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -293,12 +302,9 @@ func TestBounceObserve(t *testing.T) {
 
 			// Pre-populate mock client for "exists" test
 			if name == "BounceExists" {
-				mockClient.bounces = map[string]*clients.Bounce{
+				mockClient.bounces = map[string]*v1beta1.BounceObservation{
 					"example.com/bounce@example.com": {
-						Address:   "bounce@example.com",
-						Code:      "550",
-						Error:     "User unknown",
-						CreatedAt: "2025-01-01T00:00:00Z",
+						CreatedAt: stringPtr("2025-01-01T00:00:00Z"),
 					},
 				}
 			}
@@ -375,9 +381,7 @@ func TestBounceCreate(t *testing.T) {
 				key := "example.com/new@example.com"
 				bounce, exists := mockClient.bounces[key]
 				assert.True(t, exists, "Bounce should be created")
-				assert.Equal(t, "new@example.com", bounce.Address)
-				assert.Equal(t, "550", bounce.Code)
-				assert.Equal(t, "User unknown", bounce.Error)
+				assert.NotNil(t, bounce.CreatedAt, "CreatedAt should be set")
 			}
 		})
 	}
@@ -480,12 +484,9 @@ func TestBounceDelete(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockBounceClient{
-				bounces: map[string]*clients.Bounce{
+				bounces: map[string]*v1beta1.BounceObservation{
 					"example.com/delete@example.com": {
-						Address:   "delete@example.com",
-						Code:      "550",
-						Error:     "User unknown",
-						CreatedAt: "2025-01-01T00:00:00Z",
+						CreatedAt: stringPtr("2025-01-01T00:00:00Z"),
 					},
 				},
 			}
@@ -511,12 +512,6 @@ func stringPtr(s string) *string {
 	return &s
 }
 
-func stringPtrValue(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
 
 func TestResolveDomainName(t *testing.T) {
 	scheme := runtime.NewScheme()

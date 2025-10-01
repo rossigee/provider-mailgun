@@ -23,7 +23,7 @@ git push origin master
 ```
 
 This will trigger GitHub Actions to:
-- Build with Go 1.24.5
+- Build with Go 1.25.1
 - Run comprehensive test suite (34.9% coverage)
 - Create new container image with correct package format
 - Push to ghcr.io/rossigee/provider-mailgun:latest
@@ -55,16 +55,16 @@ kubectl edit secret mailgun-creds -n crossplane-system
 # Check all CRDs are installed
 kubectl get crd | grep mailgun
 
-# Expected CRDs:
-# - domains.domain.mailgun.crossplane.io
-# - mailinglists.mailinglist.mailgun.crossplane.io
-# - routes.route.mailgun.crossplane.io
-# - webhooks.webhook.mailgun.crossplane.io
-# - smtpcredentials.smtpcredential.mailgun.crossplane.io
-# - templates.template.mailgun.crossplane.io
-# - bounces.bounce.mailgun.crossplane.io
-# - providerconfigs.mailgun.crossplane.io
-# - providerconfigusages.mailgun.crossplane.io
+# Expected CRDs (v2 namespaced):
+# - domains.domain.mailgun.m.crossplane.io
+# - mailinglists.mailinglist.mailgun.m.crossplane.io
+# - routes.route.mailgun.m.crossplane.io
+# - webhooks.webhook.mailgun.m.crossplane.io
+# - smtpcredentials.smtpcredential.mailgun.m.crossplane.io
+# - templates.template.mailgun.m.crossplane.io
+# - bounces.bounce.mailgun.m.crossplane.io
+# - providerconfigs.mailgun.m.crossplane.io
+# - providerconfigusages.mailgun.m.crossplane.io
 ```
 
 ### Step 5: Test with Sample Resources
@@ -120,10 +120,11 @@ curl http://localhost:8080/healthz
 ```bash
 # Create a domain (will fail with placeholder but tests controller)
 kubectl apply -f - <<EOF
-apiVersion: domain.mailgun.crossplane.io/v1alpha1
+apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: test-domain
+  namespace: default
 spec:
   forProvider:
     name: test.example.com
@@ -140,10 +141,11 @@ kubectl describe domain test-domain
 ```bash
 # Create SMTP credential
 kubectl apply -f - <<EOF
-apiVersion: smtpcredential.mailgun.crossplane.io/v1alpha1
+apiVersion: smtpcredential.mailgun.m.crossplane.io/v1beta1
 kind: SMTPCredential
 metadata:
   name: test-smtp
+  namespace: default
 spec:
   forProvider:
     login: "test@example.com"
@@ -226,10 +228,11 @@ Edit `examples/provider-config.yaml` to adjust:
 ### Multi-Region Setup
 For EU region support:
 ```yaml
-apiVersion: mailgun.crossplane.io/v1beta1
+apiVersion: mailgun.m.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
   name: eu-region
+  namespace: crossplane-system
 spec:
   credentials:
     source: Secret

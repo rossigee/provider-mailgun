@@ -26,7 +26,7 @@ import (
 
 // Package type metadata.
 const (
-	Group   = "mailgun.crossplane.io"
+	Group   = "mailgun.m.crossplane.io"
 	Version = "v1beta1"
 )
 

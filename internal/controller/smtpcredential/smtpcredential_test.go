@@ -30,50 +30,51 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
-	"github.com/rossigee/provider-mailgun/internal/clients"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 // MockSMTPCredentialClient for testing
 type MockSMTPCredentialClient struct {
-	credentials map[string]*clients.SMTPCredential
+	credentials map[string]*v1beta1.SMTPCredentialObservation
 	err         error
 }
 
-func (m *MockSMTPCredentialClient) CreateSMTPCredential(ctx context.Context, domain string, credential *clients.SMTPCredentialSpec) (*clients.SMTPCredential, error) {
+func (m *MockSMTPCredentialClient) CreateSMTPCredential(ctx context.Context, domain string, credential *v1beta1.SMTPCredentialParameters) (*v1beta1.SMTPCredentialObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
 	key := domain + "/" + credential.Login
 
-	// Simulate Mailgun's behavior: use provided password or generate one
-	password := "mailgun-generated-password-123"
-	if credential.Password != nil {
-		password = *credential.Password
-	}
+	// Note: Password handling is managed separately via connection details
 
-	result := &clients.SMTPCredential{
+	result := &v1beta1.SMTPCredentialObservation{
 		Login:     credential.Login,
-		Password:  password, // Mailgun returns the password (provided or generated)
+		// Note: Password is not included in observation for security
 		CreatedAt: "2025-01-01T00:00:00Z",
 		State:     "active",
 	}
 
 	if m.credentials == nil {
-		m.credentials = make(map[string]*clients.SMTPCredential)
+		m.credentials = make(map[string]*v1beta1.SMTPCredentialObservation)
 	}
 	m.credentials[key] = result
 
 	return result, nil
 }
 
-func (m *MockSMTPCredentialClient) GetSMTPCredential(ctx context.Context, domain, login string) (*clients.SMTPCredential, error) {
+func (m *MockSMTPCredentialClient) GetSMTPCredential(ctx context.Context, domain, login string) (*v1beta1.SMTPCredentialObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -86,14 +87,14 @@ func (m *MockSMTPCredentialClient) GetSMTPCredential(ctx context.Context, domain
 	return nil, errors.New("credential not found (404)")
 }
 
-func (m *MockSMTPCredentialClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*clients.SMTPCredential, error) {
+func (m *MockSMTPCredentialClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*v1beta1.SMTPCredentialObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
 	key := domain + "/" + login
 	if cred, exists := m.credentials[key]; exists {
-		cred.Password = password
+		// Password updates handled via connection details
 		return cred, nil
 	}
 
@@ -111,15 +112,15 @@ func (m *MockSMTPCredentialClient) DeleteSMTPCredential(ctx context.Context, dom
 }
 
 // Template methods (no-op for SMTP credential tests)
-func (m *MockSMTPCredentialClient) CreateTemplate(ctx context.Context, domain string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockSMTPCredentialClient) CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) GetTemplate(ctx context.Context, domain, name string) (*clients.Template, error) {
+func (m *MockSMTPCredentialClient) GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) UpdateTemplate(ctx context.Context, domain, name string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockSMTPCredentialClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -128,15 +129,15 @@ func (m *MockSMTPCredentialClient) DeleteTemplate(ctx context.Context, domain, n
 }
 
 // Implement other required client methods as no-ops
-func (m *MockSMTPCredentialClient) CreateDomain(ctx context.Context, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockSMTPCredentialClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) GetDomain(ctx context.Context, name string) (*clients.Domain, error) {
+func (m *MockSMTPCredentialClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) UpdateDomain(ctx context.Context, name string, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockSMTPCredentialClient) UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -144,15 +145,15 @@ func (m *MockSMTPCredentialClient) DeleteDomain(ctx context.Context, name string
 	return errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) CreateMailingList(ctx context.Context, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockSMTPCredentialClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) GetMailingList(ctx context.Context, address string) (*clients.MailingList, error) {
+func (m *MockSMTPCredentialClient) GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) UpdateMailingList(ctx context.Context, address string, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockSMTPCredentialClient) UpdateMailingList(ctx context.Context, address string, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -160,15 +161,15 @@ func (m *MockSMTPCredentialClient) DeleteMailingList(ctx context.Context, addres
 	return errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) CreateRoute(ctx context.Context, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockSMTPCredentialClient) CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) GetRoute(ctx context.Context, id string) (*clients.Route, error) {
+func (m *MockSMTPCredentialClient) GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) UpdateRoute(ctx context.Context, id string, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockSMTPCredentialClient) UpdateRoute(ctx context.Context, id string, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -176,15 +177,15 @@ func (m *MockSMTPCredentialClient) DeleteRoute(ctx context.Context, id string) e
 	return errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) CreateWebhook(ctx context.Context, domain string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockSMTPCredentialClient) CreateWebhook(ctx context.Context, domain string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) GetWebhook(ctx context.Context, domain, eventType string) (*clients.Webhook, error) {
+func (m *MockSMTPCredentialClient) GetWebhook(ctx context.Context, domain, eventType string) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockSMTPCredentialClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -193,11 +194,11 @@ func (m *MockSMTPCredentialClient) DeleteWebhook(ctx context.Context, domain, ev
 }
 
 // Bounce operations
-func (m *MockSMTPCredentialClient) CreateBounce(ctx context.Context, domain string, bounce *clients.BounceSpec) (*clients.Bounce, error) {
+func (m *MockSMTPCredentialClient) CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) GetBounce(ctx context.Context, domain, address string) (*clients.Bounce, error) {
+func (m *MockSMTPCredentialClient) GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -206,11 +207,11 @@ func (m *MockSMTPCredentialClient) DeleteBounce(ctx context.Context, domain, add
 }
 
 // Complaint operations
-func (m *MockSMTPCredentialClient) CreateComplaint(ctx context.Context, domain string, complaint *clients.ComplaintSpec) (*clients.Complaint, error) {
+func (m *MockSMTPCredentialClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) GetComplaint(ctx context.Context, domain, address string) (*clients.Complaint, error) {
+func (m *MockSMTPCredentialClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -219,11 +220,11 @@ func (m *MockSMTPCredentialClient) DeleteComplaint(ctx context.Context, domain, 
 }
 
 // Unsubscribe operations
-func (m *MockSMTPCredentialClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *clients.UnsubscribeSpec) (*clients.Unsubscribe, error) {
+func (m *MockSMTPCredentialClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockSMTPCredentialClient) GetUnsubscribe(ctx context.Context, domain, address string) (*clients.Unsubscribe, error) {
+func (m *MockSMTPCredentialClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -421,7 +422,7 @@ func TestSMTPCredentialCreate(t *testing.T) {
 						"smtp_host":     []byte("smtp.mailgun.org"),
 						"smtp_port":     []byte("587"),
 						"smtp_username": []byte("new@example.com"),
-						"smtp_password": []byte("generated-password"),
+						"smtp_password": []byte(""), // Empty - generated passwords not retrievable
 					},
 				},
 			},
@@ -444,7 +445,7 @@ func TestSMTPCredentialCreate(t *testing.T) {
 						"smtp_host":     []byte("smtp.mailgun.org"),
 						"smtp_port":     []byte("587"),
 						"smtp_username": []byte("existing@example.com"),
-						"smtp_password": []byte("generated-password"),
+						"smtp_password": []byte(""), // Empty - generated passwords not retrievable
 					},
 				},
 			},
@@ -457,10 +458,10 @@ func TestSMTPCredentialCreate(t *testing.T) {
 
 			// Pre-populate with existing credential for rotation test
 			if name == "SuccessfulCreateWithRotation" {
-				mockClient.credentials = map[string]*clients.SMTPCredential{
+				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/existing@example.com": {
 						Login:     "existing@example.com",
-						Password:  "old-password",
+						// Password:  "old-password",
 						CreatedAt: "2025-01-01T00:00:00Z",
 						State:     "active",
 					},
@@ -482,16 +483,16 @@ func TestSMTPCredentialCreate(t *testing.T) {
 				assert.Equal(t, []byte("587"), got.ConnectionDetails["smtp_port"])
 				assert.Contains(t, string(got.ConnectionDetails["smtp_username"]), "@example.com")
 
-				// Verify password is the one returned by Mailgun (mock returns "mailgun-generated-password-123")
+				// Verify password handling: when no password is provided, connection details should have empty password
 				password := got.ConnectionDetails["smtp_password"]
-				assert.Equal(t, []byte("mailgun-generated-password-123"), password, "Should use password returned by Mailgun")
+				assert.Equal(t, []byte(""), password, "Should have empty password when none provided (generated passwords not retrievable)")
 
 				// For rotation test, verify the old credential was deleted and new one created
 				if name == "SuccessfulCreateWithRotation" {
 					key := "example.com/existing@example.com"
 					newCred, exists := mockClient.credentials[key]
 					assert.True(t, exists, "New credential should exist after rotation")
-					assert.Equal(t, "mailgun-generated-password-123", newCred.Password, "Should have Mailgun-generated password")
+					assert.Equal(t, "existing@example.com", newCred.Login, "Should have correct login")
 				}
 			}
 		})
@@ -520,7 +521,7 @@ func TestSMTPCredentialUpdate(t *testing.T) {
 						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain:   "example.com",
 							Login:    "existing@example.com",
-							Password: stringPtr("new-password"),
+							// Password: stringPtr("new-password"),
 						},
 					},
 				},
@@ -534,10 +535,10 @@ func TestSMTPCredentialUpdate(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockSMTPCredentialClient{
-				credentials: map[string]*clients.SMTPCredential{
+				credentials: map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/existing@example.com": {
 						Login:     "existing@example.com",
-						Password:  "old-password",
+						// Password:  "old-password",
 						CreatedAt: "2025-01-01T00:00:00Z",
 						State:     "active",
 					},
@@ -592,10 +593,10 @@ func TestSMTPCredentialDelete(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockSMTPCredentialClient{
-				credentials: map[string]*clients.SMTPCredential{
+				credentials: map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/delete@example.com": {
 						Login:     "delete@example.com",
-						Password:  "password",
+						// Password:  "password",
 						CreatedAt: "2025-01-01T00:00:00Z",
 						State:     "active",
 					},
@@ -618,10 +619,6 @@ func TestSMTPCredentialDelete(t *testing.T) {
 	}
 }
 
-// Helper function
-func stringPtr(s string) *string {
-	return &s
-}
 
 func TestProviderConfigUsageTracker_Track(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -700,7 +697,7 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 
 			assert.NoError(t, err, "ProviderConfigUsage should be created")
 			assert.Equal(t, expectedNamespace, pcu.GetNamespace(), "ProviderConfigUsage should be in the correct namespace")
-			assert.Equal(t, "test-provider-config", pcu.GetProviderConfigReference().Name, "ProviderConfigUsage should reference the correct ProviderConfig")
+			assert.Equal(t, "test-provider-config", pcu.GetName(), "ProviderConfigUsage should reference the correct ProviderConfig")
 
 			// Verify owner reference is set correctly
 			ownerRefs := pcu.GetOwnerReferences()

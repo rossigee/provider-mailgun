@@ -24,17 +24,16 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/apis/common/v1"
-	"github.com/crossplane/crossplane-runtime/pkg/controller"
-	"github.com/crossplane/crossplane-runtime/pkg/event"
-	"github.com/crossplane/crossplane-runtime/pkg/meta"
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	clients "github.com/rossigee/provider-mailgun/internal/clients"
-	"github.com/rossigee/provider-mailgun/internal/features"
 )
 
 const (
@@ -49,21 +48,16 @@ const (
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1beta1.RouteKind)
 
-	cps := []managed.ConnectionPublisher{managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme())}
-	if o.Features.Enabled(features.EnableAlphaManagementPolicies) {
-		cps = append(cps, managed.NewAPISecretPublisher(mgr.GetClient(), mgr.GetScheme()))
-	}
-
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1beta1.RouteGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
-			usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1beta1.ProviderConfigUsage{}),
-			newServiceFn: clients.NewClient}),
+			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
+			newServiceFn: clients.NewClient,
+		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
-		managed.WithConnectionPublishers(cps...))
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
@@ -200,10 +194,9 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.Wrap(err, "failed to get route")
 	}
 
-	currentSpec := generateRouteSpec(cr.Spec.ForProvider)
-	upToDate := isRouteUpToDate(route, currentSpec)
+	upToDate := isRouteUpToDate(route, &cr.Spec.ForProvider)
 
-	cr.Status.AtProvider = generateRouteObservation(route)
+	cr.Status.AtProvider = *route
 
 	return managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
@@ -230,14 +223,13 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	cr.SetConditions(xpv1.Creating())
 
-	routeSpec := generateRouteSpec(cr.Spec.ForProvider)
-	route, err := c.service.CreateRoute(ctx, routeSpec)
+	route, err := c.service.CreateRoute(ctx, &cr.Spec.ForProvider)
 	if err != nil {
 		return managed.ExternalCreation{}, errors.Wrap(err, "failed to create route")
 	}
 
 	meta.SetExternalName(cr, route.ID)
-	cr.Status.AtProvider = generateRouteObservation(route)
+	cr.Status.AtProvider = *route
 
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
@@ -253,13 +245,12 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	externalName := meta.GetExternalName(cr)
-	routeSpec := generateRouteSpec(cr.Spec.ForProvider)
-	route, err := c.service.UpdateRoute(ctx, externalName, routeSpec)
+	route, err := c.service.UpdateRoute(ctx, externalName, &cr.Spec.ForProvider)
 	if err != nil {
 		return managed.ExternalUpdate{}, errors.Wrap(err, "failed to update route")
 	}
 
-	cr.Status.AtProvider = generateRouteObservation(route)
+	cr.Status.AtProvider = *route
 
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
@@ -289,63 +280,9 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalDelete{}, nil
 }
 
-// generateRouteSpec converts the API parameters to client format
-func generateRouteSpec(params v1beta1.RouteParameters) *clients.RouteSpec {
-	spec := &clients.RouteSpec{
-		Expression: params.Expression,
-	}
-
-	if params.Priority != nil {
-		spec.Priority = params.Priority
-	}
-	if params.Description != nil {
-		spec.Description = params.Description
-	}
-
-	// Convert actions
-	if len(params.Actions) > 0 {
-		spec.Actions = make([]clients.RouteAction, len(params.Actions))
-		for i, action := range params.Actions {
-			spec.Actions[i] = clients.RouteAction{
-				Type: action.Type,
-			}
-			if action.Destination != nil {
-				spec.Actions[i].Destination = action.Destination
-			}
-		}
-	}
-
-	return spec
-}
-
-// generateRouteObservation converts the client response to API format
-func generateRouteObservation(route *clients.Route) v1beta1.RouteObservation {
-	obs := v1beta1.RouteObservation{
-		ID:          route.ID,
-		Priority:    route.Priority,
-		Description: route.Description,
-		Expression:  route.Expression,
-		CreatedAt:   route.CreatedAt,
-	}
-
-	// Convert actions
-	if len(route.Actions) > 0 {
-		obs.Actions = make([]v1beta1.RouteAction, len(route.Actions))
-		for i, action := range route.Actions {
-			obs.Actions[i] = v1beta1.RouteAction{
-				Type: action.Type,
-			}
-			if action.Destination != nil {
-				obs.Actions[i].Destination = action.Destination
-			}
-		}
-	}
-
-	return obs
-}
 
 // isRouteUpToDate checks if the external resource is up to date
-func isRouteUpToDate(route *clients.Route, desired *clients.RouteSpec) bool {
+func isRouteUpToDate(route *v1beta1.RouteObservation, desired *v1beta1.RouteParameters) bool {
 	// Compare updatable fields
 	if route.Expression != desired.Expression {
 		return false

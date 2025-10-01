@@ -30,10 +30,18 @@ import (
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/rossigee/provider-mailgun/apis/v1beta1"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 const (
@@ -49,54 +57,54 @@ const (
 // Client interface for Mailgun API operations
 type Client interface {
 	// Domain operations
-	CreateDomain(ctx context.Context, domain *DomainSpec) (*Domain, error)
-	GetDomain(ctx context.Context, name string) (*Domain, error)
-	UpdateDomain(ctx context.Context, name string, domain *DomainSpec) (*Domain, error)
+	CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error)
+	GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error)
+	UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error)
 	DeleteDomain(ctx context.Context, name string) error
 
 	// MailingList operations
-	CreateMailingList(ctx context.Context, list *MailingListSpec) (*MailingList, error)
-	GetMailingList(ctx context.Context, address string) (*MailingList, error)
-	UpdateMailingList(ctx context.Context, address string, list *MailingListSpec) (*MailingList, error)
+	CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error)
+	GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error)
+	UpdateMailingList(ctx context.Context, address string, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error)
 	DeleteMailingList(ctx context.Context, address string) error
 
 	// Route operations
-	CreateRoute(ctx context.Context, route *RouteSpec) (*Route, error)
-	GetRoute(ctx context.Context, id string) (*Route, error)
-	UpdateRoute(ctx context.Context, id string, route *RouteSpec) (*Route, error)
+	CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error)
+	GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error)
+	UpdateRoute(ctx context.Context, id string, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error)
 	DeleteRoute(ctx context.Context, id string) error
 
 	// Webhook operations
-	CreateWebhook(ctx context.Context, domain string, webhook *WebhookSpec) (*Webhook, error)
-	GetWebhook(ctx context.Context, domain, eventType string) (*Webhook, error)
-	UpdateWebhook(ctx context.Context, domain, eventType string, webhook *WebhookSpec) (*Webhook, error)
+	CreateWebhook(ctx context.Context, domain string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error)
+	GetWebhook(ctx context.Context, domain, eventType string) (*webhooktypes.WebhookObservation, error)
+	UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error)
 	DeleteWebhook(ctx context.Context, domain, eventType string) error
 
 	// SMTPCredential operations
-	CreateSMTPCredential(ctx context.Context, domain string, credential *SMTPCredentialSpec) (*SMTPCredential, error)
-	GetSMTPCredential(ctx context.Context, domain, login string) (*SMTPCredential, error)
-	UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*SMTPCredential, error)
+	CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error)
+	GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error)
+	UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error)
 	DeleteSMTPCredential(ctx context.Context, domain, login string) error
 
 	// Template operations
-	CreateTemplate(ctx context.Context, domain string, template *TemplateSpec) (*Template, error)
-	GetTemplate(ctx context.Context, domain, name string) (*Template, error)
-	UpdateTemplate(ctx context.Context, domain, name string, template *TemplateSpec) (*Template, error)
+	CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error)
+	GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error)
+	UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error)
 	DeleteTemplate(ctx context.Context, domain, name string) error
 
 	// Bounce suppression operations
-	CreateBounce(ctx context.Context, domain string, bounce *BounceSpec) (*Bounce, error)
-	GetBounce(ctx context.Context, domain, address string) (*Bounce, error)
+	CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error)
+	GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error)
 	DeleteBounce(ctx context.Context, domain, address string) error
 
-	// Complaint suppression operations
-	CreateComplaint(ctx context.Context, domain string, complaint *ComplaintSpec) (*Complaint, error)
-	GetComplaint(ctx context.Context, domain, address string) (*Complaint, error)
+	// Complaint suppression operations (temporarily using interface until types exist)
+	CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error)
+	GetComplaint(ctx context.Context, domain, address string) (interface{}, error)
 	DeleteComplaint(ctx context.Context, domain, address string) error
 
-	// Unsubscribe suppression operations
-	CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *UnsubscribeSpec) (*Unsubscribe, error)
-	GetUnsubscribe(ctx context.Context, domain, address string) (*Unsubscribe, error)
+	// Unsubscribe suppression operations (temporarily using interface until types exist)
+	CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error)
+	GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error)
 	DeleteUnsubscribe(ctx context.Context, domain, address string) error
 }
 
@@ -138,20 +146,33 @@ func NewClient(config *Config) Client {
 	return &mailgunClient{config: config}
 }
 
-// GetConfig extracts the configuration from the provider config
-func GetConfig(ctx context.Context, c client.Client, mg resource.Managed) (*Config, error) {
-	fmt.Printf("DEBUG: GetConfig called for resource: %s/%s\n", mg.GetNamespace(), mg.GetName())
-	switch {
-	case mg.GetProviderConfigReference() != nil:
-		fmt.Printf("DEBUG: Using ProviderConfig reference: %s\n", mg.GetProviderConfigReference().Name)
-		return UseProviderConfig(ctx, c, mg)
+// getProviderConfigReference extracts the provider config reference from a managed resource
+func getProviderConfigReference(mg resource.Managed) *xpv1.Reference {
+	// Type switch to handle different resource types and access their ProviderConfigReference
+	switch v := mg.(type) {
+	case interface{ GetProviderConfigReference() *xpv1.Reference }:
+		return v.GetProviderConfigReference()
 	default:
-		return nil, errors.New("no credentials specified")
+		// If we can't determine the provider config reference, return nil
+		return nil
 	}
 }
 
+// GetConfig extracts the configuration from the provider config
+func GetConfig(ctx context.Context, c client.Client, mg resource.Managed) (*Config, error) {
+	fmt.Printf("DEBUG: GetConfig called for resource: %s/%s\n", mg.GetNamespace(), mg.GetName())
+
+	// Get the provider config reference from the managed resource's spec
+	if pcRef := getProviderConfigReference(mg); pcRef != nil {
+		fmt.Printf("DEBUG: Using ProviderConfig reference: %s\n", pcRef.Name)
+		return UseProviderConfig(ctx, c, mg, pcRef)
+	}
+
+	return nil, errors.New("no credentials specified")
+}
+
 // UseProviderConfig extracts configuration from a ProviderConfig
-func UseProviderConfig(ctx context.Context, c client.Client, mg resource.Managed) (*Config, error) {
+func UseProviderConfig(ctx context.Context, c client.Client, mg resource.Managed, pcRef *xpv1.Reference) (*Config, error) {
 	pc := &v1beta1.ProviderConfig{}
 
 	// For cluster-scoped resources, we need to look in a default namespace
@@ -163,7 +184,7 @@ func UseProviderConfig(ctx context.Context, c client.Client, mg resource.Managed
 	}
 
 	if err := c.Get(ctx, types.NamespacedName{
-		Name:      mg.GetProviderConfigReference().Name,
+		Name:      pcRef.Name,
 		Namespace: namespace,
 	}, pc); err != nil {
 		return nil, errors.Wrap(err, "cannot get referenced ProviderConfig")

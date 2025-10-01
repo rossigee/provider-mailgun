@@ -89,10 +89,11 @@ kubectl create secret generic mailgun-credentials \
 Then you can create Mailgun resources:
 
 ```yaml
-apiVersion: mailgun.crossplane.io/v1alpha1
+apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: example-domain
+  namespace: default
 spec:
   forProvider:
     name: example.com

@@ -19,6 +19,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
@@ -27,15 +28,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
-	xpcontroller "github.com/crossplane/crossplane-runtime/pkg/controller"
-	"github.com/crossplane/crossplane-runtime/pkg/feature"
-	"github.com/crossplane/crossplane-runtime/pkg/logging"
-	"github.com/crossplane/crossplane-runtime/pkg/ratelimiter"
+	xpcontroller "github.com/crossplane/crossplane-runtime/v2/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/ratelimiter"
 
 	"github.com/rossigee/provider-mailgun/apis"
 	"github.com/rossigee/provider-mailgun/internal/controller"
 	"github.com/rossigee/provider-mailgun/internal/features"
 	"github.com/rossigee/provider-mailgun/internal/health"
+	"github.com/rossigee/provider-mailgun/internal/version"
 )
 
 func main() {
@@ -62,7 +64,23 @@ func main() {
 		ctrl.SetLogger(zl.WithValues("source", "controller-runtime").V(1))
 	}
 
-	log.Debug("Starting", "sync-interval", syncInterval.String())
+	// Log startup information with build and configuration details
+	log.Info("Provider starting up",
+		"provider", "provider-mailgun",
+		"version", version.Version,
+		"go-version", runtime.Version(),
+		"platform", runtime.GOOS+"/"+runtime.GOARCH,
+		"sync-interval", syncInterval.String(),
+		"poll-interval", pollInterval.String(),
+		"max-reconcile-rate", *maxReconcileRate,
+		"leader-election", *leaderElection,
+		"management-policies", *enableManagementPolicies,
+		"debug-mode", *debug)
+
+	log.Debug("Detailed startup configuration",
+		"sync-interval", syncInterval.String(),
+		"poll-interval", pollInterval.String(),
+		"max-reconcile-rate", *maxReconcileRate)
 
 	cfg, err := ctrl.GetConfig()
 	kingpin.FatalIfError(err, "Cannot get API server rest config")

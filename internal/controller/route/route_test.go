@@ -25,25 +25,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/crossplane/crossplane-runtime/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/pkg/resource"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
 	"github.com/rossigee/provider-mailgun/apis/route/v1beta1"
-	"github.com/rossigee/provider-mailgun/internal/clients"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 // MockRouteClient for testing
 type MockRouteClient struct {
-	routes map[string]*clients.Route
+	routes map[string]*v1beta1.RouteObservation
 	err    error
 }
 
-func (m *MockRouteClient) CreateRoute(ctx context.Context, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockRouteClient) CreateRoute(ctx context.Context, route *v1beta1.RouteParameters) (*v1beta1.RouteObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
 
-	result := &clients.Route{
+	result := &v1beta1.RouteObservation{
 		ID:          "route_123",
 		Priority:    0,
 		Description: "Test route",
@@ -58,9 +63,9 @@ func (m *MockRouteClient) CreateRoute(ctx context.Context, route *clients.RouteS
 		result.Description = *route.Description
 	}
 	if len(route.Actions) > 0 {
-		result.Actions = make([]clients.RouteAction, len(route.Actions))
+		result.Actions = make([]v1beta1.RouteAction, len(route.Actions))
 		for i, action := range route.Actions {
-			result.Actions[i] = clients.RouteAction{
+			result.Actions[i] = v1beta1.RouteAction{
 				Type:        action.Type,
 				Destination: action.Destination,
 			}
@@ -68,14 +73,14 @@ func (m *MockRouteClient) CreateRoute(ctx context.Context, route *clients.RouteS
 	}
 
 	if m.routes == nil {
-		m.routes = make(map[string]*clients.Route)
+		m.routes = make(map[string]*v1beta1.RouteObservation)
 	}
 	m.routes[result.ID] = result
 
 	return result, nil
 }
 
-func (m *MockRouteClient) GetRoute(ctx context.Context, id string) (*clients.Route, error) {
+func (m *MockRouteClient) GetRoute(ctx context.Context, id string) (*v1beta1.RouteObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -87,7 +92,7 @@ func (m *MockRouteClient) GetRoute(ctx context.Context, id string) (*clients.Rou
 	return nil, errors.New("route not found (404)")
 }
 
-func (m *MockRouteClient) UpdateRoute(ctx context.Context, id string, route *clients.RouteSpec) (*clients.Route, error) {
+func (m *MockRouteClient) UpdateRoute(ctx context.Context, id string, route *v1beta1.RouteParameters) (*v1beta1.RouteObservation, error) {
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -102,9 +107,9 @@ func (m *MockRouteClient) UpdateRoute(ctx context.Context, id string, route *cli
 		}
 		existing.Expression = route.Expression
 		if len(route.Actions) > 0 {
-			existing.Actions = make([]clients.RouteAction, len(route.Actions))
+			existing.Actions = make([]v1beta1.RouteAction, len(route.Actions))
 			for i, action := range route.Actions {
-				existing.Actions[i] = clients.RouteAction{
+				existing.Actions[i] = v1beta1.RouteAction{
 					Type:        action.Type,
 					Destination: action.Destination,
 				}
@@ -126,15 +131,15 @@ func (m *MockRouteClient) DeleteRoute(ctx context.Context, id string) error {
 }
 
 // Implement other required client methods as no-ops
-func (m *MockRouteClient) CreateDomain(ctx context.Context, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockRouteClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) GetDomain(ctx context.Context, name string) (*clients.Domain, error) {
+func (m *MockRouteClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) UpdateDomain(ctx context.Context, name string, domain *clients.DomainSpec) (*clients.Domain, error) {
+func (m *MockRouteClient) UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -142,15 +147,15 @@ func (m *MockRouteClient) DeleteDomain(ctx context.Context, name string) error {
 	return errors.New("not implemented")
 }
 
-func (m *MockRouteClient) CreateMailingList(ctx context.Context, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockRouteClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) GetMailingList(ctx context.Context, address string) (*clients.MailingList, error) {
+func (m *MockRouteClient) GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) UpdateMailingList(ctx context.Context, address string, list *clients.MailingListSpec) (*clients.MailingList, error) {
+func (m *MockRouteClient) UpdateMailingList(ctx context.Context, address string, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -158,15 +163,15 @@ func (m *MockRouteClient) DeleteMailingList(ctx context.Context, address string)
 	return errors.New("not implemented")
 }
 
-func (m *MockRouteClient) CreateWebhook(ctx context.Context, domain string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockRouteClient) CreateWebhook(ctx context.Context, domain string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) GetWebhook(ctx context.Context, domain, eventType string) (*clients.Webhook, error) {
+func (m *MockRouteClient) GetWebhook(ctx context.Context, domain, eventType string) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *clients.WebhookSpec) (*clients.Webhook, error) {
+func (m *MockRouteClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhooktypes.WebhookParameters) (*webhooktypes.WebhookObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -174,15 +179,15 @@ func (m *MockRouteClient) DeleteWebhook(ctx context.Context, domain, eventType s
 	return errors.New("not implemented")
 }
 
-func (m *MockRouteClient) CreateSMTPCredential(ctx context.Context, domain string, credential *clients.SMTPCredentialSpec) (*clients.SMTPCredential, error) {
+func (m *MockRouteClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) GetSMTPCredential(ctx context.Context, domain, login string) (*clients.SMTPCredential, error) {
+func (m *MockRouteClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*clients.SMTPCredential, error) {
+func (m *MockRouteClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -190,15 +195,15 @@ func (m *MockRouteClient) DeleteSMTPCredential(ctx context.Context, domain, logi
 	return errors.New("not implemented")
 }
 
-func (m *MockRouteClient) CreateTemplate(ctx context.Context, domain string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockRouteClient) CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) GetTemplate(ctx context.Context, domain, name string) (*clients.Template, error) {
+func (m *MockRouteClient) GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) UpdateTemplate(ctx context.Context, domain, name string, template *clients.TemplateSpec) (*clients.Template, error) {
+func (m *MockRouteClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -207,11 +212,11 @@ func (m *MockRouteClient) DeleteTemplate(ctx context.Context, domain, name strin
 }
 
 // Bounce suppression operations
-func (m *MockRouteClient) CreateBounce(ctx context.Context, domain string, bounce *clients.BounceSpec) (*clients.Bounce, error) {
+func (m *MockRouteClient) CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) GetBounce(ctx context.Context, domain, address string) (*clients.Bounce, error) {
+func (m *MockRouteClient) GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -220,11 +225,11 @@ func (m *MockRouteClient) DeleteBounce(ctx context.Context, domain, address stri
 }
 
 // Complaint suppression operations
-func (m *MockRouteClient) CreateComplaint(ctx context.Context, domain string, complaint *clients.ComplaintSpec) (*clients.Complaint, error) {
+func (m *MockRouteClient) CreateComplaint(ctx context.Context, domain string, complaint interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) GetComplaint(ctx context.Context, domain, address string) (*clients.Complaint, error) {
+func (m *MockRouteClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -233,11 +238,11 @@ func (m *MockRouteClient) DeleteComplaint(ctx context.Context, domain, address s
 }
 
 // Unsubscribe suppression operations
-func (m *MockRouteClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe *clients.UnsubscribeSpec) (*clients.Unsubscribe, error) {
+func (m *MockRouteClient) CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (m *MockRouteClient) GetUnsubscribe(ctx context.Context, domain, address string) (*clients.Unsubscribe, error) {
+func (m *MockRouteClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -326,13 +331,13 @@ func TestRouteObserve(t *testing.T) {
 
 			// Pre-populate with test route for "exists" test
 			if name == "RouteExists" {
-				mockClient.routes = map[string]*clients.Route{
+				mockClient.routes = map[string]*v1beta1.RouteObservation{
 					"route_123": {
 						ID:          "route_123",
 						Priority:    0,
 						Description: "Test route",
 						Expression:  "match_recipient(\".*@example.com\")",
-						Actions: []clients.RouteAction{
+						Actions: []v1beta1.RouteAction{
 							{
 								Type:        "forward",
 								Destination: stringPtr("user@destination.com"),
@@ -459,12 +464,12 @@ func TestRouteDelete(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockRouteClient{
-				routes: map[string]*clients.Route{
+				routes: map[string]*v1beta1.RouteObservation{
 					"route_delete": {
 						ID:         "route_delete",
 						Priority:   0,
 						Expression: "match_recipient(\".*@delete.com\")",
-						Actions: []clients.RouteAction{
+						Actions: []v1beta1.RouteAction{
 							{Type: "stop"},
 						},
 					},
@@ -537,13 +542,13 @@ func TestRouteUpdate(t *testing.T) {
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
 			mockClient := &MockRouteClient{
-				routes: map[string]*clients.Route{
+				routes: map[string]*v1beta1.RouteObservation{
 					"route_update": {
 						ID:          "route_update",
 						Priority:    10,
 						Description: "Original route",
 						Expression:  "match_recipient(\".*@original.com\")",
-						Actions: []clients.RouteAction{
+						Actions: []v1beta1.RouteAction{
 							{
 								Type:        "forward",
 								Destination: stringPtr("original@destination.com"),
@@ -852,13 +857,13 @@ func TestRouteEdgeCases(t *testing.T) {
 
 	t.Run("RouteStatusUpdate", func(t *testing.T) {
 		mockClient := &MockRouteClient{
-			routes: map[string]*clients.Route{
+			routes: map[string]*v1beta1.RouteObservation{
 				"route_status": {
 					ID:          "route_status",
 					Priority:    25,
 					Description: "Route for status testing",
 					Expression:  "match_recipient(\".*@status.com\")",
-					Actions: []clients.RouteAction{
+					Actions: []v1beta1.RouteAction{
 						{
 							Type:        "forward",
 							Destination: stringPtr("admin@status.com"),

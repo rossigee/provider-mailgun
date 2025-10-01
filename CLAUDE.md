@@ -129,7 +129,7 @@ type DomainObservation struct {
 - ✅ HTTP client reliability improvements with retry logic and proper body handling
 - ✅ Test performance optimizations (sub-second execution)
 - ✅ Docker build infrastructure and CI/CD workflows
-- ✅ Docker image build process (Go 1.24.5 compatible)
+- ✅ Docker image build process (Go 1.25.1 compatible)
 - ✅ Kubernetes deployment manifests for golder-secops cluster
 - ✅ Health probe endpoints (/healthz and /readyz on port 8080)
 - ✅ Improved logging configuration for production deployments
@@ -137,7 +137,7 @@ type DomainObservation struct {
 
 **✅ Production Deployment**:
 - Successfully deployed to golder-secops cluster
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.12.0` (current - Crossplane v2 with runtime v1.21.0)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.13.0` (current - Crossplane v2 with Go 1.25.1 and runtime v1.21.0)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
@@ -149,9 +149,9 @@ type DomainObservation struct {
 ## Build and Deployment Process
 
 ### ⚠️ Critical Build Requirements
-- **Go Version**: Go 1.24.5+ required (specified in go.mod)
+- **Go Version**: Go 1.25.1+ required (specified in go.mod)
 - **Docker Context**: Use `ulta-docker-engine-1` for optimal build performance
-- **Dockerfile**: Updated to use `golang:1.24.5` base image for latest bugfixes
+- **Dockerfile**: Updated to use `golang:1.25.1` base image for latest bugfixes
 
 ### Standard Build Commands
 ```bash
@@ -180,13 +180,13 @@ docker context use ulta-docker-engine-1
 docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to Harbor (internal registry)
-VERSION=v0.10.0 ./build-and-push.sh
+VERSION=v0.13.0 ./build-and-push.sh
 
 # Build and push to both Harbor and GHCR
-VERSION=v0.10.0 PUSH_EXTERNAL=true ./build-and-push.sh
+VERSION=v0.13.0 PUSH_EXTERNAL=true ./build-and-push.sh
 
 # Build with Crossplane package
-VERSION=v0.10.0 BUILD_PACKAGE=true ./build-and-push.sh
+VERSION=v0.13.0 BUILD_PACKAGE=true ./build-and-push.sh
 ```
 
 ### Environment Variables for Registry Override
@@ -200,12 +200,24 @@ VERSION=v0.10.0 BUILD_PACKAGE=true ./build-and-push.sh
 ### Deployment to golder-secops Cluster
 The provider is deployed via Flux GitOps:
 - **Manifest**: `/home/rossg/clients/golder/infrastructure/flux-golder/clusters/golder-secops/crossplane-providers/provider-mailgun.yaml`
-- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.10.0`
+- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.13.0`
 - **Runtime**: Uses shared `provider-runtime` DeploymentRuntimeConfig
 - **Health Probes**: Kubernetes liveness and readiness probes configured for port 8080
 - **Secrets**: Uses `harbor-credentials` for image pull authentication
 
-## Recent Improvements (2025-09-15)
+## Recent Improvements (2025-10-01)
+
+### Go 1.25.1 and golangci-lint 2.5.0 Upgrade (v0.13.0)
+- **Go Version Upgrade**: Updated from Go 1.24.5 to Go 1.25.1 throughout entire codebase
+- **golangci-lint Upgrade**: Upgraded to golangci-lint 2.5.0 for modern Go support and compatibility
+- **Code Quality Cleanup**: Removed 8 unused functions causing lint warnings across controllers
+- **Lint Compliance**: Achieved 0 lint issues with make lint passing cleanly
+- **Documentation Updates**: Updated all version references in README, CLAUDE.md, GitHub workflows
+- **Build System**: Updated Makefile and build/makelib/golang.mk for consistent tooling
+- **Test Stability**: All 133+ tests continue passing after cleanup with no functional changes
+- **Crossplane v2 Native**: Confirmed clean v2 provider with no backward compatibility baggage
+
+## Previous Improvements (2025-09-15)
 
 ### Crossplane Runtime Update (v0.12.0)
 - **Updated crossplane-runtime**: Upgraded from v1.20.0 to v1.21.0-rc.0 to address ProviderConfigUsage namespace creation issues

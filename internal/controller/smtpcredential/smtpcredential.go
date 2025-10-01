@@ -56,8 +56,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		resource.ManagedKind(v1beta1.SMTPCredentialGroupVersionKind),
 		managed.WithExternalConnecter(&connector{
 			kube:         mgr.GetClient(),
-			// TODO: Fix ProviderConfigUsage tracker for v2 compatibility
-			// usage:        resource.NewProviderConfigUsageTracker(mgr.GetClient(), &apisv1beta1.ProviderConfigUsage{}),
+			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
 			newServiceFn: clients.NewClient,
 		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),

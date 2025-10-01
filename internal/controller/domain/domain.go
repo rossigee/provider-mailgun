@@ -99,15 +99,21 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		pcName = pcRef.Name
 	}
 
-	// Try namespaced lookup first (ProviderConfig CRD is scope: Namespaced)
-	pcNamespace := cr.GetNamespace()
-	pcErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: pcNamespace}, pc)
+	// Always try crossplane-system namespace first for ProviderConfigs
+	// This is the standard location for cluster-wide ProviderConfigs
+	pcErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: "crossplane-system"}, pc)
 	if pcErr != nil {
-		// If namespaced lookup fails, try cluster-scoped as fallback
-		clusterErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName}, pc)
-		if clusterErr != nil {
-			// Both lookups failed, return detailed error
-			return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s': tried namespaced lookup in '%s' and cluster-scoped lookup", pcName, pcNamespace)
+		// If not found in crossplane-system, try the managed resource's namespace as fallback
+		pcNamespace := cr.GetNamespace()
+		if pcNamespace != "crossplane-system" {
+			fallbackErr := c.kube.Get(ctx, types.NamespacedName{Name: pcName, Namespace: pcNamespace}, pc)
+			if fallbackErr != nil {
+				// Both lookups failed, return detailed error
+				return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s': tried crossplane-system and namespace '%s'", pcName, pcNamespace)
+			}
+		} else {
+			// We already tried crossplane-system, return the original error
+			return nil, errors.Wrapf(pcErr, "cannot get ProviderConfig '%s' in namespace 'crossplane-system'", pcName)
 		}
 	}
 

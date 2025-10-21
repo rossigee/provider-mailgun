@@ -137,7 +137,7 @@ type DomainObservation struct {
 
 **✅ Production Deployment**:
 - Successfully deployed to golder-secops cluster
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.13.1` (current - Crossplane v2 with Go 1.25.1 and runtime v1.21.0)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.14.3` (current - Crossplane v2 with Go 1.25.1 and runtime v1.21.0)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
@@ -180,13 +180,13 @@ docker context use ulta-docker-engine-1
 docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to Harbor (internal registry)
-VERSION=v0.13.1 ./build-and-push.sh
+VERSION=v0.14.3 ./build-and-push.sh
 
 # Build and push to both Harbor and GHCR
-VERSION=v0.13.1 PUSH_EXTERNAL=true ./build-and-push.sh
+VERSION=v0.14.3 PUSH_EXTERNAL=true ./build-and-push.sh
 
 # Build with Crossplane package
-VERSION=v0.13.1 BUILD_PACKAGE=true ./build-and-push.sh
+VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 ```
 
 ### Environment Variables for Registry Override
@@ -200,14 +200,14 @@ VERSION=v0.13.1 BUILD_PACKAGE=true ./build-and-push.sh
 ### Deployment to golder-secops Cluster
 The provider is deployed via Flux GitOps:
 - **Manifest**: `/home/rossg/clients/golder/infrastructure/flux-golder/clusters/golder-secops/crossplane-providers/provider-mailgun.yaml`
-- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.13.1`
+- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.14.3`
 - **Runtime**: Uses shared `provider-runtime` DeploymentRuntimeConfig
 - **Health Probes**: Kubernetes liveness and readiness probes configured for port 8080
 - **Secrets**: Uses `harbor-credentials` for image pull authentication
 
 ## Recent Improvements (2025-10-01)
 
-### Go 1.25.1 and golangci-lint 2.5.0 Upgrade (v0.13.1)
+### Go 1.25.1 and golangci-lint 2.5.0 Upgrade (v0.14.3)
 - **Go Version Upgrade**: Updated from Go 1.24.5 to Go 1.25.1 throughout entire codebase
 - **golangci-lint Upgrade**: Upgraded to golangci-lint 2.5.0 for modern Go support and compatibility
 - **Code Quality Cleanup**: Removed 8 unused functions causing lint warnings across controllers

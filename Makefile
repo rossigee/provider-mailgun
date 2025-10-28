@@ -55,8 +55,17 @@ $(foreach p,$(filter linux_%,$(PLATFORMS)),$(foreach x,$(XPKGS),$(eval $(XPKG_OU
 # Ensure packages are built for all platforms before publishing
 $(foreach r,$(XPKG_REG_ORGS),$(foreach x,$(XPKGS),$(eval xpkg.release.publish.$(r).$(x): $(CROSSPLANE_CLI) $(foreach p,$(filter linux_%,$(PLATFORMS)),$(XPKG_OUTPUT_DIR)/$(p)/$(x)-$(VERSION).xpkg))))
 
+# Ensure publish only happens on release branches
+publish.artifacts:
+	@if ! echo "$(BRANCH_NAME)" | grep -qE "$(subst $(SPACE),|,main|master|release-.*)"; then \
+		$(ERR) Publishing is only allowed on branches matching: main|master|release-.* (current: $(BRANCH_NAME)); \
+		exit 1; \
+	fi
+	$(foreach r,$(XPKG_REG_ORGS), $(foreach x,$(XPKGS),@$(MAKE) xpkg.release.publish.$(r).$(x)))
+	$(foreach r,$(REGISTRY_ORGS), $(foreach i,$(IMAGES),@$(MAKE) img.release.publish.$(r).$(i)))
+
 # Setup Package Metadata
-CROSSPLANE_VERSION = 1.19.0
+CROSSPLANE_VERSION = 2.0.2
 -include build/makelib/local.xpkg.mk
 -include build/makelib/controlplane.mk
 

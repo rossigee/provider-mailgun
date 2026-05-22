@@ -30,7 +30,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 
@@ -258,17 +258,15 @@ func TestSMTPCredentialObserve(t *testing.T) {
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-smtp",
-						Namespace: "test-namespace",
 					},
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "test@example.com",
 						},
-						ResourceSpec: xpv1.ResourceSpec{
-							WriteConnectionSecretToReference: &xpv1.SecretReference{
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
 								Name:      "test-secret",
-								Namespace: "test-namespace",
 							},
 						},
 					},
@@ -276,7 +274,6 @@ func TestSMTPCredentialObserve(t *testing.T) {
 				secret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-secret",
-						Namespace: "test-namespace",
 					},
 					Data: map[string][]byte{
 						"smtp_username": []byte("test@example.com"),
@@ -302,17 +299,15 @@ func TestSMTPCredentialObserve(t *testing.T) {
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-smtp",
-						Namespace: "test-namespace",
 					},
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
 							Domain: "example.com",
 							Login:  "notfound@example.com",
 						},
-						ResourceSpec: xpv1.ResourceSpec{
-							WriteConnectionSecretToReference: &xpv1.SecretReference{
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
 								Name:      "missing-secret",
-								Namespace: "test-namespace",
 							},
 						},
 					},
@@ -331,7 +326,6 @@ func TestSMTPCredentialObserve(t *testing.T) {
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "test-smtp",
-						Namespace: "test-namespace",
 					},
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
@@ -663,8 +657,8 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 					UID:       types.UID("test-uid-123"),
 				},
 				Spec: v1beta1.SMTPCredentialSpec{
-					ResourceSpec: xpv1.ResourceSpec{
-						ProviderConfigReference: &xpv1.Reference{
+					ManagedResourceSpec: xpv1.ManagedResourceSpec{
+						ProviderConfigReference: &xpv1.ProviderConfigReference{
 							Name: "test-provider-config",
 						},
 					},
@@ -722,12 +716,11 @@ func TestProviderConfigUsageTracker_TrackIdempotent(t *testing.T) {
 	cr := &v1beta1.SMTPCredential{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-smtp",
-			Namespace: "test-namespace",
 			UID:       types.UID("test-uid-123"),
 		},
 		Spec: v1beta1.SMTPCredentialSpec{
-			ResourceSpec: xpv1.ResourceSpec{
-				ProviderConfigReference: &xpv1.Reference{
+			ManagedResourceSpec: xpv1.ManagedResourceSpec{
+				ProviderConfigReference: &xpv1.ProviderConfigReference{
 					Name: "test-provider-config",
 				},
 			},

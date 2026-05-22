@@ -12,7 +12,8 @@ A Crossplane v2 provider for managing Mailgun resources with complete namespace 
 - **Health Monitoring**: Built-in health probes for Kubernetes liveness and readiness checks
 - **Breaking Change v0.11.0**: Removed all v1alpha1 cluster-scoped APIs
 - **Runtime Update v0.12.0**: Updated crossplane-runtime to v1.21.0-rc.0 for improved stability
-- **Go 1.25.1 & golangci-lint 2.5.0 v0.14.3**: Modern toolchain with clean lint compliance
+- **Go 1.26.3 & golangci-lint 2.5.0 v0.14.3**: Modern toolchain with clean lint compliance
+- **crossplane-runtime v2.3.0 & ModernManaged v0.15.0**: Upgraded to latest runtime with ModernManaged interface
 
 ## Supported Resources
 
@@ -109,7 +110,7 @@ See the `examples/` directory for complete usage examples of all supported resou
 This provider is built using the standard Crossplane provider framework with enhanced SMTP credential management.
 
 ### Build Requirements
-- Go 1.25.1+ (specified in go.mod)
+- Go 1.26.3+ (specified in go.mod)
 - Docker with buildx support
 - Recommended Docker context: `ulta-docker-engine-1`
 

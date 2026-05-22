@@ -129,7 +129,7 @@ type DomainObservation struct {
 - ✅ HTTP client reliability improvements with retry logic and proper body handling
 - ✅ Test performance optimizations (sub-second execution)
 - ✅ Docker build infrastructure and CI/CD workflows
-- ✅ Docker image build process (Go 1.25.1 compatible)
+- ✅ Docker image build process (Go 1.26.3 compatible)
 - ✅ Kubernetes deployment manifests for golder-secops cluster
 - ✅ Health probe endpoints (/healthz and /readyz on port 8080)
 - ✅ Improved logging configuration for production deployments
@@ -137,7 +137,7 @@ type DomainObservation struct {
 
 **✅ Production Deployment**:
 - Successfully deployed to golder-secops cluster
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.14.3` (current - Crossplane v2 with Go 1.25.1 and runtime v1.21.0)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.15.0` (current - Crossplane v2 with crossplane-runtime v2.3.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
@@ -149,9 +149,10 @@ type DomainObservation struct {
 ## Build and Deployment Process
 
 ### ⚠️ Critical Build Requirements
-- **Go Version**: Go 1.25.1+ required (specified in go.mod)
+- **Go Version**: Go 1.26.3+ required (specified in go.mod)
 - **Docker Context**: Use `ulta-docker-engine-1` for optimal build performance
-- **Dockerfile**: Updated to use `golang:1.25.1` base image for latest bugfixes
+- **Dockerfile**: Updated to use `golang:1.26.3` base image for latest bugfixes
+- **golangci-lint**: Use v2.12.2 for Go 1.26.3 compatibility
 
 ### Standard Build Commands
 ```bash
@@ -207,8 +208,8 @@ The provider is deployed via Flux GitOps:
 
 ## Recent Improvements (2025-10-01)
 
-### Go 1.25.1 and golangci-lint 2.5.0 Upgrade (v0.14.3)
-- **Go Version Upgrade**: Updated from Go 1.24.5 to Go 1.25.1 throughout entire codebase
+### Go 1.26.3 and golangci-lint 2.5.0 Upgrade (v0.14.3)
+- **Go Version Upgrade**: Updated from Go 1.24.5 to Go 1.26.3 throughout entire codebase
 - **golangci-lint Upgrade**: Upgraded to golangci-lint 2.5.0 for modern Go support and compatibility
 - **Code Quality Cleanup**: Removed 8 unused functions causing lint warnings across controllers
 - **Lint Compliance**: Achieved 0 lint issues with make lint passing cleanly

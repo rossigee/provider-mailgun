@@ -26,7 +26,7 @@ import (
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 
 	"github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"

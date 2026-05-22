@@ -23,7 +23,7 @@ git push origin master
 ```
 
 This will trigger GitHub Actions to:
-- Build with Go 1.25.1
+- Build with Go 1.26.3
 - Run comprehensive test suite (34.9% coverage)
 - Create new container image with correct package format
 - Push to ghcr.io/rossigee/provider-mailgun:latest

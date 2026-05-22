@@ -19,7 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
 // RouteParameters define the desired state of a Mailgun Route
@@ -78,13 +78,13 @@ type RouteObservation struct {
 
 // A RouteSpec defines the desired state of a Route.
 type RouteSpec struct {
-	xpv1.ResourceSpec `json:",inline"`
+	xpv1.ManagedResourceSpec `json:",inline"`
 	ForProvider       RouteParameters `json:"forProvider"`
 }
 
 // A RouteStatus represents the observed state of a Route.
 type RouteStatus struct {
-	xpv1.ResourceStatus `json:",inline"`
+	xpv1.ConditionedStatus `json:",inline"`
 	AtProvider          RouteObservation `json:"atProvider,omitempty"`
 }
 

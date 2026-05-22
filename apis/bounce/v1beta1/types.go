@@ -19,7 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
 // BounceParameters are the configurable fields of a Bounce.
@@ -54,13 +54,13 @@ type BounceObservation struct {
 
 // A BounceSpec defines the desired state of a Bounce.
 type BounceSpec struct {
-	xpv1.ResourceSpec `json:",inline"`
+	xpv1.ManagedResourceSpec `json:",inline"`
 	ForProvider       BounceParameters `json:"forProvider"`
 }
 
 // A BounceStatus represents the observed state of a Bounce.
 type BounceStatus struct {
-	xpv1.ResourceStatus `json:",inline"`
+	xpv1.ConditionedStatus `json:",inline"`
 	AtProvider          BounceObservation `json:"atProvider,omitempty"`
 }
 

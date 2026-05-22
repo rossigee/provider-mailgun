@@ -19,7 +19,7 @@ package v1beta1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	xpv1 "github.com/crossplane/crossplane-runtime/v2/apis/common/v1"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
 // DomainParameters define the desired state of a Mailgun Domain
@@ -129,13 +129,13 @@ type DNSRecord struct {
 
 // A DomainSpec defines the desired state of a Domain.
 type DomainSpec struct {
-	xpv1.ResourceSpec `json:",inline"`
+	xpv1.ManagedResourceSpec `json:",inline"`
 	ForProvider       DomainParameters `json:"forProvider"`
 }
 
 // A DomainStatus represents the observed state of a Domain.
 type DomainStatus struct {
-	xpv1.ResourceStatus `json:",inline"`
+	xpv1.ConditionedStatus `json:",inline"`
 	AtProvider          DomainObservation `json:"atProvider,omitempty"`
 }
 

@@ -45,4 +45,4 @@ issues:
     - path: zz_generated\.managedlist\.go
       linters:
         - govet
-    exclude-use-default: false
+  exclude-use-default: false

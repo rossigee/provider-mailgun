@@ -147,10 +147,10 @@ func NewClient(config *Config) Client {
 }
 
 // getProviderConfigReference extracts the provider config reference from a managed resource
-func getProviderConfigReference(mg resource.Managed) *xpv1.Reference {
+func getProviderConfigReference(mg resource.Managed) *xpv1.ProviderConfigReference {
 	// Type switch to handle different resource types and access their ProviderConfigReference
 	switch v := mg.(type) {
-	case interface{ GetProviderConfigReference() *xpv1.Reference }:
+	case interface{ GetProviderConfigReference() *xpv1.ProviderConfigReference }:
 		return v.GetProviderConfigReference()
 	default:
 		// If we can't determine the provider config reference, return nil
@@ -172,7 +172,7 @@ func GetConfig(ctx context.Context, c client.Client, mg resource.Managed) (*Conf
 }
 
 // UseProviderConfig extracts configuration from a ProviderConfig
-func UseProviderConfig(ctx context.Context, c client.Client, mg resource.Managed, pcRef *xpv1.Reference) (*Config, error) {
+func UseProviderConfig(ctx context.Context, c client.Client, mg resource.Managed, pcRef *xpv1.ProviderConfigReference) (*Config, error) {
 	pc := &v1beta1.ProviderConfig{}
 
 	// For cluster-scoped resources, we need to look in a default namespace

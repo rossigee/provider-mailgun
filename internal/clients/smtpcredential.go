@@ -32,11 +32,16 @@ func convertSMTPCredentialToObservation(clientCred *SMTPCredential) *smtpcredent
 		return nil
 	}
 
-	return &smtpcredentialtypes.SMTPCredentialObservation{
+	obs := &smtpcredentialtypes.SMTPCredentialObservation{
 		Login:     clientCred.Login,
 		CreatedAt: clientCred.CreatedAt,
 		State:     clientCred.State,
 	}
+	// Include password if available (Mailgun returns it on credential creation)
+	if clientCred.Password != "" {
+		obs.Password = clientCred.Password
+	}
+	return obs
 }
 
 // CreateSMTPCredential creates a new SMTP credential for a domain

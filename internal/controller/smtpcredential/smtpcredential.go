@@ -264,6 +264,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 			Login: cr.Spec.ForProvider.Login,
 			State: "active", // Assume active since we have stored credentials
 		}
+		cr.SetConditions(xpv1.Available())
 
 		return managed.ExternalObservation{
 			ResourceExists:   true,
@@ -469,6 +470,9 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	// Update observed state
 	cr.Status.AtProvider = *credential
+
+	// Set Available condition to indicate the resource is ready
+	cr.SetConditions(xpv1.Available())
 
 	// For connection details, prefer the password from the observation (which comes from Mailgun API)
 	// If not available, fall back to user-provided password

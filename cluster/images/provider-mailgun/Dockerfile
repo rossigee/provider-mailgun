@@ -13,7 +13,8 @@ ARG TARGETOS
 ARG TARGETARCH
 
 ADD bin/${TARGETOS}_${TARGETARCH}/provider /usr/local/bin/provider
-ADD package.yaml /package.yaml
+ADD package/crossplane.yaml /package.yaml
+ADD package/crds /crds
 
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/provider"]

@@ -21,11 +21,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	bouncev1beta1 "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	complaintv1beta1 "github.com/rossigee/provider-mailgun/apis/complaint/v1beta1"
 	domainv1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglistv1beta1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	routev1beta1 "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	smtpcredentialv1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatev1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	unsubscribev1beta1 "github.com/rossigee/provider-mailgun/apis/unsubscribe/v1beta1"
 	webhookv1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	v1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 )
@@ -36,11 +38,13 @@ func init() {
 		v1beta1.AddToScheme,
 		// v1beta1 namespaced versions (Crossplane v2 only)
 		bouncev1beta1.AddToScheme,
+		complaintv1beta1.AddToScheme,
 		domainv1beta1.AddToScheme,
 		mailinglistv1beta1.AddToScheme,
 		routev1beta1.AddToScheme,
 		smtpcredentialv1beta1.AddToScheme,
 		templatev1beta1.AddToScheme,
+		unsubscribev1beta1.AddToScheme,
 		webhookv1beta1.AddToScheme,
 	)
 }

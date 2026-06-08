@@ -19,6 +19,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -56,7 +57,7 @@ func (c *mailgunClient) CreateWebhook(ctx context.Context, domain string, webhoo
 	}
 
 	body := strings.NewReader(createFormData(params))
-	path := fmt.Sprintf("/domains/%s/webhooks/%s", domain, webhook.EventType)
+	path := fmt.Sprintf("/domains/%s/webhooks/%s", url.PathEscape(domain), url.PathEscape(webhook.EventType))
 	resp, err := c.makeRequest(ctx, "POST", path, body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create webhook")

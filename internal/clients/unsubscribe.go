@@ -19,6 +19,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -29,7 +30,7 @@ func (c *mailgunClient) CreateUnsubscribe(ctx context.Context, domain string, un
 	if !ok {
 		return nil, fmt.Errorf("invalid unsubscribe parameter type")
 	}
-	path := fmt.Sprintf("/domains/%s/unsubscribes", domain)
+	path := fmt.Sprintf("/domains/%s/unsubscribes", url.PathEscape(domain))
 
 	params := map[string]interface{}{
 		"address": unsubscribeSpec.Address,
@@ -54,7 +55,7 @@ func (c *mailgunClient) CreateUnsubscribe(ctx context.Context, domain string, un
 
 // GetUnsubscribe retrieves an unsubscribe suppression entry
 func (c *mailgunClient) GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error) {
-	path := fmt.Sprintf("/domains/%s/unsubscribes/%s", domain, address)
+	path := fmt.Sprintf("/domains/%s/unsubscribes/%s", url.PathEscape(domain), url.PathEscape(address))
 
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
@@ -71,7 +72,7 @@ func (c *mailgunClient) GetUnsubscribe(ctx context.Context, domain, address stri
 
 // DeleteUnsubscribe deletes an unsubscribe suppression entry
 func (c *mailgunClient) DeleteUnsubscribe(ctx context.Context, domain, address string) error {
-	path := fmt.Sprintf("/domains/%s/unsubscribes/%s", domain, address)
+	path := fmt.Sprintf("/domains/%s/unsubscribes/%s", url.PathEscape(domain), url.PathEscape(address))
 
 	resp, err := c.makeRequest(ctx, "DELETE", path, nil)
 	if err != nil {

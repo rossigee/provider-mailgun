@@ -21,7 +21,7 @@ A Crossplane v2 provider for managing Mailgun resources including domains, maili
 
 - **Crossplane v2 Architecture**: Complete namespace-scoped resource management
 - **Multi-tenancy**: All resources isolated by namespace for team separation
-- **Complete Mailgun API Coverage**: Domains, routing, templates, credentials, suppressions
+- **Core Mailgun API Coverage**: Domains, routing, templates, credentials, suppressions, webhooks, mailing lists
 - **Credential Rotation Strategy**: Handles write-only SMTP credentials with automatic rotation
 - **Unified Regional Support**: Single API key works across US and EU regions
 - **Health Monitoring**: Built-in health probes for Kubernetes liveness and readiness checks
@@ -120,6 +120,21 @@ spec:
 | Template | `template.mailgun.m.crossplane.io/v1beta1` | Email templates |
 | SMTPCredential | `smtpcredential.mailgun.m.crossplane.io/v1beta1` | SMTP credentials |
 | Bounce | `bounce.mailgun.m.crossplane.io/v1beta1` | Bounce suppressions |
+
+## Planned Resources (Not Yet Exposed)
+
+- Complaint suppressions (API client implementation exists, CRD pending)
+- Unsubscribe suppressions (API client implementation exists, CRD pending)
+
+## Unsupported Mailgun APIs
+
+The following Mailgun APIs are not yet supported by this provider:
+
+- IP address management and warmup
+- Click and open tracking configuration
+- Email validation and recipient verification
+- Message metadata and acceptance inspection
+- List validation services
 
 ## Development
 

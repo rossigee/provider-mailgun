@@ -19,6 +19,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -96,7 +97,7 @@ func (c *mailgunClient) CreateRoute(ctx context.Context, route *routetypes.Route
 
 // GetRoute retrieves a route from Mailgun
 func (c *mailgunClient) GetRoute(ctx context.Context, id string) (*routetypes.RouteObservation, error) {
-	path := fmt.Sprintf("/routes/%s", id)
+	path := fmt.Sprintf("/routes/%s", url.PathEscape(id))
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get route")
@@ -149,7 +150,7 @@ func (c *mailgunClient) UpdateRoute(ctx context.Context, id string, route *route
 	}
 
 	body := strings.NewReader(createFormData(params))
-	path := fmt.Sprintf("/routes/%s", id)
+	path := fmt.Sprintf("/routes/%s", url.PathEscape(id))
 	resp, err := c.makeRequest(ctx, "PUT", path, body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to update route")
@@ -177,7 +178,7 @@ func (c *mailgunClient) UpdateRoute(ctx context.Context, id string, route *route
 
 // DeleteRoute deletes a route from Mailgun
 func (c *mailgunClient) DeleteRoute(ctx context.Context, id string) error {
-	path := fmt.Sprintf("/routes/%s", id)
+	path := fmt.Sprintf("/routes/%s", url.PathEscape(id))
 	resp, err := c.makeRequest(ctx, "DELETE", path, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to delete route")

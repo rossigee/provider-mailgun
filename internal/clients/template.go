@@ -19,6 +19,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
@@ -26,7 +27,7 @@ import (
 
 // CreateTemplate creates a new email template for a domain
 func (c *mailgunClient) CreateTemplate(ctx context.Context, domain string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
-	path := fmt.Sprintf("/domains/%s/templates", domain)
+	path := fmt.Sprintf("/domains/%s/templates", url.PathEscape(domain))
 
 	params := map[string]interface{}{
 		"name": template.Name,
@@ -75,7 +76,7 @@ func (c *mailgunClient) CreateTemplate(ctx context.Context, domain string, templ
 
 // GetTemplate retrieves a template by name
 func (c *mailgunClient) GetTemplate(ctx context.Context, domain, name string) (*templatetypes.TemplateObservation, error) {
-	path := fmt.Sprintf("/domains/%s/templates/%s", domain, name)
+	path := fmt.Sprintf("/domains/%s/templates/%s", url.PathEscape(domain), url.PathEscape(name))
 
 	// Request with active flag to get the active version content
 	resp, err := c.makeRequest(ctx, "GET", path+"?active=yes", nil)
@@ -104,7 +105,7 @@ func (c *mailgunClient) GetTemplate(ctx context.Context, domain, name string) (*
 
 // UpdateTemplate updates a template's description
 func (c *mailgunClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatetypes.TemplateParameters) (*templatetypes.TemplateObservation, error) {
-	path := fmt.Sprintf("/domains/%s/templates/%s", domain, name)
+	path := fmt.Sprintf("/domains/%s/templates/%s", url.PathEscape(domain), url.PathEscape(name))
 
 	params := map[string]interface{}{}
 
@@ -146,7 +147,7 @@ func (c *mailgunClient) UpdateTemplate(ctx context.Context, domain, name string,
 
 // DeleteTemplate deletes a template and all its versions
 func (c *mailgunClient) DeleteTemplate(ctx context.Context, domain, name string) error {
-	path := fmt.Sprintf("/domains/%s/templates/%s", domain, name)
+	path := fmt.Sprintf("/domains/%s/templates/%s", url.PathEscape(domain), url.PathEscape(name))
 
 	resp, err := c.makeRequest(ctx, "DELETE", path, nil)
 	if err != nil {

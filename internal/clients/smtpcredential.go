@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
@@ -46,7 +47,7 @@ func convertSMTPCredentialToObservation(clientCred *SMTPCredential) *smtpcredent
 
 // CreateSMTPCredential creates a new SMTP credential for a domain
 func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string, credential *smtpcredentialtypes.SMTPCredentialParameters) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
-	path := fmt.Sprintf("/domains/%s/credentials", domain)
+	path := fmt.Sprintf("/domains/%s/credentials", url.PathEscape(domain))
 
 	params := map[string]interface{}{
 		"login": credential.Login,
@@ -76,9 +77,6 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-
-	// Debug: Log the actual response body to understand what Mailgun returns
-	fmt.Printf("DEBUG: CreateSMTPCredential response body: %s\n", string(responseBody))
 
 	// Try to parse as credential response first (if Mailgun returns the credential directly)
 	var credentialResponse struct {
@@ -110,7 +108,6 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 	// Check if we have credentials with the password
 	if createResponse.Credentials != nil {
 		if password, exists := createResponse.Credentials[credential.Login]; exists {
-			fmt.Printf("DEBUG: Found password in credentials response for %s (length: %d)\n", credential.Login, len(password))
 			return convertSMTPCredentialToObservation(&SMTPCredential{
 				Login:    credential.Login,
 				Password: password,
@@ -126,14 +123,13 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 
 	// If we only got a success message, we need to fetch the credential to get the password
 	// This happens when Mailgun generates the password but credentials object is empty
-	fmt.Printf("DEBUG: No password in credentials response, falling back to GET\n")
 	return c.GetSMTPCredential(ctx, domain, credential.Login)
 }
 
 // GetSMTPCredential retrieves an SMTP credential
 func (c *mailgunClient) GetSMTPCredential(ctx context.Context, domain, login string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
 	// List all credentials and find the matching one
-	path := fmt.Sprintf("/domains/%s/credentials", domain)
+	path := fmt.Sprintf("/domains/%s/credentials", url.PathEscape(domain))
 
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
@@ -159,7 +155,7 @@ func (c *mailgunClient) GetSMTPCredential(ctx context.Context, domain, login str
 
 // UpdateSMTPCredential updates the password for an SMTP credential
 func (c *mailgunClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpcredentialtypes.SMTPCredentialObservation, error) {
-	path := fmt.Sprintf("/domains/%s/credentials/%s", domain, login)
+	path := fmt.Sprintf("/domains/%s/credentials/%s", url.PathEscape(domain), url.PathEscape(login))
 
 	params := map[string]interface{}{
 		"password": password,
@@ -185,7 +181,7 @@ func (c *mailgunClient) UpdateSMTPCredential(ctx context.Context, domain, login 
 
 // DeleteSMTPCredential deletes an SMTP credential
 func (c *mailgunClient) DeleteSMTPCredential(ctx context.Context, domain, login string) error {
-	path := fmt.Sprintf("/domains/%s/credentials/%s", domain, login)
+	path := fmt.Sprintf("/domains/%s/credentials/%s", url.PathEscape(domain), url.PathEscape(login))
 
 	resp, err := c.makeRequest(ctx, "DELETE", path, nil)
 	if err != nil {

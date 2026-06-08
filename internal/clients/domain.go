@@ -19,6 +19,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -106,7 +107,7 @@ func (c *mailgunClient) CreateDomain(ctx context.Context, domain *domaintypes.Do
 
 // GetDomain retrieves a domain from Mailgun
 func (c *mailgunClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
-	path := fmt.Sprintf("/domains/%s", name)
+	path := fmt.Sprintf("/domains/%s", url.PathEscape(name))
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get domain")
@@ -149,7 +150,7 @@ func (c *mailgunClient) UpdateDomain(ctx context.Context, name string, domain *d
 	}
 
 	body := strings.NewReader(createFormData(params))
-	path := fmt.Sprintf("/domains/%s", name)
+	path := fmt.Sprintf("/domains/%s", url.PathEscape(name))
 	resp, err := c.makeRequest(ctx, "PUT", path, body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to update domain")

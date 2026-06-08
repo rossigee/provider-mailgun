@@ -19,6 +19,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 )
 
@@ -29,7 +30,7 @@ func (c *mailgunClient) CreateComplaint(ctx context.Context, domain string, comp
 	if !ok {
 		return nil, fmt.Errorf("invalid complaint parameter type")
 	}
-	path := fmt.Sprintf("/domains/%s/complaints", domain)
+	path := fmt.Sprintf("/domains/%s/complaints", url.PathEscape(domain))
 
 	params := map[string]interface{}{
 		"address": complaintSpec.Address,
@@ -51,7 +52,7 @@ func (c *mailgunClient) CreateComplaint(ctx context.Context, domain string, comp
 
 // GetComplaint retrieves a complaint suppression entry
 func (c *mailgunClient) GetComplaint(ctx context.Context, domain, address string) (interface{}, error) {
-	path := fmt.Sprintf("/domains/%s/complaints/%s", domain, address)
+	path := fmt.Sprintf("/domains/%s/complaints/%s", url.PathEscape(domain), url.PathEscape(address))
 
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
@@ -68,7 +69,7 @@ func (c *mailgunClient) GetComplaint(ctx context.Context, domain, address string
 
 // DeleteComplaint deletes a complaint suppression entry
 func (c *mailgunClient) DeleteComplaint(ctx context.Context, domain, address string) error {
-	path := fmt.Sprintf("/domains/%s/complaints/%s", domain, address)
+	path := fmt.Sprintf("/domains/%s/complaints/%s", url.PathEscape(domain), url.PathEscape(address))
 
 	resp, err := c.makeRequest(ctx, "DELETE", path, nil)
 	if err != nil {

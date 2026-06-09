@@ -12,7 +12,7 @@ on:
         type: string
 
 env:
-  DOCKER_BUILDX_VERSION: 'v0.20.1'
+  DOCKER_BUILDX_VERSION: 'v0.11.2'
   CROSSPLANE_REGORG: 'ghcr.io/rossigee'
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Cleanup Disk
-        uses: jlumbroso/free-disk-space@54081f138730dfa15788a46383842cd2f914a1be # v1.3.1
+        uses: jlumbroso/free-disk-space@v4 # v1.3.1
         with:
           android: true
           dotnet: true
@@ -33,25 +33,25 @@ jobs:
           swap-storage: false
 
       - name: Setup QEMU
-        uses: docker/setup-qemu-action@2b82ce82d56a2a04d2637cd93a637ae1b359c0a7 # v2
+        uses: docker/setup-qemu-action@v4 # v2
         with:
           platforms: all
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@885d1462b80bc1c1c7f0b00334ad271f09369c55 # v2
+        uses: docker/setup-buildx-action@v4 # v2
         with:
           version: ${{ env.DOCKER_BUILDX_VERSION }}
           install: true
 
       - name: Login to GHCR
-        uses: docker/login-action@v3.3.0
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
       - name: Checkout
-        uses: actions/checkout@8ade135a41bc03ea155e62e844d188df1ea18608 # v4
+        uses: actions/checkout@v4 # v4
         with:
           submodules: true
 
@@ -59,19 +59,19 @@ jobs:
         run: git fetch --prune --unshallow --no-recurse-submodules
 
       - name: Setup Go
-        uses: actions/setup-go@6edd4406fa81c3da01a34fa6f6343087c207a568 # v3
+        uses: actions/setup-go@v4 # v3
         with:
-          go-version: '1.26.3'
+          go-version: '1.26.4'
 
       - name: Cache the Go Build Cache
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
+        uses: actions/cache@v4 # v4
         with:
           path: ~/.cache/go-build
           key: ${{ runner.os }}-build-publish-artifacts-${{ hashFiles('**/go.sum') }}
           restore-keys: ${{ runner.os }}-build-publish-artifacts-
 
       - name: Cache Go Dependencies
-        uses: actions/cache@d4323d4df104b026a6aa633fdb11d772146be0bf # v4
+        uses: actions/cache@v4 # v4
         with:
           path: ~/go/pkg/mod
           key: ${{ runner.os }}-pkg-${{ hashFiles('**/go.sum') }}

@@ -21,6 +21,7 @@ import (
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -601,7 +602,65 @@ func newProviderConfigUsageTracker(kube client.Client) resource.Tracker {
 }
 
 func (t *providerConfigUsageTracker) Track(ctx context.Context, mg resource.Managed) error {
-	// TODO: Fix ProviderConfigUsage tracking for v2 compatibility
-	// The v2 ProviderConfigUsage interface has changed and needs to be updated
+	pcRef := t.getProviderConfigReference(mg)
+	if pcRef == nil {
+		return nil
+	}
+
+	pc := &apisv1beta1.ProviderConfig{}
+	if err := t.kube.Get(ctx, types.NamespacedName{Name: pcRef.Name}, pc); err != nil {
+		return errors.Wrap(err, errGetPC)
+	}
+
+	pcu := &apisv1beta1.ProviderConfigUsage{}
+	pcUsageKey := types.NamespacedName{
+		Name:      string(mg.GetUID()),
+		Namespace: mg.GetNamespace(),
+	}
+	if pcUsageKey.Namespace == "" {
+		pcUsageKey.Namespace = "crossplane-system"
+	}
+	if err := t.kube.Get(ctx, pcUsageKey, pcu); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			return errors.Wrap(err, errTrackPCUsage)
+		}
+
+		gvk := mg.GetObjectKind().GroupVersionKind()
+		pcu = &apisv1beta1.ProviderConfigUsage{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: apisv1beta1.SchemeGroupVersion.String(),
+				Kind:       apisv1beta1.ProviderConfigUsageKind,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pcUsageKey.Name,
+				Namespace: pcUsageKey.Namespace,
+			},
+			ProviderConfigUsage: xpv1.ProviderConfigUsage{
+				ProviderConfigReference: xpv1.Reference{
+					Name: pcRef.Name,
+				},
+				ResourceReference: xpv1.TypedReference{
+					APIVersion: gvk.GroupVersion().String(),
+					Kind:       gvk.Kind,
+					Name:       mg.GetName(),
+					UID:        mg.GetUID(),
+				},
+			},
+		}
+
+		if err := t.kube.Create(ctx, pcu); err != nil {
+			return errors.Wrap(err, errTrackPCUsage)
+		}
+	}
+
 	return nil
+}
+
+func (t *providerConfigUsageTracker) getProviderConfigReference(mg resource.Managed) *xpv1.ProviderConfigReference {
+	switch v := mg.(type) {
+	case interface{ GetProviderConfigReference() *xpv1.ProviderConfigReference }:
+		return v.GetProviderConfigReference()
+	default:
+		return nil
+	}
 }

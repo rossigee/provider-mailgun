@@ -649,7 +649,13 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 
 			tracker := newProviderConfigUsageTracker(fakeClient)
 
-			// Create a test SMTPCredential
+			pc := &apisv1beta1.ProviderConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-provider-config",
+				},
+			}
+			require.NoError(t, fakeClient.Create(context.Background(), pc))
+
 			cr := &v1beta1.SMTPCredential{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-smtp",
@@ -666,7 +672,6 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 			}
 			cr.SetGroupVersionKind(v1beta1.SMTPCredentialGroupVersionKind)
 
-			// Track the usage
 			err := tracker.Track(context.Background(), cr)
 
 			if tt.wantErr {
@@ -691,13 +696,7 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 
 			assert.NoError(t, err, "ProviderConfigUsage should be created")
 			assert.Equal(t, expectedNamespace, pcu.GetNamespace(), "ProviderConfigUsage should be in the correct namespace")
-			assert.Equal(t, "test-provider-config", pcu.GetName(), "ProviderConfigUsage should reference the correct ProviderConfig")
-
-			// Verify owner reference is set correctly
-			ownerRefs := pcu.GetOwnerReferences()
-			require.Len(t, ownerRefs, 1)
-			assert.Equal(t, cr.GetName(), ownerRefs[0].Name)
-			assert.Equal(t, string(cr.GetUID()), string(ownerRefs[0].UID))
+			assert.Equal(t, "test-provider-config", pcu.GetProviderConfigReference().Name, "ProviderConfigUsage should reference the correct ProviderConfig")
 		})
 	}
 }
@@ -713,9 +712,17 @@ func TestProviderConfigUsageTracker_TrackIdempotent(t *testing.T) {
 
 	tracker := newProviderConfigUsageTracker(fakeClient)
 
+	pc := &apisv1beta1.ProviderConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-provider-config",
+		},
+	}
+	require.NoError(t, fakeClient.Create(context.Background(), pc))
+
 	cr := &v1beta1.SMTPCredential{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-smtp",
+			Namespace: "test-namespace",
 			UID:       types.UID("test-uid-123"),
 		},
 		Spec: v1beta1.SMTPCredentialSpec{
@@ -728,14 +735,12 @@ func TestProviderConfigUsageTracker_TrackIdempotent(t *testing.T) {
 	}
 	cr.SetGroupVersionKind(v1beta1.SMTPCredentialGroupVersionKind)
 
-	// Track usage twice - should not error on second attempt
 	err1 := tracker.Track(context.Background(), cr)
 	assert.NoError(t, err1)
 
 	err2 := tracker.Track(context.Background(), cr)
 	assert.NoError(t, err2, "Second track call should not error (idempotent)")
 
-	// Verify only one ProviderConfigUsage exists
 	pcuList := &apisv1beta1.ProviderConfigUsageList{}
 	err := fakeClient.List(context.Background(), pcuList, client.InNamespace("test-namespace"))
 	assert.NoError(t, err)

@@ -27,6 +27,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 func TestDefaultConfig(t *testing.T) {
@@ -210,6 +211,10 @@ func TestOperationEndWithError(t *testing.T) {
 }
 
 func TestShutdown(t *testing.T) {
+	// Reset global state from other tests
+	globalTracerProvider = nil
+	otel.SetTracerProvider(noop.NewTracerProvider())
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

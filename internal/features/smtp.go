@@ -26,8 +26,6 @@ import (
 	"strings"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
-
 	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/errors"
 	"github.com/rossigee/provider-mailgun/internal/tracing"
@@ -342,8 +340,8 @@ func (m *SMTPCredentialManager) CreateCredentialWithFeatures(
 ) (*EnhancedSMTPCredential, error) {
 
 	op := tracing.StartOperation(ctx, "smtp.create_with_features",
-		tracing.AttrDomain.String(domain),
-		tracing.AttrCredentialType.String("enhanced"),
+		"mailgun.domain", domain,
+		"mailgun.credential.type", "enhanced",
 	)
 	defer op.End()
 
@@ -423,8 +421,8 @@ func (m *SMTPCredentialManager) RotateCredential(
 ) (*EnhancedSMTPCredential, error) {
 
 	op := tracing.StartOperation(ctx, "smtp.rotate_credential",
-		tracing.AttrDomain.String(domain),
-		tracing.AttrOperation.String("rotate"),
+		"mailgun.domain", domain,
+		"mailgun.operation", "rotate",
 	)
 	defer op.End()
 
@@ -466,8 +464,8 @@ func (m *SMTPCredentialManager) ValidateCredentialAccess(
 ) error {
 
 	op := tracing.StartOperation(ctx, "smtp.validate_access",
-		tracing.AttrCredentialType.String("enhanced"),
-		attribute.String("client.ip", clientIP),
+		"mailgun.credential.type", "enhanced",
+		"client.ip", clientIP,
 	)
 	defer op.End()
 

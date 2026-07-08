@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -37,6 +38,7 @@ import (
 	"github.com/rossigee/provider-mailgun/internal/controller"
 	"github.com/rossigee/provider-mailgun/internal/features"
 	"github.com/rossigee/provider-mailgun/internal/health"
+	"github.com/rossigee/provider-mailgun/internal/tracing"
 	"github.com/rossigee/provider-mailgun/internal/version"
 )
 
@@ -52,8 +54,12 @@ func main() {
 	)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
+
 	zl := zap.New(zap.UseDevMode(*debug))
 	log := logging.NewLogrLogger(zl.WithName("provider-mailgun"))
+
+	shutdownTracing := tracing.Init("provider-mailgun")
+	defer shutdownTracing(context.Background())
 
 	// Always set a logger for controller-runtime, but adjust verbosity
 	if *debug {

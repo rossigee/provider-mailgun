@@ -84,7 +84,7 @@ In your tests, inject `MemMapFs`. This provides a blazing-fast, isolated, in-mem
 func TestProcessConfiguration(t *testing.T) {
     // Use the in-memory filesystem
     AppFs := afero.NewMemMapFs()
-
+    
     // Pre-populate the memory filesystem for the test
     configPath := "/test/config.json"
     afero.WriteFile(AppFs, configPath, []byte(`{"feature": true}`), 0644)
@@ -129,7 +129,7 @@ Improve performance by layering a fast cache (like memory) over a slow backend (
 import "time"
 
 // Assume 'remoteFs' is a slow backend (e.g., SFTP or GCS)
-var remoteFs afero.Fs
+var remoteFs afero.Fs 
 
 // 'cacheFs' is a fast in-memory backend
 cacheFs := afero.NewMemMapFs()
@@ -184,7 +184,7 @@ func (p *DocumentProcessor) Process(inputPath, outputPath string) error {
     if err != nil {
         return err
     }
-
+    
     processed := processContent(content)
     return afero.WriteFile(p.fs, outputPath, processed, 0644)
 }
@@ -210,7 +210,7 @@ import (
 )
 
 // Assume 'zipReader' is a *zip.Reader initialized from a file or memory
-var zipReader *zip.Reader
+var zipReader *zip.Reader 
 
 // Create a read-only ZipFs
 archiveFS := zipfs.New(zipReader)
@@ -254,20 +254,20 @@ func SaveUserData(fs afero.Fs, userID string, data []byte) error {
 func TestSaveUserData(t *testing.T) {
     // Create a clean, fast, in-memory filesystem for testing
     testFS := afero.NewMemMapFs()
-
+    
     userData := []byte(`{"name": "John", "email": "john@example.com"}`)
     err := SaveUserData(testFS, "123", userData)
-
+    
     if err != nil {
         t.Fatalf("SaveUserData failed: %v", err)
     }
-
+    
     // Verify the file was saved correctly
     saved, err := afero.ReadFile(testFS, "users/123.json")
     if err != nil {
         t.Fatalf("Failed to read saved file: %v", err)
     }
-
+    
     if string(saved) != string(userData) {
         t.Errorf("Data mismatch: got %s, want %s", saved, userData)
     }
@@ -362,33 +362,33 @@ minioFs := miniofs.NewMinioFs(ctx, "minio://endpoint/bucket")
 
 #### Cloud Storage
 
-- **Google Drive** - [`fclairamb/afero-gdrive`](https://github.com/fclairamb/afero-gdrive)
+- **Google Drive** - [`fclairamb/afero-gdrive`](https://github.com/fclairamb/afero-gdrive)  
   Streaming support; no write-seeking or POSIX permissions; no files listing cache
 
-- **Dropbox** - [`fclairamb/afero-dropbox`](https://github.com/fclairamb/afero-dropbox)
+- **Dropbox** - [`fclairamb/afero-dropbox`](https://github.com/fclairamb/afero-dropbox)  
   Streaming support; no write-seeking or POSIX permissions
 
 #### Version Control Systems
 
-- **Git Repositories** - [`tobiash/go-gitfs`](https://github.com/tobiash/go-gitfs)
+- **Git Repositories** - [`tobiash/go-gitfs`](https://github.com/tobiash/go-gitfs)  
   Read-only filesystem abstraction for Git repositories. Works with bare repositories and provides filesystem view of any git reference. Uses go-git for repository access.
 
 #### Container and Remote Systems
 
-- **Docker Containers** - [`unmango/aferox`](https://github.com/unmango/aferox)
+- **Docker Containers** - [`unmango/aferox`](https://github.com/unmango/aferox)  
   Access Docker container filesystems as if they were local filesystems
 
-- **GitHub API** - [`unmango/aferox`](https://github.com/unmango/aferox)
+- **GitHub API** - [`unmango/aferox`](https://github.com/unmango/aferox)  
   Turn GitHub repositories, releases, and assets into browsable filesystems
 
 #### FUSE Integration
 
-- **Generic FUSE** - [`JakWai01/sile-fystem`](https://github.com/JakWai01/sile-fystem)
+- **Generic FUSE** - [`JakWai01/sile-fystem`](https://github.com/JakWai01/sile-fystem)  
   Mount any Afero filesystem as a FUSE filesystem, allowing any Afero backend to be used as a real mounted filesystem
 
 #### Specialized Filesystems
 
-- **FAT32 Support** - [`aligator/GoFAT`](https://github.com/aligator/GoFAT)
+- **FAT32 Support** - [`aligator/GoFAT`](https://github.com/aligator/GoFAT)  
   Pure Go FAT filesystem implementation (currently read-only)
 
 ### Interface Adapters & Utilities
@@ -416,7 +416,7 @@ minioFs := miniofs.NewMinioFs(ctx, "minio://endpoint/bucket")
 
 ### Ecosystem Showcase
 
-**Windows Virtual Drives** - [`balazsgrill/potatodrive`](https://github.com/balazsgrill/potatodrive)
+**Windows Virtual Drives** - [`balazsgrill/potatodrive`](https://github.com/balazsgrill/potatodrive)  
 Mount any Afero filesystem as a Windows drive letter. Brilliant demonstration of Afero's power!
 
 ### Modern Asset Embedding (Go 1.16+)
@@ -435,7 +435,7 @@ var assetsFS embed.FS
 func main() {
     // Convert embedded files to Afero filesystem
     fs := afero.FromIOFS(assetsFS)
-
+    
     // Use like any other Afero filesystem
     content, _ := afero.ReadFile(fs, "assets/config.json")
 }
@@ -445,10 +445,10 @@ func main() {
 
 We welcome contributions! The project is mature, but we are actively looking for contributors to help implement and stabilize network/cloud backends.
 
-* 🔥 **Microsoft Azure Blob Storage**
-* 🔒 **Modern Encryption Backend** - Built on secure, contemporary crypto (not legacy EncFS)
-* 🐙 **Canonical go-git Adapter** - Unified solution for Git integration
-* 📡 **SSH/SCP Backend** - Secure remote file operations
+* 🔥 **Microsoft Azure Blob Storage**  
+* 🔒 **Modern Encryption Backend** - Built on secure, contemporary crypto (not legacy EncFS)  
+* 🐙 **Canonical go-git Adapter** - Unified solution for Git integration  
+* 📡 **SSH/SCP Backend** - Secure remote file operations  
 *  Stabilization of existing experimental backends (GCS, SFTP)
 
 To contribute:

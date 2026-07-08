@@ -187,9 +187,9 @@ func (e *ExternalForTesting) Delete(ctx context.Context, mg resource.Managed) (m
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	op := tracing.StartOperation(ctx, tracing.SpanResourceObserve,
-		tracing.AttrResourceType.String("SMTPCredential"),
-		tracing.AttrResourceName.String(mg.GetName()),
-		tracing.AttrOperation.String("observe"),
+		"crossplane.resource.type", "SMTPCredential",
+		"crossplane.resource.name", mg.GetName(),
+		"crossplane.operation", "observe",
 	)
 	defer op.End()
 
@@ -370,9 +370,9 @@ func getSecretDataKeys(data map[string][]byte) []string {
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
 	op := tracing.StartOperation(ctx, tracing.SpanResourceCreate,
-		tracing.AttrResourceType.String("SMTPCredential"),
-		tracing.AttrResourceName.String(mg.GetName()),
-		tracing.AttrOperation.String("create"),
+		"crossplane.resource.type", "SMTPCredential",
+		"crossplane.resource.name", mg.GetName(),
+		"crossplane.operation", "create",
 	)
 	defer op.End()
 
@@ -521,9 +521,9 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
 	op := tracing.StartOperation(ctx, tracing.SpanResourceUpdate,
-		tracing.AttrResourceType.String("SMTPCredential"),
-		tracing.AttrResourceName.String(mg.GetName()),
-		tracing.AttrOperation.String("update"),
+		"crossplane.resource.type", "SMTPCredential",
+		"crossplane.resource.name", mg.GetName(),
+		"crossplane.operation", "update",
 	)
 	defer op.End()
 
@@ -558,9 +558,9 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	op := tracing.StartOperation(ctx, tracing.SpanResourceDelete,
-		tracing.AttrResourceType.String("SMTPCredential"),
-		tracing.AttrResourceName.String(mg.GetName()),
-		tracing.AttrOperation.String("delete"),
+		"crossplane.resource.type", "SMTPCredential",
+		"crossplane.resource.name", mg.GetName(),
+		"crossplane.operation", "delete",
 	)
 	defer op.End()
 

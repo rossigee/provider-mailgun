@@ -3,9 +3,9 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 1.27.1 (19 Nov 2025)
+## 1.27.1 (19 Nov 2025) 
 Enhancements:
-* [#1501][]: prevent `Object` from panicking on nils
+* [#1501][]: prevent `Object` from panicking on nils 
 * [#1511][]: Fix a race condition in `WithLazy`.
 
 Thanks to @rabbbit, @alshopov, @jquirke, @arukiidou for their contributions to this release.

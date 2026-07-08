@@ -15,7 +15,7 @@ This makes us unable to solve many use cases without a fork. The factors that co
  * `glog` [presents a lot "gotchas"](https://github.com/kubernetes/kubernetes/issues/61006) and introduces challenges in containerized environments, all of which aren't well documented.
  * `glog` doesn't provide an easy way to test logs, which detracts from the stability of software using it
  * A long term goal is to implement a logging interface that allows us to add context, change output format, etc.
-
+ 
 Historical context is available here:
 
  * https://github.com/kubernetes/kubernetes/issues/61006
@@ -47,8 +47,6 @@ How to use klog
 - If you want to redirect everything logged using klog somewhere else (say syslog!), you can use `klog.SetOutput()` method and supply a `io.Writer`. (See `examples/set_output/usage_set_output.go`)
 - For more logging conventions (See [Logging Conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md))
 - See our documentation on [pkg.go.dev/k8s.io](https://pkg.go.dev/k8s.io/klog).
-
-**NOTE**: please use the newer go versions that support semantic import versioning in modules, ideally go 1.11.4 or greater.
 
 ### Coexisting with klog/v2
 

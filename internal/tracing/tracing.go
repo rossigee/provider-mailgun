@@ -1,29 +1,12 @@
-/*
-Copyright 2025 The Crossplane Authors.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
-
 package tracing
 
 import (
 	"context"
-	"fmt"
-	"time"
+	"os"
+	"strconv"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
@@ -31,269 +14,154 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
-	"go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
-	// TracingServiceName is the service name for tracing
-	TracingServiceName = "provider-mailgun"
+	tracerName       = "provider-mailgun"
+	resourceTypeAttr = "crossplane.resource.type"
+	resourceNameAttr = "crossplane.resource.name"
+	operationAttr    = "crossplane.operation"
 
-	// TracingServiceVersion is the service version for tracing
-	TracingServiceVersion = "v0.1.0"
+	SpanResourceObserve = "observe"
+	SpanResourceCreate  = "create"
+	SpanResourceUpdate  = "update"
+	SpanResourceDelete  = "delete"
 
-	// InstrumentationName is the name of this instrumentation package
-	InstrumentationName = "github.com/rossigee/provider-mailgun/internal/tracing"
+	AttrDomain          = "mailgun.domain"
+	AttrCredentialType  = "mailgun.credential.type"
+	AttrOperation       = "mailgun.operation"
+	AttrResourceType    = "crossplane.resource.type"
+	AttrResourceName    = "crossplane.resource.name"
 )
 
-// Config holds tracing configuration
-type Config struct {
-	// Enabled controls whether tracing is enabled
-	Enabled bool
-
-	// Endpoint is the OTLP collector endpoint
-	Endpoint string
-
-	// ServiceName is the service name for traces
-	ServiceName string
-
-	// ServiceVersion is the service version for traces
-	ServiceVersion string
-
-	// SamplingRatio is the sampling ratio (0.0 to 1.0)
-	SamplingRatio float64
-
-	// Insecure controls whether to use insecure connection
-	Insecure bool
-
-	// Headers contains additional headers for OTLP export
-	Headers map[string]string
+type Operation struct {
+	ctx   context.Context
+	span  trace.Span
 }
 
-// DefaultConfig returns a default tracing configuration
-func DefaultConfig() *Config {
-	return &Config{
-		Enabled:       false, // Disabled by default
-		Endpoint:      "http://localhost:4317",
-		ServiceName:   TracingServiceName,
-		ServiceVersion: TracingServiceVersion,
-		SamplingRatio: 0.1, // 10% sampling by default
-		Insecure:      true,
-		Headers:       make(map[string]string),
-	}
-}
+var tracer trace.Tracer
+var tp *sdktrace.TracerProvider
 
-// TracerProvider holds the global tracer provider
-var globalTracerProvider trace.TracerProvider
+func Init(serviceName string) func(context.Context) {
+	tracer = otel.Tracer(tracerName)
 
-// Tracer returns a tracer for the provider
-func Tracer() trace.Tracer {
-	return otel.Tracer(InstrumentationName)
-}
-
-// InitTracing initializes OpenTelemetry tracing
-func InitTracing(ctx context.Context, config *Config) (*sdktrace.TracerProvider, error) {
-	if config == nil {
-		config = DefaultConfig()
+	enabled, _ := strconv.ParseBool(getEnv("OTEL_TRACING_ENABLED", "false"))
+	if !enabled {
+		return func(context.Context) {}
 	}
 
-	// If tracing is disabled, return a no-op provider
-	if !config.Enabled {
-		noopProvider := noop.NewTracerProvider()
-		otel.SetTracerProvider(noopProvider)
-		globalTracerProvider = noopProvider
-		return nil, nil
+	endpoint := getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4317")
+	samplingRatio := 0.1
+	if v, err := strconv.ParseFloat(getEnv("OTEL_SAMPLING_RATIO", "0.1"), 64); err == nil {
+		samplingRatio = v
 	}
 
-	// Create resource with service information
+	ctx := context.Background()
+
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
-			semconv.ServiceNameKey.String(config.ServiceName),
-			semconv.ServiceVersionKey.String(config.ServiceVersion),
-			semconv.DeploymentEnvironmentKey.String("kubernetes"),
+			semconv.ServiceNameKey.String(getEnv("OTEL_SERVICE_NAME", serviceName)),
 			attribute.String("provider.type", "crossplane"),
-			attribute.String("provider.name", "mailgun"),
 		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource: %w", err)
+		return func(context.Context) {}
 	}
 
-	// Create OTLP exporter
-	exporter, err := createOTLPExporter(ctx, config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
-	}
-
-	// Create tracer provider
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter,
-			sdktrace.WithBatchTimeout(5*time.Second),
-			sdktrace.WithMaxExportBatchSize(512),
+	exporter, err := otlptrace.New(ctx,
+		otlptracegrpc.NewClient(
+			otlptracegrpc.WithEndpoint(endpoint),
+			otlptracegrpc.WithInsecure(),
 		),
+	)
+	if err != nil {
+		return func(context.Context) {}
+	}
+
+	tp = sdktrace.NewTracerProvider(
+		sdktrace.WithBatcher(exporter),
 		sdktrace.WithResource(res),
-		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(config.SamplingRatio)),
+		sdktrace.WithSampler(sdktrace.TraceIDRatioBased(samplingRatio)),
 	)
 
-	// Set global tracer provider
 	otel.SetTracerProvider(tp)
-	globalTracerProvider = tp
-
-	// Set global text map propagator
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(
 		propagation.TraceContext{},
 		propagation.Baggage{},
 	))
 
-	return tp, nil
-}
-
-// createOTLPExporter creates an OTLP trace exporter
-func createOTLPExporter(ctx context.Context, config *Config) (sdktrace.SpanExporter, error) {
-	options := []otlptracegrpc.Option{
-		otlptracegrpc.WithEndpoint(config.Endpoint),
-		otlptracegrpc.WithTimeout(10 * time.Second),
-	}
-
-	if config.Insecure {
-		options = append(options, otlptracegrpc.WithInsecure())
-	}
-
-	if len(config.Headers) > 0 {
-		options = append(options, otlptracegrpc.WithHeaders(config.Headers))
-	}
-
-	client := otlptracegrpc.NewClient(options...)
-	exporter, err := otlptrace.New(ctx, client)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
-	}
-
-	return exporter, nil
-}
-
-// Shutdown gracefully shuts down the tracer provider
-func Shutdown(ctx context.Context) error {
-	if tp, ok := globalTracerProvider.(*sdktrace.TracerProvider); ok {
-		return tp.Shutdown(ctx)
-	}
-	return nil
-}
-
-// SpanFromContext returns the current span from context
-func SpanFromContext(ctx context.Context) trace.Span {
-	return trace.SpanFromContext(ctx)
-}
-
-// StartSpan starts a new span with the given name and options
-func StartSpan(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
-	return Tracer().Start(ctx, name, opts...)
-}
-
-// Operation represents a traced operation
-type Operation struct {
-	span trace.Span
-	ctx  context.Context
-}
-
-// StartOperation starts a new traced operation
-func StartOperation(ctx context.Context, operationName string, attrs ...attribute.KeyValue) *Operation {
-	newCtx, span := StartSpan(ctx, operationName, trace.WithAttributes(attrs...))
-	return &Operation{
-		span: span,
-		ctx:  newCtx,
+	return func(ctx context.Context) {
+		if tp != nil {
+			_ = tp.Shutdown(ctx)
+		}
 	}
 }
 
-// Context returns the context for this operation
-func (op *Operation) Context() context.Context {
-	return op.ctx
+func StartSpan(ctx context.Context, name string, attrs ...attribute.KeyValue) (context.Context, trace.Span) {
+	return tracer.Start(ctx, name,
+		trace.WithAttributes(attrs...),
+	)
 }
 
-// SetAttribute adds an attribute to the span
-func (op *Operation) SetAttribute(key string, value interface{}) {
-	switch v := value.(type) {
-	case string:
-		op.span.SetAttributes(attribute.String(key, v))
-	case int:
-		op.span.SetAttributes(attribute.Int(key, v))
-	case int64:
-		op.span.SetAttributes(attribute.Int64(key, v))
-	case float64:
-		op.span.SetAttributes(attribute.Float64(key, v))
-	case bool:
-		op.span.SetAttributes(attribute.Bool(key, v))
-	default:
-		op.span.SetAttributes(attribute.String(key, fmt.Sprintf("%v", v)))
+func StartSpanWithAttrs(ctx context.Context, name, resourceType, resourceName, operation string) (context.Context, trace.Span) {
+	return tracer.Start(ctx, name,
+		trace.WithAttributes(
+			attribute.String(resourceTypeAttr, resourceType),
+			attribute.String(resourceNameAttr, resourceName),
+			attribute.String(operationAttr, operation),
+		),
+	)
+}
+
+func SpanAttrs(resourceType, resourceName, operation string) []attribute.KeyValue {
+	return []attribute.KeyValue{
+		attribute.String(resourceTypeAttr, resourceType),
+		attribute.String(resourceNameAttr, resourceName),
+		attribute.String(operationAttr, operation),
 	}
 }
 
-// SetStatus sets the status of the operation
-func (op *Operation) SetStatus(code codes.Code, description string) {
-	op.span.SetStatus(code, description)
+func getEnv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
 }
 
-// AddEvent adds an event to the span
-func (op *Operation) AddEvent(name string, attrs ...attribute.KeyValue) {
-	op.span.AddEvent(name, trace.WithAttributes(attrs...))
+func StartOperation(ctx context.Context, operation string, attrs ...string) *Operation {
+	var opts []trace.SpanStartOption
+	for i := 0; i < len(attrs); i += 2 {
+		if i+1 < len(attrs) {
+			opts = append(opts, trace.WithAttributes(attribute.String(attrs[i], attrs[i+1])))
+		}
+	}
+	ctx, span := tracer.Start(ctx, operation, opts...)
+	return &Operation{ctx: ctx, span: span}
 }
 
-// RecordError records an error in the span
-func (op *Operation) RecordError(err error, attrs ...attribute.KeyValue) {
-	if err != nil {
-		op.span.RecordError(err, trace.WithAttributes(attrs...))
-		op.span.SetStatus(codes.Error, err.Error())
+func (o *Operation) End() {
+	if o.span != nil {
+		o.span.End()
 	}
 }
 
-// End finishes the operation
-func (op *Operation) End() {
-	op.span.End()
-}
-
-// EndWithError finishes the operation and records an error if present
-func (op *Operation) EndWithError(err error) {
-	if err != nil {
-		op.RecordError(err)
-	}
-	op.span.End()
-}
-
-// Common attribute keys
-var (
-	AttrResourceType   = attribute.Key("crossplane.resource.type")
-	AttrResourceName   = attribute.Key("crossplane.resource.name")
-	AttrOperation      = attribute.Key("crossplane.operation")
-	AttrProviderConfig = attribute.Key("crossplane.provider_config")
-	AttrDomain         = attribute.Key("mailgun.domain")
-	AttrCredentialType = attribute.Key("mailgun.credential.type")
-	AttrAPIEndpoint    = attribute.Key("mailgun.api.endpoint")
-	AttrHTTPMethod     = attribute.Key("http.method")
-	AttrHTTPStatusCode = attribute.Key("http.status_code")
-	AttrRetryAttempt   = attribute.Key("retry.attempt")
-	AttrCircuitState   = attribute.Key("circuit_breaker.state")
-)
-
-// TraceableHTTPClient wraps an HTTP client with tracing
-type TraceableHTTPClient struct {
-	tracer trace.Tracer
-}
-
-// NewTraceableHTTPClient creates a new traceable HTTP client
-func NewTraceableHTTPClient() *TraceableHTTPClient {
-	return &TraceableHTTPClient{
-		tracer: Tracer(),
+func (o *Operation) SetAttribute(key string, value interface{}) {
+	if o.span != nil {
+		switch v := value.(type) {
+		case string:
+			o.span.SetAttributes(attribute.String(key, v))
+		case int:
+			o.span.SetAttributes(attribute.Int(key, v))
+		case int64:
+			o.span.SetAttributes(attribute.Int64(key, v))
+		case bool:
+			o.span.SetAttributes(attribute.Bool(key, v))
+		}
 	}
 }
 
-// Common span names
-const (
-	SpanResourceReconcile = "crossplane.resource.reconcile"
-	SpanResourceObserve   = "crossplane.resource.observe"
-	SpanResourceCreate    = "crossplane.resource.create"
-	SpanResourceUpdate    = "crossplane.resource.update"
-	SpanResourceDelete    = "crossplane.resource.delete"
-	SpanMailgunAPI        = "mailgun.api.request"
-	SpanSecretOperation   = "kubernetes.secret.operation"
-	SpanRetryOperation    = "resilience.retry"
-	SpanCircuitBreaker    = "resilience.circuit_breaker"
-)
+func (o *Operation) RecordError(err error) {
+	if o.span != nil && err != nil {
+		o.span.RecordError(err)
+	}
+}

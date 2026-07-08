@@ -40,6 +40,7 @@ message PriorityClass {
 
   // value represents the integer value of this priority class. This is the actual priority that pods
   // receive when they have the name of this class in their pod spec.
+  // +optional
   optional int32 value = 2;
 
   // globalDefault specifies whether this PriorityClass should be considered as
@@ -72,3 +73,4 @@ message PriorityClassList {
   // items is the list of PriorityClasses
   repeated PriorityClass items = 2;
 }
+

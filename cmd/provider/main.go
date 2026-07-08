@@ -125,7 +125,10 @@ func main() {
 	// Setup all controllers
 	kingpin.FatalIfError(controller.Setup(mgr, o), "Cannot setup Mailgun controllers")
 
-	// Add health checks to the manager's built-in endpoints
+	// Add health checks to the manager's built-in endpoints.
+	// nil for mailgunCheck: no ProviderConfig is available at startup to
+	// create a Mailgun API client. ReadyzCheck verifies Kubernetes API
+	// connectivity; external API checks happen during reconciliation.
 	healthChecker := health.NewHealthChecker(mgr.GetClient(), nil)
 	kingpin.FatalIfError(mgr.AddHealthzCheck("mailgun-provider", healthChecker.HealthzCheck), "Cannot add healthz check")
 	kingpin.FatalIfError(mgr.AddReadyzCheck("mailgun-provider", healthChecker.ReadyzCheck), "Cannot add readyz check")

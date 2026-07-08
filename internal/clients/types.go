@@ -18,28 +18,28 @@ package clients
 
 // Domain represents a Mailgun domain
 type Domain struct {
-	Name               string      `json:"name"`
-	Type               string      `json:"type,omitempty"`
-	State              string      `json:"state,omitempty"`
-	CreatedAt          string      `json:"created_at,omitempty"`
-	SMTPLogin          string      `json:"smtp_login,omitempty"`
-	SMTPPassword       string      `json:"smtp_password,omitempty"`
-	RequiredDNSRecords []DNSRecord `json:"required_dns_records,omitempty"`
+	Name                string      `json:"name"`
+	Type                string      `json:"type,omitempty"`
+	State               string      `json:"state,omitempty"`
+	CreatedAt           string      `json:"created_at,omitempty"`
+	SMTPLogin           string      `json:"smtp_login,omitempty"`
+	SMTPPassword        string      `json:"smtp_password,omitempty"`
+	RequiredDNSRecords  []DNSRecord `json:"required_dns_records,omitempty"`
 	ReceivingDNSRecords []DNSRecord `json:"receiving_dns_records,omitempty"`
 	SendingDNSRecords   []DNSRecord `json:"sending_dns_records,omitempty"`
 }
 
 // DomainSpec represents the parameters for creating/updating a domain
 type DomainSpec struct {
-	Name               string  `json:"name"`
-	Type               *string `json:"type,omitempty"`
-	ForceDKIMAuthority *bool   `json:"force_dkim_authority,omitempty"`
-	DKIMKeySize        *int    `json:"dkim_key_size,omitempty"`
+	Name               string   `json:"name"`
+	Type               *string  `json:"type,omitempty"`
+	ForceDKIMAuthority *bool    `json:"force_dkim_authority,omitempty"`
+	DKIMKeySize        *int     `json:"dkim_key_size,omitempty"`
 	IPs                []string `json:"ips,omitempty"`
-	SMTPPassword       *string `json:"smtp_password,omitempty"`
-	SpamAction         *string `json:"spam_action,omitempty"`
-	WebScheme          *string `json:"web_scheme,omitempty"`
-	Wildcard           *bool   `json:"wildcard,omitempty"`
+	SMTPPassword       *string  `json:"smtp_password,omitempty"`
+	SpamAction         *string  `json:"spam_action,omitempty"`
+	WebScheme          *string  `json:"web_scheme,omitempty"`
+	Wildcard           *bool    `json:"wildcard,omitempty"`
 }
 
 // DNSRecord represents a DNS record
@@ -64,12 +64,12 @@ type MailingList struct {
 
 // MailingListSpec represents the parameters for creating/updating a mailing list
 type MailingListSpec struct {
-	Address         string               `json:"address"`
-	Name            *string              `json:"name,omitempty"`
-	Description     *string              `json:"description,omitempty"`
-	AccessLevel     *string              `json:"access_level,omitempty"`
-	ReplyPreference *string              `json:"reply_preference,omitempty"`
-	Members         []MailingListMember  `json:"members,omitempty"`
+	Address         string              `json:"address"`
+	Name            *string             `json:"name,omitempty"`
+	Description     *string             `json:"description,omitempty"`
+	AccessLevel     *string             `json:"access_level,omitempty"`
+	ReplyPreference *string             `json:"reply_preference,omitempty"`
+	Members         []MailingListMember `json:"members,omitempty"`
 }
 
 // MailingListMember represents a member of a mailing list
@@ -138,12 +138,12 @@ type SMTPCredentialSpec struct {
 
 // Template represents a Mailgun email template
 type Template struct {
-	Name         string            `json:"name"`
-	Description  string            `json:"description,omitempty"`
-	CreatedAt    string            `json:"created_at,omitempty"`
-	CreatedBy    string            `json:"created_by,omitempty"`
-	Version      *TemplateVersion  `json:"version,omitempty"`
-	Versions     []TemplateVersion `json:"versions,omitempty"`
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	CreatedAt   string            `json:"created_at,omitempty"`
+	CreatedBy   string            `json:"created_by,omitempty"`
+	Version     *TemplateVersion  `json:"version,omitempty"`
+	Versions    []TemplateVersion `json:"versions,omitempty"`
 }
 
 // TemplateSpec represents the parameters for creating/updating a template

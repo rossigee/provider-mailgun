@@ -17,9 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // SMTPCredentialParameters are the configurable fields of a SMTPCredential.
@@ -30,7 +29,7 @@ type SMTPCredentialParameters struct {
 
 	// Login is the SMTP username (email address).
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$`
 	Login string `json:"login"`
 
 	// Password is the SMTP password. If not provided, Mailgun will generate one.
@@ -58,13 +57,13 @@ type SMTPCredentialObservation struct {
 // A SMTPCredentialSpec defines the desired state of a SMTPCredential.
 type SMTPCredentialSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       SMTPCredentialParameters `json:"forProvider"`
+	ForProvider              SMTPCredentialParameters `json:"forProvider"`
 }
 
 // A SMTPCredentialStatus represents the observed state of a SMTPCredential.
 type SMTPCredentialStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          SMTPCredentialObservation `json:"atProvider,omitempty"`
+	AtProvider             SMTPCredentialObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true

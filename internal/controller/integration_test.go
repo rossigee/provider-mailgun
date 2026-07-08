@@ -1,3 +1,5 @@
+//go:build integration
+
 /*
 Copyright 2025 The Crossplane Authors.
 
@@ -14,32 +16,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//go:build integration
-
 package controller
 
 import (
 	"context"
-	"testing"
-
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	bouncev1beta1 "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
-	mailinglistv1beta1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
-	routev1beta1 "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
-	smtpv1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
-	templatev1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
-	webhookv1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/controller/domain"
 	"github.com/rossigee/provider-mailgun/internal/controller/mailinglist"
 	"github.com/rossigee/provider-mailgun/internal/controller/route"
 	"github.com/rossigee/provider-mailgun/internal/controller/smtpcredential"
 	"github.com/rossigee/provider-mailgun/internal/controller/template"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"testing"
 )
 
 // stringPtr returns a pointer to a string
@@ -416,7 +414,7 @@ func (m *IntegrationMockClient) CreateTemplate(ctx context.Context, domain strin
 	if template.Template != nil {
 		result.Versions = []clients.TemplateVersion{
 			{
-				Tag:       "v1.0",
+				Tag:       "metav1.0",
 				Engine:    "mustache",
 				CreatedAt: "2025-01-01T00:00:00Z",
 				Comment:   "Initial version",

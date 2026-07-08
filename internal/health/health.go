@@ -19,16 +19,12 @@ package health
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"time"
-
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
 	"github.com/rossigee/provider-mailgun/internal/clients"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"net/http"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"time"
 )
-
-
 
 // HealthChecker provides health checking functionality
 type HealthChecker struct {
@@ -43,7 +39,6 @@ func NewHealthChecker(kubeClient client.Client, mailgunCheckFunc func(context.Co
 		mailgunCheck: mailgunCheckFunc,
 	}
 }
-
 
 // checkKubernetes verifies Kubernetes API connectivity
 func (h *HealthChecker) checkKubernetes(ctx context.Context) error {

@@ -18,9 +18,18 @@ package smtpcredential
 
 import (
 	"context"
-	"testing"
-
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -29,19 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
-	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
-	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
-	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
-	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
-	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
-	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
-	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"testing"
 )
 
 // MockSMTPCredentialClient for testing
@@ -60,7 +57,7 @@ func (m *MockSMTPCredentialClient) CreateSMTPCredential(ctx context.Context, dom
 	// Note: Password handling is managed separately via connection details
 
 	result := &v1beta1.SMTPCredentialObservation{
-		Login:     credential.Login,
+		Login: credential.Login,
 		// Note: Password is not included in observation for security
 		CreatedAt: "2025-01-01T00:00:00Z",
 		State:     "active",
@@ -257,7 +254,7 @@ func TestSMTPCredentialObserve(t *testing.T) {
 			args: args{
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-smtp",
+						Name: "test-smtp",
 					},
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
@@ -266,14 +263,14 @@ func TestSMTPCredentialObserve(t *testing.T) {
 						},
 						ManagedResourceSpec: xpv1.ManagedResourceSpec{
 							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
-								Name:      "test-secret",
+								Name: "test-secret",
 							},
 						},
 					},
 				},
 				secret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-secret",
+						Name: "test-secret",
 					},
 					Data: map[string][]byte{
 						"smtp_username": []byte("test@example.com"),
@@ -298,7 +295,7 @@ func TestSMTPCredentialObserve(t *testing.T) {
 			args: args{
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-smtp",
+						Name: "test-smtp",
 					},
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
@@ -307,7 +304,7 @@ func TestSMTPCredentialObserve(t *testing.T) {
 						},
 						ManagedResourceSpec: xpv1.ManagedResourceSpec{
 							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
-								Name:      "missing-secret",
+								Name: "missing-secret",
 							},
 						},
 					},
@@ -325,7 +322,7 @@ func TestSMTPCredentialObserve(t *testing.T) {
 			args: args{
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-smtp",
+						Name: "test-smtp",
 					},
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
@@ -454,7 +451,7 @@ func TestSMTPCredentialCreate(t *testing.T) {
 			if name == "SuccessfulCreateWithRotation" {
 				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/existing@example.com": {
-						Login:     "existing@example.com",
+						Login: "existing@example.com",
 						// Password:  "old-password",
 						CreatedAt: "2025-01-01T00:00:00Z",
 						State:     "active",
@@ -513,8 +510,8 @@ func TestSMTPCredentialUpdate(t *testing.T) {
 				mg: &v1beta1.SMTPCredential{
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
-							Domain:   "example.com",
-							Login:    "existing@example.com",
+							Domain: "example.com",
+							Login:  "existing@example.com",
 							// Password: stringPtr("new-password"),
 						},
 					},
@@ -531,7 +528,7 @@ func TestSMTPCredentialUpdate(t *testing.T) {
 			mockClient := &MockSMTPCredentialClient{
 				credentials: map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/existing@example.com": {
-						Login:     "existing@example.com",
+						Login: "existing@example.com",
 						// Password:  "old-password",
 						CreatedAt: "2025-01-01T00:00:00Z",
 						State:     "active",
@@ -589,7 +586,7 @@ func TestSMTPCredentialDelete(t *testing.T) {
 			mockClient := &MockSMTPCredentialClient{
 				credentials: map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/delete@example.com": {
-						Login:     "delete@example.com",
+						Login: "delete@example.com",
 						// Password:  "password",
 						CreatedAt: "2025-01-01T00:00:00Z",
 						State:     "active",
@@ -612,7 +609,6 @@ func TestSMTPCredentialDelete(t *testing.T) {
 		})
 	}
 }
-
 
 func TestProviderConfigUsageTracker_Track(t *testing.T) {
 	scheme := runtime.NewScheme()

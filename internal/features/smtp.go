@@ -20,16 +20,15 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/errors"
+	"github.com/rossigee/provider-mailgun/internal/tracing"
 	"math/big"
 	"net"
 	"regexp"
 	"strings"
 	"time"
-
-	"github.com/rossigee/provider-mailgun/internal/clients"
-	"github.com/rossigee/provider-mailgun/internal/errors"
-	"github.com/rossigee/provider-mailgun/internal/tracing"
-	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 )
 
 // SMTPCredentialManager provides advanced SMTP credential management
@@ -123,7 +122,7 @@ type RotationPolicy struct {
 // DefaultRotationPolicy returns a default rotation policy
 func DefaultRotationPolicy() *RotationPolicy {
 	return &RotationPolicy{
-		Enabled:            false, // Disabled by default
+		Enabled:            false,               // Disabled by default
 		RotationInterval:   30 * 24 * time.Hour, // 30 days
 		OverlapPeriod:      7 * 24 * time.Hour,  // 7 days
 		MaxAge:             90 * 24 * time.Hour, // 90 days
@@ -505,7 +504,7 @@ func (m *SMTPCredentialManager) ValidateCredentialAccess(
 
 // LoginValidator validates SMTP login format
 type LoginValidator struct {
-	allowedDomains   []string
+	allowedDomains    []string
 	forbiddenPatterns []*regexp.Regexp
 }
 

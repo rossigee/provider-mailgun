@@ -19,32 +19,31 @@ package template
 import (
 	"context"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 const (
-	errNotTemplate     = "managed resource is not a Template custom resource"
-	errTrackPCUsage    = "cannot track ProviderConfig usage"
-	errGetPC           = "cannot get ProviderConfig"
-	errGetCreds        = "cannot get credentials"
-	errNewClient       = "cannot create new Service"
-	errCreateTemplate  = "cannot create template"
-	errGetTemplate     = "cannot get template"
-	errUpdateTemplate  = "cannot update template"
-	errDeleteTemplate  = "cannot delete template"
+	errNotTemplate    = "managed resource is not a Template custom resource"
+	errTrackPCUsage   = "cannot track ProviderConfig usage"
+	errGetPC          = "cannot get ProviderConfig"
+	errGetCreds       = "cannot get credentials"
+	errNewClient      = "cannot create new Service"
+	errCreateTemplate = "cannot create template"
+	errGetTemplate    = "cannot get template"
+	errUpdateTemplate = "cannot update template"
+	errDeleteTemplate = "cannot delete template"
 )
 
 // Setup adds a controller that reconciles Template managed resources.

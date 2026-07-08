@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
 	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 )
 

@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 )
 
@@ -92,14 +91,14 @@ func (c *mailgunClient) CreateDomain(ctx context.Context, domain *domaintypes.Do
 
 	// Convert client Domain to API DomainObservation
 	observation := &domaintypes.DomainObservation{
-		ID:                   result.Domain.Name, // Mailgun uses name as ID
-		State:                result.Domain.State,
-		CreatedAt:            result.Domain.CreatedAt,
-		SMTPLogin:            result.Domain.SMTPLogin,
-		SMTPPassword:         result.Domain.SMTPPassword,
-		RequiredDNSRecords:   convertDNSRecords(result.Domain.RequiredDNSRecords),
-		ReceivingDNSRecords:  convertDNSRecords(result.Domain.ReceivingDNSRecords),
-		SendingDNSRecords:    convertDNSRecords(result.Domain.SendingDNSRecords),
+		ID:                  result.Domain.Name, // Mailgun uses name as ID
+		State:               result.Domain.State,
+		CreatedAt:           result.Domain.CreatedAt,
+		SMTPLogin:           result.Domain.SMTPLogin,
+		SMTPPassword:        result.Domain.SMTPPassword,
+		RequiredDNSRecords:  convertDNSRecords(result.Domain.RequiredDNSRecords),
+		ReceivingDNSRecords: convertDNSRecords(result.Domain.ReceivingDNSRecords),
+		SendingDNSRecords:   convertDNSRecords(result.Domain.SendingDNSRecords),
 	}
 
 	return observation, nil
@@ -122,14 +121,14 @@ func (c *mailgunClient) GetDomain(ctx context.Context, name string) (*domaintype
 
 	// Convert client Domain to API DomainObservation
 	observation := &domaintypes.DomainObservation{
-		ID:                   result.Domain.Name, // Mailgun uses name as ID
-		State:                result.Domain.State,
-		CreatedAt:            result.Domain.CreatedAt,
-		SMTPLogin:            result.Domain.SMTPLogin,
-		SMTPPassword:         result.Domain.SMTPPassword,
-		RequiredDNSRecords:   convertDNSRecords(result.Domain.RequiredDNSRecords),
-		ReceivingDNSRecords:  convertDNSRecords(result.Domain.ReceivingDNSRecords),
-		SendingDNSRecords:    convertDNSRecords(result.Domain.SendingDNSRecords),
+		ID:                  result.Domain.Name, // Mailgun uses name as ID
+		State:               result.Domain.State,
+		CreatedAt:           result.Domain.CreatedAt,
+		SMTPLogin:           result.Domain.SMTPLogin,
+		SMTPPassword:        result.Domain.SMTPPassword,
+		RequiredDNSRecords:  convertDNSRecords(result.Domain.RequiredDNSRecords),
+		ReceivingDNSRecords: convertDNSRecords(result.Domain.ReceivingDNSRecords),
+		SendingDNSRecords:   convertDNSRecords(result.Domain.SendingDNSRecords),
 	}
 
 	return observation, nil
@@ -165,14 +164,14 @@ func (c *mailgunClient) UpdateDomain(ctx context.Context, name string, domain *d
 
 	// Convert client Domain to API DomainObservation
 	observation := &domaintypes.DomainObservation{
-		ID:                   result.Domain.Name, // Mailgun uses name as ID
-		State:                result.Domain.State,
-		CreatedAt:            result.Domain.CreatedAt,
-		SMTPLogin:            result.Domain.SMTPLogin,
-		SMTPPassword:         result.Domain.SMTPPassword,
-		RequiredDNSRecords:   convertDNSRecords(result.Domain.RequiredDNSRecords),
-		ReceivingDNSRecords:  convertDNSRecords(result.Domain.ReceivingDNSRecords),
-		SendingDNSRecords:    convertDNSRecords(result.Domain.SendingDNSRecords),
+		ID:                  result.Domain.Name, // Mailgun uses name as ID
+		State:               result.Domain.State,
+		CreatedAt:           result.Domain.CreatedAt,
+		SMTPLogin:           result.Domain.SMTPLogin,
+		SMTPPassword:        result.Domain.SMTPPassword,
+		RequiredDNSRecords:  convertDNSRecords(result.Domain.RequiredDNSRecords),
+		ReceivingDNSRecords: convertDNSRecords(result.Domain.ReceivingDNSRecords),
+		SendingDNSRecords:   convertDNSRecords(result.Domain.SendingDNSRecords),
 	}
 
 	return observation, nil

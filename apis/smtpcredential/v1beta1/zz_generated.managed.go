@@ -21,30 +21,30 @@ limitations under the License.
 package v1beta1
 
 import (
-	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
-func (in *SMTPCredential) GetCondition(ct xpv2.ConditionType) xpv2.Condition {
+func (in *SMTPCredential) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 	return in.Status.GetCondition(ct)
 }
 
-func (in *SMTPCredential) SetConditions(c ...xpv2.Condition) {
+func (in *SMTPCredential) SetConditions(c ...xpv1.Condition) {
 	in.Status.SetConditions(c...)
 }
 
-func (in *SMTPCredential) GetProviderConfigReference() *xpv2.ProviderConfigReference {
+func (in *SMTPCredential) GetProviderConfigReference() *xpv1.ProviderConfigReference {
 	return in.Spec.ProviderConfigReference
 }
 
-func (in *SMTPCredential) GetManagementPolicies() xpv2.ManagementPolicies {
+func (in *SMTPCredential) GetManagementPolicies() xpv1.ManagementPolicies {
 	return in.Spec.ManagementPolicies
 }
 
-func (in *SMTPCredential) SetManagementPolicies(p xpv2.ManagementPolicies) {
+func (in *SMTPCredential) SetManagementPolicies(p xpv1.ManagementPolicies) {
 	in.Spec.ManagementPolicies = p
 }
 
-func (in *SMTPCredential) GetWriteConnectionSecretToReference() *xpv2.LocalSecretReference {
+func (in *SMTPCredential) GetWriteConnectionSecretToReference() *xpv1.LocalSecretReference {
 	return in.Spec.WriteConnectionSecretToReference
 }
 

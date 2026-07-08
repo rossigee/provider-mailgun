@@ -18,22 +18,20 @@ package mailinglist
 
 import (
 	"context"
-
-	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/pkg/errors"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
-	clients "github.com/rossigee/provider-mailgun/internal/clients"
+
+	"github.com/rossigee/provider-mailgun/internal/clients"
+	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -41,7 +39,6 @@ const (
 	errTrackPCUsage   = "cannot track ProviderConfig usage"
 	errGetPC          = "cannot get ProviderConfig"
 	errGetCreds       = "cannot get credentials"
-
 )
 
 // Setup adds a controller that reconciles MailingList managed resources.
@@ -267,7 +264,6 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	return managed.ExternalDelete{}, nil
 }
-
 
 // isMailingListUpToDate checks if the external resource is up to date
 func isMailingListUpToDate(mailingList *v1beta1.MailingListObservation, desired *v1beta1.MailingListParameters) bool {

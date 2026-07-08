@@ -19,10 +19,9 @@ package clients
 import (
 	"context"
 	"fmt"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	"net/url"
 	"strings"
-
-	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 )
 
 // CreateBounce creates a new bounce suppression entry for a domain

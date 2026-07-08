@@ -20,6 +20,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,11 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
@@ -511,7 +510,6 @@ func TestBounceDelete(t *testing.T) {
 func stringPtr(s string) *string {
 	return &s
 }
-
 
 func TestResolveDomainName(t *testing.T) {
 	scheme := runtime.NewScheme()

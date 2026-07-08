@@ -17,9 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // WebhookParameters define the desired state of a Mailgun Webhook
@@ -72,13 +71,13 @@ type WebhookObservation struct {
 // A WebhookSpec defines the desired state of a Webhook.
 type WebhookSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       WebhookParameters `json:"forProvider"`
+	ForProvider              WebhookParameters `json:"forProvider"`
 }
 
 // A WebhookStatus represents the observed state of a Webhook.
 type WebhookStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          WebhookObservation `json:"atProvider,omitempty"`
+	AtProvider             WebhookObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -87,7 +86,7 @@ type WebhookStatus struct {
 // A Webhook is a managed resource that represents a Mailgun Webhook
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
-// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"
+// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane.io/external-name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,categories={crossplane,managed,mailgun}

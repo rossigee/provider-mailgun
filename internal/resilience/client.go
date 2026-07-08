@@ -19,7 +19,6 @@ package resilience
 import (
 	"context"
 
-	"github.com/rossigee/provider-mailgun/internal/clients"
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
@@ -27,6 +26,7 @@ import (
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // ResilientClient wraps a Mailgun client with retry and circuit breaker logic

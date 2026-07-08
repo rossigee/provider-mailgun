@@ -54,19 +54,19 @@ func TestCreateDomain(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				response := map[string]interface{}{
 					"domain": map[string]interface{}{
-						"name":         "test.com",
-						"type":         "sending",
-						"state":        "unverified",
-						"created_at":   "2025-01-01T00:00:00Z",
-						"smtp_login":   "postmaster@test.com",
+						"name":          "test.com",
+						"type":          "sending",
+						"state":         "unverified",
+						"created_at":    "2025-01-01T00:00:00Z",
+						"smtp_login":    "postmaster@test.com",
 						"smtp_password": "generated-password",
 						"required_dns_records": []map[string]interface{}{
 							{
-								"name":     "test.com",
+								"name":        "test.com",
 								"record_type": "TXT",
-								"value":    "v=spf1 include:mailgun.org ~all",
-								"priority": nil,
-								"valid":    false,
+								"value":       "v=spf1 include:mailgun.org ~all",
+								"priority":    nil,
+								"valid":       false,
 							},
 						},
 					},
@@ -193,11 +193,11 @@ func TestGetDomain(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				response := map[string]interface{}{
 					"domain": map[string]interface{}{
-						"name":         "example.com",
-						"type":         "sending",
-						"state":        "active",
-						"created_at":   "2025-01-01T00:00:00Z",
-						"smtp_login":   "postmaster@example.com",
+						"name":          "example.com",
+						"type":          "sending",
+						"state":         "active",
+						"created_at":    "2025-01-01T00:00:00Z",
+						"smtp_login":    "postmaster@example.com",
 						"smtp_password": "password123",
 					},
 				}

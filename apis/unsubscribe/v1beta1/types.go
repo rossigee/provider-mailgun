@@ -17,16 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // UnsubscribeParameters are the configurable fields of an Unsubscribe.
 type UnsubscribeParameters struct {
 	// Address is the email address to add to the unsubscribe list
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$"
 	Address string `json:"address"`
 
 	// Tags is a comma-separated list of tags associated with the unsubscribe
@@ -51,13 +50,13 @@ type UnsubscribeObservation struct {
 // An UnsubscribeSpec defines the desired state of an Unsubscribe.
 type UnsubscribeSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       UnsubscribeParameters `json:"forProvider"`
+	ForProvider              UnsubscribeParameters `json:"forProvider"`
 }
 
 // An UnsubscribeStatus represents the observed state of an Unsubscribe.
 type UnsubscribeStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          UnsubscribeObservation `json:"atProvider,omitempty"`
+	AtProvider             UnsubscribeObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -65,7 +64,7 @@ type UnsubscribeStatus struct {
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
-// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"
+// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane.io/external-name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Namespaced,categories={crossplane,managed,mailgun}
 //

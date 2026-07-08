@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 

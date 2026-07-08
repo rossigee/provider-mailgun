@@ -19,7 +19,6 @@ package smtpcredential
 import (
 	"context"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,16 +26,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/pkg/errors"
 
-	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
-	clients "github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/metrics"
 	"github.com/rossigee/provider-mailgun/internal/tracing"
 )
@@ -46,7 +46,6 @@ const (
 	errTrackPCUsage      = "cannot track ProviderConfig usage"
 	errGetPC             = "cannot get ProviderConfig"
 	errGetCreds          = "cannot get credentials"
-
 )
 
 // Setup adds a controller that reconciles SMTPCredential managed resources.
@@ -658,7 +657,9 @@ func (t *providerConfigUsageTracker) Track(ctx context.Context, mg resource.Mana
 
 func (t *providerConfigUsageTracker) getProviderConfigReference(mg resource.Managed) *xpv1.ProviderConfigReference {
 	switch v := mg.(type) {
-	case interface{ GetProviderConfigReference() *xpv1.ProviderConfigReference }:
+	case interface {
+		GetProviderConfigReference() *xpv1.ProviderConfigReference
+	}:
 		return v.GetProviderConfigReference()
 	default:
 		return nil

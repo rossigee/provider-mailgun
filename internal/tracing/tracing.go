@@ -2,9 +2,6 @@ package tracing
 
 import (
 	"context"
-	"os"
-	"strconv"
-
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -14,6 +11,8 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
+	"os"
+	"strconv"
 )
 
 const (
@@ -27,16 +26,16 @@ const (
 	SpanResourceUpdate  = "update"
 	SpanResourceDelete  = "delete"
 
-	AttrDomain          = "mailgun.domain"
-	AttrCredentialType  = "mailgun.credential.type"
-	AttrOperation       = "mailgun.operation"
-	AttrResourceType    = "crossplane.resource.type"
-	AttrResourceName    = "crossplane.resource.name"
+	AttrDomain         = "mailgun.domain"
+	AttrCredentialType = "mailgun.credential.type"
+	AttrOperation      = "mailgun.operation"
+	AttrResourceType   = "crossplane.resource.type"
+	AttrResourceName   = "crossplane.resource.name"
 )
 
 type Operation struct {
-	ctx   context.Context
-	span  trace.Span
+	ctx  context.Context
+	span trace.Span
 }
 
 var tracer trace.Tracer

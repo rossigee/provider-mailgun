@@ -34,10 +34,10 @@ const (
 	ErrorCodeServiceUnavailable ErrorCode = "ServiceUnavailableError"
 
 	// Resource errors
-	ErrorCodeResourceNotFound   ErrorCode = "ResourceNotFoundError"
-	ErrorCodeResourceConflict   ErrorCode = "ResourceConflictError"
-	ErrorCodeInvalidSpec        ErrorCode = "InvalidSpecError"
-	ErrorCodeValidationFailed   ErrorCode = "ValidationFailedError"
+	ErrorCodeResourceNotFound ErrorCode = "ResourceNotFoundError"
+	ErrorCodeResourceConflict ErrorCode = "ResourceConflictError"
+	ErrorCodeInvalidSpec      ErrorCode = "InvalidSpecError"
+	ErrorCodeValidationFailed ErrorCode = "ValidationFailedError"
 
 	// SMTP specific errors
 	ErrorCodeDomainNotConfigured ErrorCode = "DomainNotConfiguredError"
@@ -45,8 +45,8 @@ const (
 	ErrorCodeSecretAccess        ErrorCode = "SecretAccessError"
 
 	// Generic errors
-	ErrorCodeInternal           ErrorCode = "InternalError"
-	ErrorCodeUnknown           ErrorCode = "UnknownError"
+	ErrorCodeInternal ErrorCode = "InternalError"
+	ErrorCodeUnknown  ErrorCode = "UnknownError"
 )
 
 // ProviderError represents a structured error with troubleshooting information

@@ -17,16 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DomainParameters define the desired state of a Mailgun Domain
 type DomainParameters struct {
 	// Name is the domain name to create
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
 	Name string `json:"name"`
 
 	// Type specifies the domain type (sending or receiving)
@@ -130,13 +129,13 @@ type DNSRecord struct {
 // A DomainSpec defines the desired state of a Domain.
 type DomainSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       DomainParameters `json:"forProvider"`
+	ForProvider              DomainParameters `json:"forProvider"`
 }
 
 // A DomainStatus represents the observed state of a Domain.
 type DomainStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          DomainObservation `json:"atProvider,omitempty"`
+	AtProvider             DomainObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -145,7 +144,7 @@ type DomainStatus struct {
 // This is the Crossplane v2 namespaced version.
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
-// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"
+// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane.io/external-name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,categories={crossplane,managed,mailgun}

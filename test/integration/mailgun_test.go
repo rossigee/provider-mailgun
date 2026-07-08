@@ -33,9 +33,9 @@ import (
 
 const (
 	// Environment variables for integration testing
-	EnvMailgunAPIKey  = "MAILGUN_API_KEY"
-	EnvMailgunDomain  = "MAILGUN_TEST_DOMAIN"
-	EnvMailgunBaseURL = "MAILGUN_BASE_URL"
+	EnvMailgunAPIKey   = "MAILGUN_API_KEY"
+	EnvMailgunDomain   = "MAILGUN_TEST_DOMAIN"
+	EnvMailgunBaseURL  = "MAILGUN_BASE_URL"
 	EnvSkipIntegration = "SKIP_INTEGRATION_TESTS"
 )
 

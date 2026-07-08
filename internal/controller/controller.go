@@ -17,10 +17,7 @@ limitations under the License.
 package controller
 
 import (
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
-
 	"github.com/rossigee/provider-mailgun/internal/controller/bounce"
 	"github.com/rossigee/provider-mailgun/internal/controller/complaint"
 	"github.com/rossigee/provider-mailgun/internal/controller/domain"
@@ -30,6 +27,7 @@ import (
 	"github.com/rossigee/provider-mailgun/internal/controller/template"
 	"github.com/rossigee/provider-mailgun/internal/controller/unsubscribe"
 	"github.com/rossigee/provider-mailgun/internal/controller/webhook"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Setup sets up all Mailgun controllers

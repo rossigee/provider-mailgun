@@ -19,17 +19,15 @@ package health
 import (
 	"context"
 	"fmt"
-	"net/http"
-	"net/http/httptest"
-	"testing"
-
+	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"net/http"
+	"net/http/httptest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/rossigee/provider-mailgun/internal/clients"
+	"testing"
 )
 
 // mockKubeClient implements the client.Client interface for testing

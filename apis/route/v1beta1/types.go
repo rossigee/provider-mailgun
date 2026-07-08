@@ -17,9 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // RouteParameters define the desired state of a Mailgun Route
@@ -79,13 +78,13 @@ type RouteObservation struct {
 // A RouteSpec defines the desired state of a Route.
 type RouteSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       RouteParameters `json:"forProvider"`
+	ForProvider              RouteParameters `json:"forProvider"`
 }
 
 // A RouteStatus represents the observed state of a Route.
 type RouteStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          RouteObservation `json:"atProvider,omitempty"`
+	AtProvider             RouteObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -94,7 +93,7 @@ type RouteStatus struct {
 // A Route is a managed resource that represents a Mailgun Route
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
-// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"
+// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane.io/external-name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,categories={crossplane,managed,mailgun}

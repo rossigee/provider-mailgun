@@ -20,19 +20,18 @@ import (
 	"context"
 	"testing"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
@@ -506,10 +505,10 @@ func TestTemplateDelete(t *testing.T) {
 // Test error handling scenarios
 func TestTemplateObserveErrors(t *testing.T) {
 	cases := map[string]struct {
-		reason     string
-		mockErr    error
-		setupMock  func(*MockTemplateClient)
-		expectErr  bool
+		reason       string
+		mockErr      error
+		setupMock    func(*MockTemplateClient)
+		expectErr    bool
 		expectExists bool
 	}{
 		"ClientError": {
@@ -787,8 +786,8 @@ func TestTemplateEdgeCases(t *testing.T) {
 						// Template content stored separately
 					},
 				},
-		},
-	}
+			},
+		}
 		e := &external{client: mockClient}
 
 		mg := &v1beta1.Template{

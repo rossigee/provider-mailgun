@@ -17,19 +17,18 @@ limitations under the License.
 package features
 
 import (
-	"testing"
-	"time"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"testing"
+	"time"
 )
 
 func TestPasswordPolicy_GenerateSecurePassword(t *testing.T) {
 	tests := []struct {
-		name     string
-		policy   *PasswordPolicy
-		wantErr  bool
-		errMsg   string
+		name    string
+		policy  *PasswordPolicy
+		wantErr bool
+		errMsg  string
 	}{
 		{
 			name: "valid policy",
@@ -266,18 +265,18 @@ func TestPasswordPolicyCharacterSets(t *testing.T) {
 		{
 			name: "require numbers only",
 			policy: &PasswordPolicy{
-				MinLength:        8,
-				MaxLength:        12,
-				RequireNumbers:   true,
+				MinLength:      8,
+				MaxLength:      12,
+				RequireNumbers: true,
 			},
 			contains: []string{"2", "3", "9"},
 		},
 		{
 			name: "require symbols only",
 			policy: &PasswordPolicy{
-				MinLength:        8,
-				MaxLength:        12,
-				RequireSymbols:   true,
+				MinLength:      8,
+				MaxLength:      12,
+				RequireSymbols: true,
 			},
 			contains: []string{"!", "@", "#"},
 		},

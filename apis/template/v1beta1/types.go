@@ -17,9 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // TemplateParameters are the configurable fields of a Template.
@@ -98,13 +97,13 @@ type TemplateVersion struct {
 // A TemplateSpec defines the desired state of a Template.
 type TemplateSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       TemplateParameters `json:"forProvider"`
+	ForProvider              TemplateParameters `json:"forProvider"`
 }
 
 // A TemplateStatus represents the observed state of a Template.
 type TemplateStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          TemplateObservation `json:"atProvider,omitempty"`
+	AtProvider             TemplateObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true

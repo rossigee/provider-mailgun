@@ -19,16 +19,15 @@ package resilience
 import (
 	"context"
 	"fmt"
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
 	"math"
 	"math/rand"
 	"net"
-	"strings"
-	"time"
-
-	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	"strings"
+	"time"
 )
 
 var (
@@ -133,7 +132,7 @@ func (c *RetryConfig) IsRetryableError(err error) bool {
 
 	// Check for HTTP status codes in error message
 	if strings.Contains(errStr, "429") || strings.Contains(errStr, "502") ||
-	   strings.Contains(errStr, "503") || strings.Contains(errStr, "504") {
+		strings.Contains(errStr, "503") || strings.Contains(errStr, "504") {
 		return true
 	}
 
@@ -241,24 +240,24 @@ const (
 
 // CircuitBreaker implements the circuit breaker pattern
 type CircuitBreaker struct {
-	name            string
+	name             string
 	failureThreshold int
-	resetTimeout    time.Duration
-	state          CircuitBreakerState
-	failures       int
-	lastFailureTime time.Time
-	successCount   int
-	mutex          chan struct{} // Simple mutex using channel
+	resetTimeout     time.Duration
+	state            CircuitBreakerState
+	failures         int
+	lastFailureTime  time.Time
+	successCount     int
+	mutex            chan struct{} // Simple mutex using channel
 }
 
 // NewCircuitBreaker creates a new circuit breaker
 func NewCircuitBreaker(name string, failureThreshold int, resetTimeout time.Duration) *CircuitBreaker {
 	cb := &CircuitBreaker{
-		name:            name,
+		name:             name,
 		failureThreshold: failureThreshold,
-		resetTimeout:    resetTimeout,
-		state:          CircuitClosed,
-		mutex:          make(chan struct{}, 1),
+		resetTimeout:     resetTimeout,
+		state:            CircuitClosed,
+		mutex:            make(chan struct{}, 1),
 	}
 	cb.mutex <- struct{}{} // Initialize mutex
 	return cb

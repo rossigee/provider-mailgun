@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 )
 

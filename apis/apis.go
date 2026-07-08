@@ -18,8 +18,6 @@ limitations under the License.
 package apis
 
 import (
-	"k8s.io/apimachinery/pkg/runtime"
-
 	bouncev1beta1 "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	complaintv1beta1 "github.com/rossigee/provider-mailgun/apis/complaint/v1beta1"
 	domainv1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
@@ -28,8 +26,9 @@ import (
 	smtpcredentialv1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatev1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	unsubscribev1beta1 "github.com/rossigee/provider-mailgun/apis/unsubscribe/v1beta1"
-	webhookv1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	v1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
+	webhookv1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 func init() {

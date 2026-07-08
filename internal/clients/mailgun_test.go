@@ -159,7 +159,7 @@ func TestMakeRequest(t *testing.T) {
 				w.WriteHeader(http.StatusInternalServerError)
 				_, _ = w.Write([]byte("Internal Server Error"))
 			},
-			expectedError: false,  // makeRequest doesn't handle status codes, just returns response
+			expectedError: false, // makeRequest doesn't handle status codes, just returns response
 		},
 	}
 
@@ -205,39 +205,39 @@ func TestHandleResponse(t *testing.T) {
 		expectedTarget interface{}
 	}{
 		{
-			name:         "successful response with JSON",
-			statusCode:   200,
-			responseBody: `{"name":"test.com","status":"active"}`,
-			target:       &map[string]string{},
-			expectedError: false,
+			name:           "successful response with JSON",
+			statusCode:     200,
+			responseBody:   `{"name":"test.com","status":"active"}`,
+			target:         &map[string]string{},
+			expectedError:  false,
 			expectedTarget: &map[string]string{"name": "test.com", "status": "active"},
 		},
 		{
-			name:         "successful response without target",
-			statusCode:   204,
-			responseBody: "",
-			target:       nil,
+			name:          "successful response without target",
+			statusCode:    204,
+			responseBody:  "",
+			target:        nil,
 			expectedError: false,
 		},
 		{
-			name:         "client error",
-			statusCode:   400,
-			responseBody: "Bad Request",
-			target:       nil,
+			name:          "client error",
+			statusCode:    400,
+			responseBody:  "Bad Request",
+			target:        nil,
 			expectedError: true,
 		},
 		{
-			name:         "server error",
-			statusCode:   500,
-			responseBody: "Internal Server Error",
-			target:       nil,
+			name:          "server error",
+			statusCode:    500,
+			responseBody:  "Internal Server Error",
+			target:        nil,
 			expectedError: true,
 		},
 		{
-			name:         "not found error",
-			statusCode:   404,
-			responseBody: "Not Found",
-			target:       nil,
+			name:          "not found error",
+			statusCode:    404,
+			responseBody:  "Not Found",
+			target:        nil,
 			expectedError: true,
 		},
 	}

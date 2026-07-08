@@ -26,21 +26,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pkg/errors"
-	"k8s.io/apimachinery/pkg/types"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	"github.com/rossigee/provider-mailgun/apis/v1beta1"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/pkg/errors"
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -134,8 +132,8 @@ func NewClient(config *Config) Client {
 			DisableKeepAlives:   false, // Enable keep-alives with proper connection management
 			TLSHandshakeTimeout: 10 * time.Second,
 			DisableCompression:  false,
-			MaxIdleConnsPerHost: 2,     // Limit concurrent connections per host
-			ForceAttemptHTTP2:   true,  // Enable HTTP/2 which works better with Mailgun
+			MaxIdleConnsPerHost: 2,    // Limit concurrent connections per host
+			ForceAttemptHTTP2:   true, // Enable HTTP/2 which works better with Mailgun
 		}
 		config.HTTPClient = &http.Client{
 			Timeout:   defaultTimeout,
@@ -149,7 +147,9 @@ func NewClient(config *Config) Client {
 func getProviderConfigReference(mg resource.Managed) *xpv1.ProviderConfigReference {
 	// Type switch to handle different resource types and access their ProviderConfigReference
 	switch v := mg.(type) {
-	case interface{ GetProviderConfigReference() *xpv1.ProviderConfigReference }:
+	case interface {
+		GetProviderConfigReference() *xpv1.ProviderConfigReference
+	}:
 		return v.GetProviderConfigReference()
 	default:
 		// If we can't determine the provider config reference, return nil

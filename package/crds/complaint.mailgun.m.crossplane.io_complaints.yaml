@@ -25,7 +25,7 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
-    - jsonPath: .metadata.annotations.crossplane\.io/external-name
+    - jsonPath: .metadata.annotations.crossplane.io/external-name
       name: EXTERNAL-NAME
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -65,7 +65,7 @@ spec:
                   address:
                     description: Address is the email address to add to the complaint
                       list
-                    pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+                    pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$
                     type: string
                   domainRef:
                     description: DomainRef references the Domain resource this complaint

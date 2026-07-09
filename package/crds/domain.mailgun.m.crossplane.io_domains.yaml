@@ -25,7 +25,7 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
-    - jsonPath: .metadata.annotations.crossplane\.io/external-name
+    - jsonPath: .metadata.annotations.crossplane.io/external-name
       name: EXTERNAL-NAME
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -83,7 +83,7 @@ spec:
                     type: array
                   name:
                     description: Name is the domain name to create
-                    pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
+                    pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
                     type: string
                   smtpPassword:
                     description: SMTP password for the domain (if not set, will be

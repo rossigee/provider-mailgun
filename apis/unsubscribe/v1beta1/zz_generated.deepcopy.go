@@ -21,8 +21,7 @@ limitations under the License.
 package v1beta1
 
 import (
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -116,7 +115,7 @@ func (in *UnsubscribeParameters) DeepCopyInto(out *UnsubscribeParameters) {
 	in.DomainRef.DeepCopyInto(&out.DomainRef)
 	if in.DomainSelector != nil {
 		in, out := &in.DomainSelector, &out.DomainSelector
-		*out = new(xpv1.Selector)
+		*out = new(v2.Selector)
 		(*in).DeepCopyInto(*out)
 	}
 }

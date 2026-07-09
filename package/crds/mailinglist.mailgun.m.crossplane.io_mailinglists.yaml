@@ -25,7 +25,7 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
-    - jsonPath: .metadata.annotations.crossplane\.io/external-name
+    - jsonPath: .metadata.annotations.crossplane.io/external-name
       name: EXTERNAL-NAME
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -72,7 +72,7 @@ spec:
                     type: string
                   address:
                     description: Address is the mailing list email address
-                    pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+                    pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$
                     type: string
                   description:
                     description: Description provides additional information about
@@ -87,7 +87,7 @@ spec:
                       properties:
                         address:
                           description: Address is the member's email address
-                          pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$
+                          pattern: ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$
                           type: string
                         name:
                           description: Name is the member's display name

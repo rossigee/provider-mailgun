@@ -104,3 +104,4 @@ temp/
 **/kustomization.yaml
 **/secrets/
 golangci-lint-*/
+vendor/

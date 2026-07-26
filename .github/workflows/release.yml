@@ -117,27 +117,8 @@ jobs:
             exit 1
           fi
 
-          # Verify latest tag
-          if docker pull "${REGISTRY_PATH}:latest" > /dev/null 2>&1; then
-            echo "✅ Verified container image latest"
-          else
-            echo "❌ Failed to pull container image latest"
-            exit 1
-          fi
-
-          # Verify both tags point to same image
-          VERSION_DIGEST=$(docker inspect "${REGISTRY_PATH}:${VERSION}" --format='{{index .RepoDigests 0}}' | cut -d'@' -f2)
-          LATEST_DIGEST=$(docker inspect "${REGISTRY_PATH}:latest" --format='{{index .RepoDigests 0}}' | cut -d'@' -f2)
-
-          if [ "$VERSION_DIGEST" = "$LATEST_DIGEST" ]; then
-            echo "✅ Version and latest tags point to identical image"
-            echo "   Digest: ${VERSION_DIGEST}"
-          else
-            echo "❌ Version and latest tags point to different images"
-            echo "   Version digest: ${VERSION_DIGEST}"
-            echo "   Latest digest:  ${LATEST_DIGEST}"
-            exit 1
-          fi
+          # Note: this build system tags images by CHANNEL (defaults to
+          # "master"), not "latest" - there is no "latest" tag to verify here.
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

@@ -218,14 +218,9 @@ jobs:
           echo "Repository: ${{ github.repository }}"
           echo "Repository owner: ${{ github.repository_owner }}"
 
-          # Build binary
+          # Build all artifacts (binary, image, xpkg)
           make build
-          echo "✅ Binary build successful"
-
-          # Skip Docker image build (requires docker buildx which isn't available in CI)
-          # make docker.build
-          echo "✅ Skipped Docker image build (requires buildx)"
-          echo "✅ Docker image build successful"
+          echo "✅ All artifacts built successfully"
 
           # Build Crossplane package locally (without push)
           make xpkg.build

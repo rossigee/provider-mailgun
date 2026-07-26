@@ -23,6 +23,7 @@ package v1beta1
 import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 const (
@@ -43,5 +44,6 @@ func addKnownTypes(s *runtime.Scheme) error {
 		&ProviderConfigUsage{},
 		&ProviderConfigUsageList{},
 	)
+	metav1.AddToGroupVersion(s, SchemeGroupVersion)
 	return nil
 }

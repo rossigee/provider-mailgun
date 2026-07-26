@@ -1,6 +1,6 @@
 module github.com/rossigee/provider-mailgun
 
-go 1.26.5
+go 1.26.4
 
 require (
 	github.com/crossplane/crossplane-runtime/v2 v2.4.0-rc.0
@@ -115,4 +115,4 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace github.com/crossplane/crossplane-runtime/v2 => github.com/rossigee/crossplane-runtime/v2 v2.4.0-rc.0.0.20260708064937-d99a640775a8
+replace github.com/crossplane/crossplane-runtime/v2 => github.com/rossigee/crossplane-runtime/v2 v2.4.0-rc.0.0.20260726062756-089a6b3db2f8

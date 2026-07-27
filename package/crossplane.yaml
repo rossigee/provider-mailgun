@@ -27,8 +27,7 @@ metadata:
       BREAKING CHANGE: v1alpha1 cluster-scoped APIs have been removed.
       All resources now use v1beta1 namespaced APIs with .m. API group naming.
 spec:
-  controller:
-    permissionRequests:
+  permissionRequests:
     - apiGroups: ["domain.mailgun.m.crossplane.io"]
       resources: ["domains"]
       verbs: ["*"]
@@ -65,5 +64,6 @@ spec:
     - apiGroups: ["events.k8s.io"]
       resources: ["events"]
       verbs: ["*"]
+  controller: {}
   crossplane:
     version: ">=v1.14.0"

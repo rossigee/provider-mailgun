@@ -18,6 +18,8 @@ package smtpcredential
 
 import (
 	"context"
+	"time"
+
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
@@ -314,6 +316,91 @@ func TestSMTPCredentialObserve(t *testing.T) {
 			want: want{
 				o: managed.ExternalObservation{
 					ResourceExists: false,
+				},
+			},
+		},
+		"DeletionAlreadyRequestedReportsGone": {
+			reason: "Should return ResourceExists false once Delete has already run (State=deleted), even though the connection secret still exists - this is what lets the reconciler finalize instead of looping forever re-observing the still-present secret",
+			args: args{
+				mg: &v1beta1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "test-smtp",
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+						Finalizers:        []string{"finalizer.managedresource.crossplane.io"},
+					},
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
+							Domain: "example.com",
+							Login:  "test@example.com",
+						},
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
+								Name: "test-secret",
+							},
+						},
+					},
+					Status: v1beta1.SMTPCredentialStatus{
+						AtProvider: v1beta1.SMTPCredentialObservation{
+							State: smtpCredentialStateDeleted,
+						},
+					},
+				},
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-secret",
+					},
+					Data: map[string][]byte{
+						"smtp_username": []byte("test@example.com"),
+						"smtp_password": []byte("existing-password"),
+					},
+				},
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists: false,
+				},
+			},
+		},
+		"DeletionRequestedButNotYetDeletedStillTriggersDelete": {
+			reason: "Should still return ResourceExists true while being deleted if Delete hasn't run yet (State != deleted), so the reconciler actually invokes Delete",
+			args: args{
+				mg: &v1beta1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "test-smtp",
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+						Finalizers:        []string{"finalizer.managedresource.crossplane.io"},
+					},
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
+							Domain: "example.com",
+							Login:  "test@example.com",
+						},
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
+								Name: "test-secret",
+							},
+						},
+					},
+				},
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-secret",
+					},
+					Data: map[string][]byte{
+						"smtp_username": []byte("test@example.com"),
+						"smtp_password": []byte("existing-password"),
+					},
+				},
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists:   true,
+					ResourceUpToDate: true,
+					ConnectionDetails: managed.ConnectionDetails{
+						"smtp_host":     []byte("smtp.mailgun.org"),
+						"smtp_port":     []byte("587"),
+						"smtp_username": []byte("test@example.com"),
+					},
 				},
 			},
 		},

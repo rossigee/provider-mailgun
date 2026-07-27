@@ -46,6 +46,11 @@ const (
 	errTrackPCUsage      = "cannot track ProviderConfig usage"
 	errGetPC             = "cannot get ProviderConfig"
 	errGetCreds          = "cannot get credentials"
+
+	// smtpCredentialStateDeleted marks AtProvider.State once Delete has
+	// successfully requested removal of the external Mailgun credential,
+	// so a subsequent Observe can report the resource as gone.
+	smtpCredentialStateDeleted = "deleted"
 )
 
 // Setup adds a controller that reconciles SMTPCredential managed resources.
@@ -217,6 +222,23 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	op.SetAttribute("login", cr.Spec.ForProvider.Login)
 
 	logger.Info("starting SMTP credential observation")
+
+	// SMTP credentials are write-only in Mailgun's API, so once deletion has
+	// been requested we can't ask Mailgun whether the credential is really
+	// gone. We therefore can't rely on the connection secret's presence as
+	// our "does it still exist" signal during deletion: that secret is only
+	// removed by the reconciler's UnpublishConnection call, which only runs
+	// once we report ResourceExists=false - creating a deadlock where the
+	// secret never goes away because finalization never runs, and
+	// finalization never runs because the secret (our only signal) never
+	// goes away. Delete() marks AtProvider.State "deleted" before returning;
+	// once we see that, report the resource as gone so the reconciler can
+	// finalize, regardless of whether the connection secret still exists.
+	if meta.WasDeleted(cr) && cr.Status.AtProvider.State == smtpCredentialStateDeleted {
+		logger.Info("external SMTP credential deletion already requested, allowing resource to finalize")
+		timer.RecordResourceOperation("smtpcredential", "observe", "deleted")
+		return managed.ExternalObservation{ResourceExists: false}, nil
+	}
 
 	// Use the login as external name
 	externalName := meta.GetExternalName(cr)
@@ -586,6 +608,12 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 	} else {
 		op.SetAttribute("credential.deleted", true)
 	}
+
+	// Persisted via the reconciler's status update immediately after this
+	// call returns; the next Observe checks this to break the deadlock
+	// described there (write-only credentials can't be re-verified against
+	// Mailgun, so we track deletion completion in status instead).
+	cr.Status.AtProvider.State = smtpCredentialStateDeleted
 
 	return managed.ExternalDelete{}, nil
 }

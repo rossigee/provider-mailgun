@@ -207,17 +207,6 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.Wrap(err, "failed to get domain")
 	}
 
-	// If GetDomain did not return DNS records, trigger a verify call which
-	// prompts Mailgun to populate the DNS record set for unverified domains.
-	// This ensures users can see which records need to be configured at their
-	// registrar.
-	if len(domain.RequiredDNSRecords) == 0 {
-		verified, vErr := c.service.VerifyDomain(ctx, cr.Spec.ForProvider.Name)
-		if vErr == nil && verified != nil {
-			domain = verified
-		}
-	}
-
 	upToDate := isDomainUpToDate(domain, &cr.Spec.ForProvider)
 
 	cr.Status.AtProvider = *domain
@@ -433,7 +422,7 @@ func setDNSVerifiedCondition(cr *v1beta1.Domain, dnsVerified *bool) {
 func getInvalidRecordNames(records []v1beta1.DNSRecord) string {
 	var invalid []string
 	for _, r := range records {
-		if r.Valid == nil || !*r.Valid {
+		if r.Valid == nil || *r.Valid != "valid" {
 			invalid = append(invalid, r.Name+" ("+r.Type+")")
 		}
 	}

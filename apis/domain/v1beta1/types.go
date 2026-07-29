@@ -111,22 +111,26 @@ type DomainObservation struct {
 	SendingDNSRecords []DNSRecord `json:"sendingDnsRecords,omitempty"`
 }
 
-// DNSRecord represents a DNS record required for domain configuration
+// DNSRecord represents a DNS record required for domain configuration.
+// `Valid` mirrors Mailgun's v4 API verbatim: "valid" if Mailgun confirms the
+// record is properly configured, "unknown" if it has not yet been verified.
 type DNSRecord struct {
 	// Name is the DNS record name
 	Name string `json:"name,omitempty"`
 
-	// Type is the DNS record type (TXT, CNAME, MX)
+	// Type is the DNS record type (TXT, CNAME, MX, A)
 	Type string `json:"type,omitempty"`
 
 	// Value is the DNS record value
 	Value string `json:"value,omitempty"`
 
-	// Priority is the MX record priority (for MX records)
-	Priority *int `json:"priority,omitempty"`
+	// Priority is the MX record priority (for MX records), as a string per
+	// Mailgun's v4 API (e.g. "10")
+	Priority *string `json:"priority,omitempty"`
 
-	// Valid indicates if the DNS record is properly configured
-	Valid *bool `json:"valid,omitempty"`
+	// Valid is the verification status as returned by Mailgun ("valid" or
+	// "unknown")
+	Valid *string `json:"valid,omitempty"`
 }
 
 // A DomainSpec defines the desired state of a Domain.

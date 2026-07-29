@@ -16,17 +16,26 @@ limitations under the License.
 
 package clients
 
-// Domain represents a Mailgun domain
+// Domain represents a Mailgun domain (nested inside the response's "domain" field).
+// Per the Mailgun v4 Domains API, DNS records are NOT nested in this object; they
+// appear at the top level of the response alongside "domain". See DomainResponse.
 type Domain struct {
-	Name                string      `json:"name"`
-	Type                string      `json:"type,omitempty"`
-	State               string      `json:"state,omitempty"`
-	CreatedAt           string      `json:"created_at,omitempty"`
-	SMTPLogin           string      `json:"smtp_login,omitempty"`
-	SMTPPassword        string      `json:"smtp_password,omitempty"`
-	RequiredDNSRecords  []DNSRecord `json:"required_dns_records,omitempty"`
+	Name         string `json:"name"`
+	Type         string `json:"type,omitempty"`
+	State        string `json:"state,omitempty"`
+	CreatedAt    string `json:"created_at,omitempty"`
+	SMTPLogin    string `json:"smtp_login,omitempty"`
+	SMTPPassword string `json:"smtp_password,omitempty"`
+}
+
+// DomainResponse represents the full response shape returned by Mailgun v4
+// Domains endpoints (GET /v4/domains/{name}, POST /v4/domains, PUT /v4/domains/{name},
+// and PUT /v4/domains/{name}/verify).
+type DomainResponse struct {
+	Domain              *Domain     `json:"domain"`
 	ReceivingDNSRecords []DNSRecord `json:"receiving_dns_records,omitempty"`
 	SendingDNSRecords   []DNSRecord `json:"sending_dns_records,omitempty"`
+	Message             string      `json:"message,omitempty"`
 }
 
 // DomainSpec represents the parameters for creating/updating a domain
@@ -42,13 +51,26 @@ type DomainSpec struct {
 	Wildcard           *bool    `json:"wildcard,omitempty"`
 }
 
-// DNSRecord represents a DNS record
+// DNSRecord represents a DNS record as returned by the Mailgun v4 Domains API.
+// Mailgun returns `valid` as a string enum ("valid" or "unknown") and
+// `priority` as a string (e.g. "10") for MX records.
 type DNSRecord struct {
-	Name     string `json:"name,omitempty"`
-	Type     string `json:"record_type,omitempty"`
-	Value    string `json:"value,omitempty"`
-	Priority *int   `json:"priority,omitempty"`
-	Valid    *bool  `json:"valid,omitempty"`
+	Name     string  `json:"name,omitempty"`
+	Type     string  `json:"record_type,omitempty"`
+	Value    string  `json:"value,omitempty"`
+	Priority *string `json:"priority,omitempty"`
+	Valid    *string `json:"valid,omitempty"`
+}
+
+// RecordIsValid converts Mailgun's string validity into a *bool for the
+// atProvider DNSVerified field. Returns nil if v is nil (no record), true
+// when Mailgun reports "valid", false for "unknown" or any other value.
+func RecordIsValid(v *string) *bool {
+	if v == nil {
+		return nil
+	}
+	b := *v == "valid"
+	return &b
 }
 
 // MailingList represents a Mailgun mailing list

@@ -52,13 +52,12 @@ func (m *MockDomainClient) CreateDomain(ctx context.Context, domain *v1beta1.Dom
 		CreatedAt:    "2025-01-01T00:00:00Z",
 		SMTPLogin:    "postmaster@" + domain.Name,
 		SMTPPassword: "generated-password",
-		RequiredDNSRecords: []v1beta1.DNSRecord{
+		SendingDNSRecords: []v1beta1.DNSRecord{
 			{
-				Name:     domain.Name,
-				Type:     "TXT",
-				Value:    "v=spf1 include:mailgun.org ~all",
-				Priority: nil,
-				Valid:    boolPtr(false),
+				Name:  domain.Name,
+				Type:  "TXT",
+				Value: "v=spf1 include:mailgun.org ~all",
+				Valid: stringPtr("unknown"),
 			},
 		},
 	}
@@ -116,7 +115,7 @@ func (m *MockDomainClient) VerifyDomain(ctx context.Context, name string) (*v1be
 	}
 
 	if domain.DNSVerified == nil {
-		v := computeDNSVerifiedForTest(domain.RequiredDNSRecords)
+		v := computeDNSVerifiedForTest(append(append([]v1beta1.DNSRecord{}, domain.ReceivingDNSRecords...), domain.SendingDNSRecords...))
 		domain.DNSVerified = &v
 	}
 	return domain, nil
@@ -127,7 +126,7 @@ func computeDNSVerifiedForTest(records []v1beta1.DNSRecord) bool {
 		return false
 	}
 	for _, r := range records {
-		if r.Valid == nil || !*r.Valid {
+		if r.Valid == nil || *r.Valid != "valid" {
 			return false
 		}
 	}
@@ -526,8 +525,4 @@ func TestDomainDelete(t *testing.T) {
 // Helper functions
 func stringPtr(s string) *string {
 	return &s
-}
-
-func boolPtr(b bool) *bool {
-	return &b
 }

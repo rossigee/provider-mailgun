@@ -215,23 +215,28 @@ spec:
                   receivingDnsRecords:
                     description: Receiving DNS records for incoming mail
                     items:
-                      description: DNSRecord represents a DNS record required for
-                        domain configuration
+                      description: |-
+                        DNSRecord represents a DNS record required for domain configuration.
+                        `Valid` mirrors Mailgun's v4 API verbatim: "valid" if Mailgun confirms the
+                        record is properly configured, "unknown" if it has not yet been verified.
                       properties:
                         name:
                           description: Name is the DNS record name
                           type: string
                         priority:
-                          description: Priority is the MX record priority (for MX
-                            records)
-                          type: integer
+                          description: |-
+                            Priority is the MX record priority (for MX records), as a string per
+                            Mailgun's v4 API (e.g. "10")
+                          type: string
                         type:
-                          description: Type is the DNS record type (TXT, CNAME, MX)
+                          description: Type is the DNS record type (TXT, CNAME, MX,
+                            A)
                           type: string
                         valid:
-                          description: Valid indicates if the DNS record is properly
-                            configured
-                          type: boolean
+                          description: |-
+                            Valid is the verification status as returned by Mailgun ("valid" or
+                            "unknown")
+                          type: string
                         value:
                           description: Value is the DNS record value
                           type: string
@@ -241,23 +246,28 @@ spec:
                     description: RequiredDNSRecords contains the DNS records that
                       need to be configured
                     items:
-                      description: DNSRecord represents a DNS record required for
-                        domain configuration
+                      description: |-
+                        DNSRecord represents a DNS record required for domain configuration.
+                        `Valid` mirrors Mailgun's v4 API verbatim: "valid" if Mailgun confirms the
+                        record is properly configured, "unknown" if it has not yet been verified.
                       properties:
                         name:
                           description: Name is the DNS record name
                           type: string
                         priority:
-                          description: Priority is the MX record priority (for MX
-                            records)
-                          type: integer
+                          description: |-
+                            Priority is the MX record priority (for MX records), as a string per
+                            Mailgun's v4 API (e.g. "10")
+                          type: string
                         type:
-                          description: Type is the DNS record type (TXT, CNAME, MX)
+                          description: Type is the DNS record type (TXT, CNAME, MX,
+                            A)
                           type: string
                         valid:
-                          description: Valid indicates if the DNS record is properly
-                            configured
-                          type: boolean
+                          description: |-
+                            Valid is the verification status as returned by Mailgun ("valid" or
+                            "unknown")
+                          type: string
                         value:
                           description: Value is the DNS record value
                           type: string
@@ -266,23 +276,28 @@ spec:
                   sendingDnsRecords:
                     description: Sending DNS records for outgoing mail
                     items:
-                      description: DNSRecord represents a DNS record required for
-                        domain configuration
+                      description: |-
+                        DNSRecord represents a DNS record required for domain configuration.
+                        `Valid` mirrors Mailgun's v4 API verbatim: "valid" if Mailgun confirms the
+                        record is properly configured, "unknown" if it has not yet been verified.
                       properties:
                         name:
                           description: Name is the DNS record name
                           type: string
                         priority:
-                          description: Priority is the MX record priority (for MX
-                            records)
-                          type: integer
+                          description: |-
+                            Priority is the MX record priority (for MX records), as a string per
+                            Mailgun's v4 API (e.g. "10")
+                          type: string
                         type:
-                          description: Type is the DNS record type (TXT, CNAME, MX)
+                          description: Type is the DNS record type (TXT, CNAME, MX,
+                            A)
                           type: string
                         valid:
-                          description: Valid indicates if the DNS record is properly
-                            configured
-                          type: boolean
+                          description: |-
+                            Valid is the verification status as returned by Mailgun ("valid" or
+                            "unknown")
+                          type: string
                         value:
                           description: Value is the DNS record value
                           type: string

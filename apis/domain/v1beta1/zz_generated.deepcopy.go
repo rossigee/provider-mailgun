@@ -29,12 +29,12 @@ func (in *DNSRecord) DeepCopyInto(out *DNSRecord) {
 	*out = *in
 	if in.Priority != nil {
 		in, out := &in.Priority, &out.Priority
-		*out = new(int)
+		*out = new(string)
 		**out = **in
 	}
 	if in.Valid != nil {
 		in, out := &in.Valid, &out.Valid
-		*out = new(bool)
+		*out = new(string)
 		**out = **in
 	}
 }

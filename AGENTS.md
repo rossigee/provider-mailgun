@@ -135,7 +135,7 @@ type DomainObservation struct {
 - ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.17.1` (current - Crossplane v2 with crossplane-runtime v2.3.0 and ModernManaged)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.17.2` (current - Crossplane v2 with crossplane-runtime v2.3.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)

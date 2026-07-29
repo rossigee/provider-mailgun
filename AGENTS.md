@@ -130,13 +130,11 @@ type DomainObservation struct {
 - ✅ Test performance optimizations (sub-second execution)
 - ✅ Docker build infrastructure and CI/CD workflows
 - ✅ Docker image build process (Go 1.26.3 compatible)
-- ✅ Kubernetes deployment manifests for golder-secops cluster
 - ✅ Health probe endpoints (/healthz and /readyz on port 8080)
 - ✅ Improved logging configuration for production deployments
 - ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
-- Successfully deployed to golder-secops cluster
 - Docker image: `ghcr.io/rossigee/provider-mailgun:v0.15.0` (current - Crossplane v2 with crossplane-runtime v2.3.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
@@ -197,14 +195,6 @@ VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 - **`PLATFORMS`** - Build platforms (default: `linux/amd64,linux/arm64`)
 - **`XPKG_REG_ORGS`** - Override crossplane package registry (default: `xpkg.upbound.io/crossplane-contrib`)
 - **`REGISTRY`** - Registry location (now using ghcr.io/rossigee)
-
-### Deployment to golder-secops Cluster
-The provider is deployed via Flux GitOps:
-- **Manifest**: `/home/rossg/clients/golder/infrastructure/flux-golder/clusters/golder-secops/crossplane-providers/provider-mailgun.yaml`
-- **Registry**: `ghcr.io/rossigee/provider-mailgun:v0.14.3`
-- **Runtime**: Uses shared `provider-runtime` DeploymentRuntimeConfig
-- **Health Probes**: Kubernetes liveness and readiness probes configured for port 8080
-- **Secrets**: Uses `harbor-credentials` for image pull authentication
 
 ## Recent Improvements (2025-10-01)
 

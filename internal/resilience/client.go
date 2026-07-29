@@ -234,6 +234,23 @@ func (r *ResilientClient) DeleteDomain(ctx context.Context, name string) error {
 	})
 }
 
+func (r *ResilientClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	var result *domaintypes.DomainObservation
+	var err error
+
+	retryErr := WithRetry(ctx, "verify_domain", r.retryConfig, func() error {
+		return r.circuitBreaker.Execute(ctx, func() error {
+			result, err = r.client.VerifyDomain(ctx, name)
+			return err
+		})
+	})
+
+	if retryErr != nil {
+		return nil, retryErr
+	}
+	return result, nil
+}
+
 // Mailing List operations with resilience
 
 func (r *ResilientClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {

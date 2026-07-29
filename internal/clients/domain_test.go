@@ -420,3 +420,94 @@ func boolPtr(b bool) *bool {
 func intPtr(i int) *int {
 	return &i
 }
+
+func TestVerifyDomain(t *testing.T) {
+	tests := []struct {
+		name            string
+		domainName      string
+		serverResponses map[string]func(w http.ResponseWriter, r *http.Request)
+		expectedDNSRecs int
+		expectedError   bool
+	}{
+		{
+			name:       "successful verify with DNS records",
+			domainName: "verify.com",
+			serverResponses: map[string]func(w http.ResponseWriter, r *http.Request){
+				"/v3/domains/verify.com/verify": func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "PUT", r.Method)
+					assert.Equal(t, "/v3/domains/verify.com/verify", r.URL.Path)
+					w.WriteHeader(http.StatusOK)
+					_ = json.NewEncoder(w).Encode(map[string]string{"message": "Domain DNS records have been updated"})
+				},
+				"/v3/domains/verify.com": func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "GET", r.Method)
+					w.WriteHeader(http.StatusOK)
+					response := map[string]interface{}{
+						"domain": map[string]interface{}{
+							"id":      "verify-id",
+							"name":    "verify.com",
+							"smtp_login": "postmaster@verify.com",
+							"smtp_password": "secret",
+							"wildcard": false,
+							"spam_action": "disabled",
+							"state": "unverified",
+							"required_dns_records": []map[string]interface{}{
+								{
+									"name":        "verify.com",
+									"record_type": "TXT",
+									"value":       "v=spf1 include:mailgun.org ~all",
+									"valid":       false,
+								},
+							},
+						},
+					}
+					_ = json.NewEncoder(w).Encode(response)
+				},
+			},
+			expectedDNSRecs: 1,
+			expectedError:   false,
+		},
+		{
+			name:       "verify endpoint error",
+			domainName: "badverify.com",
+			serverResponses: map[string]func(w http.ResponseWriter, r *http.Request){
+				"/v3/domains/badverify.com/verify": func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusInternalServerError)
+					_, _ = w.Write([]byte("Internal server error"))
+				},
+			},
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if handler, ok := tt.serverResponses[r.URL.Path]; ok {
+					handler(w, r)
+					return
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer server.Close()
+
+			config := &Config{
+				APIKey:     "test-key",
+				BaseURL:    server.URL + "/v3",
+				HTTPClient: &http.Client{},
+			}
+			client := NewClient(config)
+
+			result, err := client.VerifyDomain(context.Background(), tt.domainName)
+
+			if tt.expectedError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.expectedDNSRecs, len(result.RequiredDNSRecords))
+		})
+	}
+}

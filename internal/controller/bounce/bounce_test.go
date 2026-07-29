@@ -106,6 +106,10 @@ func (m *MockBounceClient) DeleteDomain(ctx context.Context, name string) error 
 	return errors.New("not implemented")
 }
 
+func (m *MockBounceClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	return nil, errors.New("not implemented")
+}
+
 // MailingList operations
 func (m *MockBounceClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")

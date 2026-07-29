@@ -210,3 +210,26 @@ func (c *mailgunClient) DeleteDomain(ctx context.Context, name string) error {
 
 	return nil
 }
+
+// VerifyDomain triggers DNS verification on a domain and returns the verification
+// result including the DNS records and their validity status. This is the
+// authoritative source for DNS verification information in Mailgun.
+func (c *mailgunClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	path := fmt.Sprintf("/domains/%s/verify", url.PathEscape(name))
+	resp, err := c.makeRequest(ctx, "PUT", path, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to verify domain")
+	}
+
+	if err := c.handleResponse(resp, nil); err != nil {
+		return nil, errors.Wrap(err, "failed to handle response")
+	}
+
+	// After triggering verify, fetch the domain to get the latest DNS records
+	domain, err := c.GetDomain(ctx, name)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get domain after verify")
+	}
+
+	return domain, nil
+}

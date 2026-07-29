@@ -105,6 +105,35 @@ func (m *MockDomainClient) DeleteDomain(ctx context.Context, name string) error 
 	return nil
 }
 
+func (m *MockDomainClient) VerifyDomain(ctx context.Context, name string) (*v1beta1.DomainObservation, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	domain, ok := m.domains[name]
+	if !ok {
+		return nil, errors.New("domain not found (404)")
+	}
+
+	if domain.DNSVerified == nil {
+		v := computeDNSVerifiedForTest(domain.RequiredDNSRecords)
+		domain.DNSVerified = &v
+	}
+	return domain, nil
+}
+
+func computeDNSVerifiedForTest(records []v1beta1.DNSRecord) bool {
+	if len(records) == 0 {
+		return false
+	}
+	for _, r := range records {
+		if r.Valid == nil || !*r.Valid {
+			return false
+		}
+	}
+	return true
+}
+
 // Implement other required client methods as no-ops
 func (m *MockDomainClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")

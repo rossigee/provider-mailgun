@@ -125,6 +125,10 @@ func (m *MockWebhookClient) DeleteDomain(ctx context.Context, name string) error
 	return errors.New("not implemented")
 }
 
+func (m *MockWebhookClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (m *MockWebhookClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }

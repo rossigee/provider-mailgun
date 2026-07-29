@@ -58,6 +58,7 @@ type Client interface {
 	GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error)
 	UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error)
 	DeleteDomain(ctx context.Context, name string) error
+	VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error)
 
 	// MailingList operations
 	CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error)

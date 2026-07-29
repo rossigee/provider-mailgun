@@ -132,6 +132,10 @@ func (m *MockTemplateClient) DeleteDomain(ctx context.Context, name string) erro
 	return errors.New("not implemented")
 }
 
+func (m *MockTemplateClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (m *MockTemplateClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
 	return nil, errors.New("not implemented")
 }

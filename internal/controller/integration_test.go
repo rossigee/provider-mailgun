@@ -120,6 +120,17 @@ func (m *IntegrationMockClient) DeleteDomain(ctx context.Context, name string) e
 	return nil
 }
 
+func (m *IntegrationMockClient) VerifyDomain(ctx context.Context, name string) (*domainv1beta1.DomainObservation, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	existing, ok := m.domains[name]
+	if !ok {
+		return nil, errors.New("domain not found (404)")
+	}
+	return existing, nil
+}
+
 // MailingList operations
 func (m *IntegrationMockClient) CreateMailingList(ctx context.Context, list *mailinglistv1beta1.MailingListParameters) (*mailinglistv1beta1.MailingListObservation, error) {
 	if m.err != nil {

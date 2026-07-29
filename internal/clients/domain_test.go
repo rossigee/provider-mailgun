@@ -212,6 +212,7 @@ func TestCreateDomain(t *testing.T) {
 			config := &Config{
 				APIKey:     "test-key",
 				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
 				HTTPClient: &http.Client{},
 			}
 			client := NewClient(config)
@@ -327,6 +328,7 @@ func TestGetDomain(t *testing.T) {
 			config := &Config{
 				APIKey:     "test-key",
 				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
 				HTTPClient: &http.Client{},
 			}
 			client := NewClient(config)
@@ -416,6 +418,7 @@ func TestUpdateDomain(t *testing.T) {
 			config := &Config{
 				APIKey:     "test-key",
 				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
 				HTTPClient: &http.Client{},
 			}
 			client := NewClient(config)
@@ -480,6 +483,7 @@ func TestDeleteDomain(t *testing.T) {
 			config := &Config{
 				APIKey:     "test-key",
 				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
 				HTTPClient: &http.Client{},
 			}
 			client := NewClient(config)
@@ -572,6 +576,7 @@ func TestVerifyDomain(t *testing.T) {
 			config := &Config{
 				APIKey:     "test-key",
 				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
 				HTTPClient: &http.Client{},
 			}
 			client := NewClient(config)

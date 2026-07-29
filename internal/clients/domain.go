@@ -122,7 +122,7 @@ func (c *mailgunClient) CreateDomain(ctx context.Context, domain *domaintypes.Do
 	}
 
 	body := strings.NewReader(createFormData(params))
-	resp, err := c.makeRequest(ctx, "POST", "/v4/domains", body)
+	resp, err := c.makeRequestAt(ctx, c.config.V4BaseURL, "POST", "/domains", body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create domain")
 	}
@@ -139,8 +139,8 @@ func (c *mailgunClient) CreateDomain(ctx context.Context, domain *domaintypes.Do
 // response includes the receiving and sending DNS records at the top level
 // along with their current validity status.
 func (c *mailgunClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
-	path := fmt.Sprintf("/v4/domains/%s", url.PathEscape(name))
-	resp, err := c.makeRequest(ctx, "GET", path, nil)
+	path := fmt.Sprintf("/domains/%s", url.PathEscape(name))
+	resp, err := c.makeRequestAt(ctx, c.config.V4BaseURL, "GET", path, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get domain")
 	}
@@ -168,8 +168,8 @@ func (c *mailgunClient) UpdateDomain(ctx context.Context, name string, domain *d
 	}
 
 	body := strings.NewReader(createFormData(params))
-	path := fmt.Sprintf("/v4/domains/%s", url.PathEscape(name))
-	resp, err := c.makeRequest(ctx, "PUT", path, body)
+	path := fmt.Sprintf("/domains/%s", url.PathEscape(name))
+	resp, err := c.makeRequestAt(ctx, c.config.V4BaseURL, "PUT", path, body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to update domain")
 	}
@@ -203,8 +203,8 @@ func (c *mailgunClient) DeleteDomain(ctx context.Context, name string) error {
 // current validity status. This is the authoritative source for DNS
 // verification information in Mailgun.
 func (c *mailgunClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
-	path := fmt.Sprintf("/v4/domains/%s/verify", url.PathEscape(name))
-	resp, err := c.makeRequest(ctx, "PUT", path, nil)
+	path := fmt.Sprintf("/domains/%s/verify", url.PathEscape(name))
+	resp, err := c.makeRequestAt(ctx, c.config.V4BaseURL, "PUT", path, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to verify domain")
 	}

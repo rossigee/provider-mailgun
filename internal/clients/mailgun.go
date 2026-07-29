@@ -47,6 +47,11 @@ const (
 	// EUBaseURL is the Mailgun API base URL for EU region
 	EUBaseURL = "https://api.eu.mailgun.net/v3"
 
+	// DefaultV4BaseURL is the default Mailgun v4 Domains API base URL for US region
+	DefaultV4BaseURL = "https://api.mailgun.net/v4"
+	// EUV4BaseURL is the Mailgun v4 Domains API base URL for EU region
+	EUV4BaseURL = "https://api.eu.mailgun.net/v4"
+
 	// HTTP timeout for API requests
 	defaultTimeout = 30 * time.Second
 )
@@ -110,7 +115,12 @@ type Client interface {
 type Config struct {
 	APIKey     string
 	BaseURL    string
-	HTTPClient *http.Client
+	// V4BaseURL is the base URL for Mailgun v4 Domains API endpoints. When
+	// the user supplies a BaseURL with a trailing /v3 (the historic default),
+	// V4BaseURL is derived by swapping /v3 for /v4 so domain management calls
+	// can hit /v4/domains, /v4/domains/{name} and /v4/domains/{name}/verify.
+	V4BaseURL    string
+	HTTPClient   *http.Client
 }
 
 // Credentials represents the structure of the credentials secret
@@ -219,15 +229,38 @@ func UseProviderConfig(ctx context.Context, c client.Client, mg resource.Managed
 		baseURL = EUBaseURL
 	}
 
+	// Derive v4 base URL. If BaseURL ends with /v3 (historic default), swap
+	// for /v4; otherwise apply the same region selection against the v4
+	// constants.
+	v4BaseURL := DefaultV4BaseURL
+	if pc.Spec.APIBaseURL != nil {
+		if strings.HasSuffix(baseURL, "/v3") {
+			v4BaseURL = strings.TrimSuffix(baseURL, "/v3") + "/v4"
+		} else if strings.HasSuffix(baseURL, "/v4") {
+			v4BaseURL = baseURL
+		} else {
+			v4BaseURL = baseURL + "/v4"
+		}
+	} else if pc.Spec.Region != nil && *pc.Spec.Region == "EU" {
+		v4BaseURL = EUV4BaseURL
+	}
+
 	return &Config{
-		APIKey:  apiKey,
-		BaseURL: baseURL,
+		APIKey:     apiKey,
+		BaseURL:    baseURL,
+		V4BaseURL:  v4BaseURL,
 	}, nil
 }
 
 // Helper method to make HTTP requests
 func (c *mailgunClient) makeRequest(ctx context.Context, method, path string, body io.Reader) (*http.Response, error) {
-	url := fmt.Sprintf("%s%s", c.config.BaseURL, path)
+	return c.makeRequestAt(ctx, c.config.BaseURL, method, path, body)
+}
+
+// makeRequestAt issues a request against an explicit base URL, used by v4
+// Domains API calls.
+func (c *mailgunClient) makeRequestAt(ctx context.Context, baseURL, method, path string, body io.Reader) (*http.Response, error) {
+	url := fmt.Sprintf("%s%s", baseURL, path)
 
 	// Store the original body data for retries
 	var originalBodyData []byte

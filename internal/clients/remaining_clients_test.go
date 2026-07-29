@@ -111,7 +111,7 @@ func TestRouteOperations(t *testing.T) {
 			}))
 			defer server.Close()
 
-			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", HTTPClient: &http.Client{}}
+			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", V4BaseURL: server.URL + "/v4", HTTPClient: &http.Client{}}
 			client := NewClient(config)
 
 			err := tt.operation(client)
@@ -197,7 +197,7 @@ func TestWebhookOperations(t *testing.T) {
 			}))
 			defer server.Close()
 
-			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", HTTPClient: &http.Client{}}
+			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", V4BaseURL: server.URL + "/v4", HTTPClient: &http.Client{}}
 			client := NewClient(config)
 
 			err := tt.operation(client)
@@ -320,7 +320,7 @@ func TestSMTPCredentialOperations(t *testing.T) {
 			}))
 			defer server.Close()
 
-			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", HTTPClient: &http.Client{}}
+			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", V4BaseURL: server.URL + "/v4", HTTPClient: &http.Client{}}
 			client := NewClient(config)
 
 			err := tt.operation(client)
@@ -408,7 +408,7 @@ func TestTemplateOperations(t *testing.T) {
 			}))
 			defer server.Close()
 
-			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", HTTPClient: &http.Client{}}
+			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", V4BaseURL: server.URL + "/v4", HTTPClient: &http.Client{}}
 			client := NewClient(config)
 
 			err := tt.operation(client)
@@ -475,7 +475,7 @@ func TestErrorHandling(t *testing.T) {
 			}))
 			defer server.Close()
 
-			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", HTTPClient: &http.Client{}}
+			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", V4BaseURL: server.URL + "/v4", HTTPClient: &http.Client{}}
 			client := NewClient(config)
 
 			err := tt.operation(client)
@@ -500,6 +500,7 @@ func TestNetworkFailures(t *testing.T) {
 				config := &Config{
 					APIKey:     "test-key",
 					BaseURL:    "http://localhost:1", // Port 1 should be closed
+					V4BaseURL:  "http://localhost:1/v4",
 					HTTPClient: &http.Client{},
 				}
 				return config, func() {}
@@ -516,6 +517,7 @@ func TestNetworkFailures(t *testing.T) {
 				config := &Config{
 					APIKey:     "test-key",
 					BaseURL:    "http://nonexistent-domain-12345.invalid/v3",
+					V4BaseURL:  "http://nonexistent-domain-12345.invalid/v4",
 					HTTPClient: &http.Client{},
 				}
 				return config, func() {}
@@ -540,6 +542,7 @@ func TestNetworkFailures(t *testing.T) {
 				config := &Config{
 					APIKey:  "test-key",
 					BaseURL: server.URL + "/v3",
+					V4BaseURL: server.URL + "/v4",
 					HTTPClient: &http.Client{
 						Timeout: 100 * time.Millisecond, // Very short timeout
 					},
@@ -615,7 +618,7 @@ func TestMalformedResponses(t *testing.T) {
 			}))
 			defer server.Close()
 
-			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", HTTPClient: &http.Client{}}
+			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", V4BaseURL: server.URL + "/v4", HTTPClient: &http.Client{}}
 			client := NewClient(config)
 
 			err := tt.operation(client)
@@ -661,7 +664,7 @@ func TestContextCancellation(t *testing.T) {
 			}))
 			defer server.Close()
 
-			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", HTTPClient: &http.Client{}}
+			config := &Config{APIKey: "test-key", BaseURL: server.URL + "/v3", V4BaseURL: server.URL + "/v4", HTTPClient: &http.Client{}}
 			client := NewClient(config)
 
 			// Create a context that we'll cancel immediately

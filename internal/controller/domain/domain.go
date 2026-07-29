@@ -18,6 +18,8 @@ package domain
 
 import (
 	"context"
+	"fmt"
+	"strings"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
@@ -26,6 +28,8 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,11 +44,21 @@ const (
 	errTrackPCUsage = "cannot track ProviderConfig usage"
 	errGetPC        = "cannot get ProviderConfig"
 	errGetCreds     = "cannot get credentials"
+
+	conditionTypeDNSVerified xpv1.ConditionType = "DNSVerified"
+
+	eventReasonDNSVerified        = "DNSVerified"
+	eventReasonDNSInvalid         = "DNSInvalid"
+	eventReasonDomainCreate       = "DomainCreated"
+	eventReasonDomainUpdate       = "DomainUpdated"
+	eventReasonDomainDelete       = "DomainDeleted"
+	eventReasonDomainStateChange  = "DomainStateChanged"
 )
 
 // Setup adds a controller that reconciles Domain managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1beta1.DomainKind)
+	recorder := event.NewAPIRecorder(mgr.GetEventRecorder(name))
 
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1beta1.DomainGroupVersionKind),
@@ -52,10 +66,11 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
 			newServiceFn: clients.NewClient,
+			recorder:     recorder,
 		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorder(name))))
+		managed.WithRecorder(recorder))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
@@ -71,6 +86,7 @@ type connector struct {
 	kube         client.Client
 	usage        resource.Tracker
 	newServiceFn func(config *clients.Config) clients.Client
+	recorder     event.Recorder
 }
 
 // Connect typically produces an ExternalClient by:
@@ -128,15 +144,14 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 
 	svc := c.newServiceFn(config)
 
-	return &external{service: svc}, nil
+	return &external{service: svc, recorder: c.recorder}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
-	// A 'client' used to connect to the external resource API. In practice this
-	// would be something like an AWS SDK client.
-	service clients.Client
+	service  clients.Client
+	recorder event.Recorder
 }
 
 func (c *external) Disconnect(ctx context.Context) error {
@@ -195,11 +210,40 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	upToDate := isDomainUpToDate(domain, &cr.Spec.ForProvider)
 
 	cr.Status.AtProvider = *domain
+	meta.SetExternalName(cr, cr.Spec.ForProvider.Name)
+
+	previousState := ""
+	for _, cond := range cr.Status.Conditions {
+		if cond.Reason == xpv1.ReasonAvailable {
+			previousState = "active"
+			break
+		}
+	}
 
 	if domain.State == "active" {
 		cr.SetConditions(xpv1.Available())
 	} else {
 		cr.SetConditions(xpv1.Creating())
+	}
+
+	setDNSVerifiedCondition(cr, domain.DNSVerified)
+
+	if c.recorder != nil {
+		// Emit event for state transition
+		if domain.State != previousState && previousState != "" {
+			c.recorder.Event(cr, event.Normal(eventReasonDomainStateChange,
+				fmt.Sprintf("Domain state changed from %s to %s", previousState, domain.State)))
+		}
+
+		// Emit events for DNS verification status
+		if domain.DNSVerified != nil && !*domain.DNSVerified {
+			invalidRecords := getInvalidRecordNames(cr.Status.AtProvider.RequiredDNSRecords)
+			c.recorder.Event(cr, event.Warning(eventReasonDNSInvalid,
+				errors.Errorf("DNS records not properly configured: %s", invalidRecords)))
+		} else if domain.DNSVerified != nil && *domain.DNSVerified {
+			c.recorder.Event(cr, event.Normal(eventReasonDNSVerified,
+				"All DNS records are properly configured"))
+		}
 	}
 
 	return managed.ExternalObservation{
@@ -238,6 +282,11 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	meta.SetExternalName(cr, cr.Spec.ForProvider.Name)
 	cr.Status.AtProvider = *domain
 
+	if c.recorder != nil {
+		c.recorder.Event(cr, event.Normal(eventReasonDomainCreate,
+			fmt.Sprintf("Domain %s created in Mailgun", cr.Spec.ForProvider.Name)))
+	}
+
 	if domain.State == "active" {
 		cr.SetConditions(xpv1.Available())
 	} else {
@@ -266,6 +315,11 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	}
 
 	cr.Status.AtProvider = *domain
+
+	if c.recorder != nil {
+		c.recorder.Event(cr, event.Normal(eventReasonDomainUpdate,
+			fmt.Sprintf("Domain %s updated in Mailgun", cr.Spec.ForProvider.Name)))
+	}
 
 	if domain.State == "active" {
 		cr.SetConditions(xpv1.Available())
@@ -296,6 +350,11 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 		return managed.ExternalDelete{}, errors.Wrap(err, "failed to delete domain")
 	}
 
+	if c.recorder != nil {
+		c.recorder.Event(cr, event.Normal(eventReasonDomainDelete,
+			fmt.Sprintf("Domain %s deleted from Mailgun", cr.Spec.ForProvider.Name)))
+	}
+
 	return managed.ExternalDelete{}, nil
 }
 
@@ -320,4 +379,52 @@ func isDomainUpToDate(domain *v1beta1.DomainObservation, desired *v1beta1.Domain
 	}
 
 	return true
+}
+
+// setDNSVerifiedCondition sets the DNSVerified condition based on DNS record validation
+func setDNSVerifiedCondition(cr *v1beta1.Domain, dnsVerified *bool) {
+	if dnsVerified == nil {
+		cr.SetConditions(xpv1.Condition{
+			Type:               conditionTypeDNSVerified,
+			Status:             corev1.ConditionUnknown,
+			LastTransitionTime: metav1.Now(),
+			Reason:             "Unknown",
+			Message:            "DNS verification status unknown",
+		})
+		return
+	}
+
+	if *dnsVerified {
+		cr.SetConditions(xpv1.Condition{
+			Type:               conditionTypeDNSVerified,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Now(),
+			Reason:             "AllDNSRecordsValid",
+			Message:            "All required DNS records are properly configured",
+		})
+	} else {
+		invalidRecords := getInvalidRecordNames(cr.Status.AtProvider.RequiredDNSRecords)
+		msg := "One or more required DNS records are not properly configured"
+		if len(invalidRecords) > 0 {
+			msg += ": " + invalidRecords
+		}
+		cr.SetConditions(xpv1.Condition{
+			Type:               conditionTypeDNSVerified,
+			Status:             corev1.ConditionFalse,
+			LastTransitionTime: metav1.Now(),
+			Reason:             "DNSRecordsNotValid",
+			Message:            msg,
+		})
+	}
+}
+
+// getInvalidRecordNames returns a comma-separated list of invalid record names
+func getInvalidRecordNames(records []v1beta1.DNSRecord) string {
+	var invalid []string
+	for _, r := range records {
+		if r.Valid == nil || !*r.Valid {
+			invalid = append(invalid, r.Name+" ("+r.Type+")")
+		}
+	}
+	return strings.Join(invalid, ", ")
 }

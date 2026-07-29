@@ -98,6 +98,9 @@ type DomainObservation struct {
 	// SMTPPassword is the SMTP password for the domain
 	SMTPPassword string `json:"smtpPassword,omitempty"`
 
+	// DNSVerified indicates whether all required DNS records are properly configured
+	DNSVerified *bool `json:"dnsVerified,omitempty"`
+
 	// RequiredDNSRecords contains the DNS records that need to be configured
 	RequiredDNSRecords []DNSRecord `json:"requiredDnsRecords,omitempty"`
 
@@ -144,6 +147,7 @@ type DomainStatus struct {
 // This is the Crossplane v2 namespaced version.
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
+// +kubebuilder:printcolumn:name="DNS-VERIFIED",type="string",JSONPath=".status.atProvider.dnsVerified"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane.io/external-name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status

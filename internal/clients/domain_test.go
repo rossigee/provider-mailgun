@@ -79,13 +79,14 @@ func TestCreateDomain(t *testing.T) {
 				CreatedAt:    "2025-01-01T00:00:00Z",
 				SMTPLogin:    "postmaster@test.com",
 				SMTPPassword: "generated-password",
+				DNSVerified:  boolPtr(false), // Record has valid: false
 				RequiredDNSRecords: []domaintypes.DNSRecord{
 					{
 						Name:     "test.com",
 						Type:     "TXT",
 						Value:    "v=spf1 include:mailgun.org ~all",
 						Priority: nil,
-						Valid:    boolPtr(false), // "unknown" -> false
+						Valid:    boolPtr(false),
 					},
 				},
 			},

@@ -45,6 +45,22 @@ func convertDNSRecords(clientRecords []DNSRecord) []domaintypes.DNSRecord {
 	return apiRecords
 }
 
+// computeDNSVerified checks if all required DNS records are valid
+func computeDNSVerified(records []domaintypes.DNSRecord) *bool {
+	if len(records) == 0 {
+		return nil
+	}
+
+	allValid := true
+	for _, record := range records {
+		if record.Valid == nil || !*record.Valid {
+			allValid = false
+			break
+		}
+	}
+	return &allValid
+}
+
 // CreateDomain creates a new domain in Mailgun
 func (c *mailgunClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	params := map[string]interface{}{
@@ -100,6 +116,7 @@ func (c *mailgunClient) CreateDomain(ctx context.Context, domain *domaintypes.Do
 		ReceivingDNSRecords: convertDNSRecords(result.Domain.ReceivingDNSRecords),
 		SendingDNSRecords:   convertDNSRecords(result.Domain.SendingDNSRecords),
 	}
+	observation.DNSVerified = computeDNSVerified(observation.RequiredDNSRecords)
 
 	return observation, nil
 }
@@ -130,6 +147,7 @@ func (c *mailgunClient) GetDomain(ctx context.Context, name string) (*domaintype
 		ReceivingDNSRecords: convertDNSRecords(result.Domain.ReceivingDNSRecords),
 		SendingDNSRecords:   convertDNSRecords(result.Domain.SendingDNSRecords),
 	}
+	observation.DNSVerified = computeDNSVerified(observation.RequiredDNSRecords)
 
 	return observation, nil
 }
@@ -173,6 +191,7 @@ func (c *mailgunClient) UpdateDomain(ctx context.Context, name string, domain *d
 		ReceivingDNSRecords: convertDNSRecords(result.Domain.ReceivingDNSRecords),
 		SendingDNSRecords:   convertDNSRecords(result.Domain.SendingDNSRecords),
 	}
+	observation.DNSVerified = computeDNSVerified(observation.RequiredDNSRecords)
 
 	return observation, nil
 }

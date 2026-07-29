@@ -25,6 +25,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
+    - jsonPath: .status.atProvider.dnsVerified
+      name: DNS-VERIFIED
+      type: string
     - jsonPath: .metadata.annotations.crossplane.io/external-name
       name: EXTERNAL-NAME
       type: string
@@ -202,6 +205,10 @@ spec:
                   createdAt:
                     description: CreatedAt is when the domain was created
                     type: string
+                  dnsVerified:
+                    description: DNSVerified indicates whether all required DNS records
+                      are properly configured
+                    type: boolean
                   id:
                     description: ID is the domain identifier in Mailgun
                     type: string

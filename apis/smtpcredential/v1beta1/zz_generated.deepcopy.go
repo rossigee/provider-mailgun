@@ -21,6 +21,7 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/crossplane/crossplane/apis/v2/core/v2"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -104,6 +105,11 @@ func (in *SMTPCredentialParameters) DeepCopyInto(out *SMTPCredentialParameters) 
 	if in.Password != nil {
 		in, out := &in.Password, &out.Password
 		*out = new(string)
+		**out = **in
+	}
+	if in.CredentialsSecretRef != nil {
+		in, out := &in.CredentialsSecretRef, &out.CredentialsSecretRef
+		*out = new(v2.SecretKeySelector)
 		**out = **in
 	}
 }

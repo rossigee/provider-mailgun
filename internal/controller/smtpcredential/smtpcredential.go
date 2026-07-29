@@ -462,12 +462,25 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		op.SetAttribute("rotation_strategy", false)
 	}
 
-	// Use provided password or let Mailgun generate one
+	// Use provided password, or read from CredentialsSecretRef (sync: preserve if exists), or let Mailgun generate
 	password := cr.Spec.ForProvider.Password
+	if password == nil && cr.Spec.ForProvider.CredentialsSecretRef != nil {
+		secret := &corev1.Secret{}
+		key := types.NamespacedName{Name: cr.Spec.ForProvider.CredentialsSecretRef.Name, Namespace: cr.GetNamespace()}
+		if err := c.kube.Get(ctx, key, secret); err == nil {
+			if val, ok := secret.Data[cr.Spec.ForProvider.CredentialsSecretRef.Key]; ok && len(val) > 0 {
+				pw := string(val)
+				password = &pw
+				logger.Info("using password from credentialsSecretRef")
+			}
+		}
+	}
 	if password == nil {
 		logger.Info("no password provided, letting Mailgun generate one")
-	} else {
+	} else if cr.Spec.ForProvider.Password != nil {
 		logger.Info("using provided password for SMTP credential")
+	} else {
+		logger.Info("using password from credentialsSecretRef for sync")
 	}
 
 	logger.Info("creating new SMTP credential via Mailgun API")

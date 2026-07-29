@@ -36,6 +36,11 @@ type SMTPCredentialParameters struct {
 	// +optional
 	// +kubebuilder:validation:MinLength=8
 	Password *string `json:"password,omitempty"`
+
+	// CredentialsSecretRef references a secret to read the password from for
+	// sync semantics: if key exists use it (preserve client), else generate.
+	// +optional
+	CredentialsSecretRef *xpv1.SecretKeySelector `json:"credentialsSecretRef,omitempty"`
 }
 
 // SMTPCredentialObservation are the observable fields of a SMTPCredential.

@@ -196,7 +196,18 @@ VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 - **`XPKG_REG_ORGS`** - Override crossplane package registry (default: `xpkg.upbound.io/crossplane-contrib`)
 - **`REGISTRY`** - Registry location (now using ghcr.io/rossigee)
 
-## Recent Improvements (2025-10-01)
+## Recent Improvements (2026-07-30)
+
+### Mailgun v4 Domains API Migration (v0.17.2)
+- **Bug Fix**: `status.atProvider.receivingDnsRecords`, `sendingDnsRecords`, `requiredDnsRecords` and `dnsVerified` were empty for every Domain reconcile under v0.17.0 / v0.17.1. Root cause: the v3 endpoints used previously do not return DNS records in their responses.
+- **Fix**: Migrated `CreateDomain`, `GetDomain`, `UpdateDomain` and `VerifyDomain` to the Mailgun v4 Domains API (`/v4/domains`, `/v4/domains/{name}`, `/v4/domains/{name}/verify`). The v4 responses include `receiving_dns_records` and `sending_dns_records` at the top level alongside `domain`, plus a per-record `valid` field (`"valid"` or `"unknown"`).
+- **API Type Changes**: `DNSRecord.Valid` changed from `*bool` to `*string` to match Mailgun's v4 enum exactly; `DNSRecord.Priority` changed from `*int` to `*string` to match the wire format (e.g. `"10"`).
+- **URL Handling**: Added `Config.V4BaseURL` field and `makeRequestAt(baseURL, ...)` helper. `UseProviderConfig` derives `V4BaseURL` from a user-supplied `/v3` `apiBaseURL` by swapping the suffix, so existing ProviderConfigs continue to work without modification.
+- **Controller Simplification**: Removed the Observe fallback that called `VerifyDomain` when records were empty — `GetDomain` now returns the records on every reconcile.
+- **Verify Endpoint**: `VerifyDomain` no longer follows up with a second `GetDomain`; the verify response already carries the current DNS record set with validity.
+- **Tests**: Rewrote wire-shape fixtures for v4; added `TestRecordIsValid` covering nil / "valid" / "unknown" / empty / arbitrary inputs. All 133+ tests pass, lint clean.
+
+## Previous Improvements (2025-10-01)
 
 ### Go 1.26.3 and golangci-lint 2.5.0 Upgrade (v0.14.3)
 - **Go Version Upgrade**: Updated from Go 1.24.5 to Go 1.26.3 throughout entire codebase
@@ -208,7 +219,7 @@ VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 - **Test Stability**: All 133+ tests continue passing after cleanup with no functional changes
 - **Crossplane v2 Native**: Confirmed clean v2 provider with no backward compatibility baggage
 
-## Previous Improvements (2025-09-15)
+### Crossplane Runtime Update (v0.12.0) (2025-09-15)
 
 ### Crossplane Runtime Update (v0.12.0)
 - **Updated crossplane-runtime**: Upgraded from v1.20.0 to v1.21.0-rc.0 to address ProviderConfigUsage namespace creation issues
@@ -218,7 +229,7 @@ VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 - **Build System**: Fixed Crossplane package (.xpkg) building process with embedded Docker images
 - **All Tests Passing**: 133+ test functions continue to pass with 36.3% overall coverage
 
-## Previous Improvements (2025-08-14)
+### HTTP Service Consolidation (v0.10.1) (2025-08-14)
 
 ### HTTP Service Consolidation (v0.10.1)
 - **Single HTTP Server**: Consolidated metrics (previously port 9090) and health checks onto single port 8080
@@ -253,7 +264,9 @@ VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 ## Regional Support
 
 The provider supports both Mailgun regions:
-- **US**: `https://api.mailgun.net/v3` (default)
-- **EU**: `https://api.eu.mailgun.net/v3`
+- **US**: `https://api.mailgun.net/v3` (default; v4 Domains API at `https://api.mailgun.net/v4` is derived automatically)
+- **EU**: `https://api.eu.mailgun.net/v3` (v4 at `https://api.eu.mailgun.net/v4` is derived automatically)
 
-Configure via `region` field in ProviderConfig or explicit `apiBaseURL`.
+Most resources (mailing lists, routes, webhooks, SMTP credentials, templates, bounces, complaints, unsubscribes) hit v3 endpoints. Domain management (create, get, update, verify) uses the Mailgun v4 Domains API so that `receiving_dns_records` and `sending_dns_records` (plus their per-record `valid` status) are returned to the user.
+
+Configure via `region` field in ProviderConfig or explicit `apiBaseURL`. When `apiBaseURL` is supplied with a `/v3` suffix, the v4 base URL is derived by replacing `/v3` with `/v4`.

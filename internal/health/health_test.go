@@ -173,7 +173,10 @@ func TestCreateMailgunHealthCheck(t *testing.T) {
 	t.Run("HealthCheckExecution", func(t *testing.T) {
 		// Create a test server that responds with 404 for health checks
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Path == "/v3/domains/health-check-non-existent-domain.test" {
+			// GetDomain hits the Mailgun v4 Domains API, so the path is
+			// /v4/domains/<name>. V4BaseURL is derived from BaseURL inside
+			// CreateMailgunHealthCheck when the caller leaves it empty.
+			if r.URL.Path == "/v4/domains/health-check-non-existent-domain.test" {
 				w.WriteHeader(http.StatusNotFound)
 				_, _ = w.Write([]byte(`{"message": "Domain not found"}`))
 				return

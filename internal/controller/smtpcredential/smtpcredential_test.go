@@ -296,6 +296,47 @@ func TestSMTPCredentialObserve(t *testing.T) {
 				},
 			},
 		},
+		"CredentialExistsWithSecretEU": {
+			reason: "Should propagate the EU SMTP host from the ProviderConfig region into the connection secret so downstream SMTP clients authenticate against the correct relay",
+			args: args{
+				mg: &v1beta1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-smtp-eu",
+					},
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
+							Domain: "example.eu",
+							Login:  "test@example.eu",
+						},
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
+								Name: "test-secret-eu",
+							},
+						},
+					},
+				},
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-secret-eu",
+					},
+					Data: map[string][]byte{
+						"smtp_username": []byte("test@example.eu"),
+						"smtp_password": []byte("existing-password"),
+					},
+				},
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists:   true,
+					ResourceUpToDate: true,
+					ConnectionDetails: managed.ConnectionDetails{
+						"smtp_host":     []byte("smtp.eu.mailgun.org"),
+						"smtp_port":     []byte("587"),
+						"smtp_username": []byte("test@example.eu"),
+					},
+				},
+			},
+		},
 		"CredentialNotFoundNoSecret": {
 			reason: "Should return ResourceExists false when no secret exists (rotation strategy)",
 			args: args{
@@ -445,9 +486,17 @@ func TestSMTPCredentialObserve(t *testing.T) {
 			// Setup mock Mailgun client
 			mockClient := &MockSMTPCredentialClient{}
 
+			// Default to US host so existing assertions don't change; the EU
+			// case below overrides this explicitly.
+			host := "smtp.mailgun.org"
+			if name == "CredentialExistsWithSecretEU" {
+				host = "smtp.eu.mailgun.org"
+			}
+
 			e := &external{
-				service: mockClient,
-				kube:    kubeClient,
+				service:  mockClient,
+				kube:     kubeClient,
+				smtpHost: host,
 			}
 			got, err := e.Observe(context.Background(), tc.args.mg)
 

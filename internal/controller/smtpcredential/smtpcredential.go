@@ -139,14 +139,19 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 
 	svc := c.newServiceFn(config)
 
-	return &external{service: svc, kube: c.kube}, nil
+	return &external{service: svc, kube: c.kube, smtpHost: config.SMTPHost}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
-	service clients.Client
-	kube    client.Client
+	service  clients.Client
+	kube     client.Client
+	// smtpHost is the SMTP relay hostname corresponding to the ProviderConfig
+	// region (US→smtp.mailgun.org, EU→smtp.eu.mailgun.org). Populated by
+	// Connect from clients.Config.SMTPHost so the connection secret carries
+	// a host that matches where the credential actually authenticates.
+	smtpHost string
 }
 
 func (c *external) Disconnect(ctx context.Context) error {
@@ -292,7 +297,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 			ResourceExists:   true,
 			ResourceUpToDate: true,
 			ConnectionDetails: managed.ConnectionDetails{
-				"smtp_host":     []byte("smtp.mailgun.org"),
+				"smtp_host":     []byte(c.smtpHostOrDefault()),
 				"smtp_port":     []byte("587"),
 				"smtp_username": []byte(cr.Spec.ForProvider.Login),
 				// Password is already stored in the secret, don't overwrite
@@ -364,7 +369,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 			ResourceExists:   true,
 			ResourceUpToDate: true,
 			ConnectionDetails: managed.ConnectionDetails{
-				"smtp_host":     []byte("smtp.mailgun.org"),
+				"smtp_host":     []byte(c.smtpHostOrDefault()),
 				"smtp_port":     []byte("587"),
 				"smtp_username": []byte(externalName),
 				// Note: password is not available since secret is missing
@@ -387,6 +392,17 @@ func getSecretDataKeys(data map[string][]byte) []string {
 		keys = append(keys, k)
 	}
 	return keys
+}
+
+// smtpHostOrDefault returns the configured SMTP host or the US default if
+// none was set on the external. This keeps unit tests that build an external
+// directly (without going through Connect) working without a separate
+// constructor on every test path.
+func (c *external) smtpHostOrDefault() string {
+	if c.smtpHost != "" {
+		return c.smtpHost
+	}
+	return clients.DefaultSMTPHost
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
@@ -545,7 +561,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	return managed.ExternalCreation{
 		ConnectionDetails: managed.ConnectionDetails{
-			"smtp_host":     []byte("smtp.mailgun.org"),
+			"smtp_host":     []byte(c.smtpHostOrDefault()),
 			"smtp_port":     []byte("587"),
 			"smtp_username": []byte(credential.Login),
 			"smtp_password": []byte(connectionPassword),

@@ -42,20 +42,111 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	// DefaultBaseURL is the default Mailgun API base URL for US region
-	DefaultBaseURL = "https://api.mailgun.net/v3"
-	// EUBaseURL is the Mailgun API base URL for EU region
-	EUBaseURL = "https://api.eu.mailgun.net/v3"
+// Region describes a Mailgun regional deployment. Each entry maps a
+// ProviderConfig.Spec.Region code ("US", "EU") to the corresponding API
+// endpoints and SMTP relay hostname. Append a new entry here when Mailgun
+// launches a new region; no other code change is required (the
+// ProviderConfig CRD enum will also need to be regenerated).
+type Region struct {
+	// Code is the canonical short name used in ProviderConfig.Spec.Region.
+	Code string
+	// BaseURL is the Mailgun v3 API base URL for this region.
+	BaseURL string
+	// V4BaseURL is the Mailgun v4 Domains API base URL for this region.
+	V4BaseURL string
+	// SMTPHost is the SMTP relay hostname SMTP clients (Keycloak, Postfix,
+	// …) connect to when authenticating with credentials issued from this
+	// region.
+	SMTPHost string
+	// URLMarkers are substrings of an apiBaseURL that identify this region
+	// when the user supplies an explicit apiBaseURL without setting
+	// spec.region. The more specific marker should be listed first inside a
+	// single region (e.g. "eu.mailgun.net" before "mailgun.net") so the
+	// longest-prefix match wins during detection.
+	URLMarkers []string
+}
 
-	// DefaultV4BaseURL is the default Mailgun v4 Domains API base URL for US region
-	DefaultV4BaseURL = "https://api.mailgun.net/v4"
-	// EUV4BaseURL is the Mailgun v4 Domains API base URL for EU region
-	EUV4BaseURL = "https://api.eu.mailgun.net/v4"
+// regions is the registered list of Mailgun regions. Append here when a
+// new region is added.
+var regions = []Region{
+	{
+		Code:       "US",
+		BaseURL:    "https://api.mailgun.net/v3",
+		V4BaseURL:  "https://api.mailgun.net/v4",
+		SMTPHost:   "smtp.mailgun.org",
+		URLMarkers: []string{"mailgun.net"},
+	},
+	{
+		Code:       "EU",
+		BaseURL:    "https://api.eu.mailgun.net/v3",
+		V4BaseURL:  "https://api.eu.mailgun.net/v4",
+		SMTPHost:   "smtp.eu.mailgun.org",
+		URLMarkers: []string{"eu.mailgun.net"},
+	},
+}
+
+const (
+	// DefaultSMTPHost is the SMTP relay hostname for the implicit default
+	// region (the first entry of the regions registry, currently US).
+	// Exposed as a constant for backwards-compat with callers that resolve
+	// the default without a ProviderConfig in hand. The first region entry
+	// in `regions` below must use this same value.
+	DefaultSMTPHost = "smtp.mailgun.org"
 
 	// HTTP timeout for API requests
 	defaultTimeout = 30 * time.Second
 )
+
+// findRegionByCode looks up a region by its Code. Returns false when the
+// code is not registered.
+func findRegionByCode(code string) (Region, bool) {
+	for _, r := range regions {
+		if r.Code == code {
+			return r, true
+		}
+	}
+	return Region{}, false
+}
+
+// detectRegionByURL returns the region whose URLMarkers appear in baseURL.
+// When more than one region's marker matches (e.g. "eu.mailgun.net" matches
+// both EU and the more general US "mailgun.net" marker), the longest
+// matching marker wins so the most specific region is selected.
+// Returns false when no marker matches.
+func detectRegionByURL(baseURL string) (Region, bool) {
+	var best Region
+	bestLen := -1
+	matched := false
+	for _, r := range regions {
+		for _, marker := range r.URLMarkers {
+			if !strings.Contains(baseURL, marker) {
+				continue
+			}
+			if len(marker) > bestLen {
+				best = r
+				bestLen = len(marker)
+				matched = true
+			}
+		}
+	}
+	return best, matched
+}
+
+// DeriveV4BaseURL returns the v4 Domains API base URL corresponding to a
+// v3 (or unspecified-suffix) base URL. If baseURL ends with /v3 the suffix
+// is swapped for /v4; an explicit /v4 is kept verbatim; otherwise /v4 is
+// appended. Exported so callers that build Config manually (e.g. the
+// health check) can populate V4BaseURL without duplicating the rule.
+func DeriveV4BaseURL(baseURL string) string {
+	switch {
+	case strings.HasSuffix(baseURL, "/v3"):
+		return strings.TrimSuffix(baseURL, "/v3") + "/v4"
+	case strings.HasSuffix(baseURL, "/v4"):
+		return baseURL
+	default:
+		return baseURL + "/v4"
+	}
+}
 
 // Client interface for Mailgun API operations
 type Client interface {
@@ -114,14 +205,20 @@ type Client interface {
 
 // Config holds the configuration for the Mailgun client
 type Config struct {
-	APIKey     string
-	BaseURL    string
+	APIKey   string
+	BaseURL  string
 	// V4BaseURL is the base URL for Mailgun v4 Domains API endpoints. When
 	// the user supplies a BaseURL with a trailing /v3 (the historic default),
 	// V4BaseURL is derived by swapping /v3 for /v4 so domain management calls
 	// can hit /v4/domains, /v4/domains/{name} and /v4/domains/{name}/verify.
-	V4BaseURL    string
-	HTTPClient   *http.Client
+	V4BaseURL string
+	// SMTPHost is the hostname SMTP clients should use to deliver mail
+	// through this ProviderConfig. It is derived from the region
+	// (US→smtp.mailgun.org, EU→smtp.eu.mailgun.org) and propagated into the
+	// connection secret so downstream consumers (Keycloak, Odoo, …) get a
+	// host that matches where the credential actually authenticates.
+	SMTPHost  string
+	HTTPClient *http.Client
 }
 
 // Credentials represents the structure of the credentials secret
@@ -223,33 +320,46 @@ func UseProviderConfig(ctx context.Context, c client.Client, mg resource.Managed
 		return nil, errors.New("mailgun API key not found in credentials")
 	}
 
-	baseURL := DefaultBaseURL
+	// Select the region. Priority: explicit spec.region (if recognised) →
+	// URL marker on apiBaseURL → first registered region (US).
+	region := regions[0]
+	if pc.Spec.Region != nil {
+		if r, ok := findRegionByCode(*pc.Spec.Region); ok {
+			region = r
+		}
+	}
+	if pc.Spec.APIBaseURL != nil {
+		if r, ok := detectRegionByURL(*pc.Spec.APIBaseURL); ok {
+			region = r
+		}
+	}
+
+	// Resolve base URL. If the caller supplied an explicit apiBaseURL we
+	// honour it verbatim; otherwise use the region default.
+	baseURL := region.BaseURL
 	if pc.Spec.APIBaseURL != nil {
 		baseURL = *pc.Spec.APIBaseURL
-	} else if pc.Spec.Region != nil && *pc.Spec.Region == "EU" {
-		baseURL = EUBaseURL
 	}
 
-	// Derive v4 base URL. If BaseURL ends with /v3 (historic default), swap
-	// for /v4; otherwise apply the same region selection against the v4
-	// constants.
-	v4BaseURL := DefaultV4BaseURL
+	// Derive v4 base URL. If baseURL ends with /v3 (historic default),
+	// swap for /v4; otherwise honour an explicit /v4 suffix, or append /v4.
+	v4BaseURL := region.V4BaseURL
 	if pc.Spec.APIBaseURL != nil {
-		if strings.HasSuffix(baseURL, "/v3") {
-			v4BaseURL = strings.TrimSuffix(baseURL, "/v3") + "/v4"
-		} else if strings.HasSuffix(baseURL, "/v4") {
-			v4BaseURL = baseURL
-		} else {
-			v4BaseURL = baseURL + "/v4"
-		}
-	} else if pc.Spec.Region != nil && *pc.Spec.Region == "EU" {
-		v4BaseURL = EUV4BaseURL
+		v4BaseURL = DeriveV4BaseURL(baseURL)
 	}
+
+	// Derive SMTP host. The relay hostname is what SMTP clients (Keycloak,
+	// Postfix, …) connect to; it must match the region of the credentials.
+	// Region is authoritative when set; APIBaseURL-based detection is used
+	// when Region is unset so an explicit apiBaseURL still produces the
+	// matching SMTP relay.
+	smtpHost := region.SMTPHost
 
 	return &Config{
-		APIKey:     apiKey,
-		BaseURL:    baseURL,
-		V4BaseURL:  v4BaseURL,
+		APIKey:    apiKey,
+		BaseURL:   baseURL,
+		V4BaseURL: v4BaseURL,
+		SMTPHost:  smtpHost,
 	}, nil
 }
 

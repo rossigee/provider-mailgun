@@ -282,10 +282,21 @@ VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 
 ## Regional Support
 
-The provider supports both Mailgun regions:
-- **US**: `https://api.mailgun.net/v3` (default; v4 Domains API at `https://api.mailgun.net/v4` is derived automatically)
-- **EU**: `https://api.eu.mailgun.net/v3` (v4 at `https://api.eu.mailgun.net/v4` is derived automatically)
+The provider supports multiple Mailgun regions via a registry table in
+`internal/clients/mailgun.go` (`Region` struct + `regions` slice). Adding
+a new region is one entry plus a CRD enum update — no conditional code
+edits required.
+
+Currently registered:
+- **US** (default): API `https://api.mailgun.net/v3`, v4 Domains `https://api.mailgun.net/v4`, SMTP `smtp.mailgun.org`
+- **EU**: API `https://api.eu.mailgun.net/v3`, v4 Domains `https://api.eu.mailgun.net/v4`, SMTP `smtp.eu.mailgun.org`
 
 Most resources (mailing lists, routes, webhooks, SMTP credentials, templates, bounces, complaints, unsubscribes) hit v3 endpoints. Domain management (create, get, update, verify) uses the Mailgun v4 Domains API so that `receiving_dns_records` and `sending_dns_records` (plus their per-record `valid` status) are returned to the user.
 
-Configure via `region` field in ProviderConfig or explicit `apiBaseURL`. When `apiBaseURL` is supplied with a `/v3` suffix, the v4 base URL is derived by replacing `/v3` with `/v4`.
+Configure via `region` field in ProviderConfig or explicit `apiBaseURL`. Region resolution priority:
+
+1. Explicit `spec.region` if it matches a registered code.
+2. URL marker on `apiBaseURL` (longest match wins, so `eu.mailgun.net` resolves to EU rather than the more general US `mailgun.net` marker).
+3. First registered region (US).
+
+When `apiBaseURL` is supplied with a `/v3` suffix, the v4 base URL is derived by replacing `/v3` with `/v4`. The SMTP host is always taken from the resolved region so downstream consumers (Keycloak, Odoo, …) authenticate against the relay that matches where the credential was issued.

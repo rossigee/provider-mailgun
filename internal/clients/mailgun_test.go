@@ -573,3 +573,101 @@ type testError struct {
 func (e *testError) Error() string {
 	return e.msg
 }
+
+func TestRegions_HasUSAndEU(t *testing.T) {
+	codes := make(map[string]bool, len(regions))
+	for _, r := range regions {
+		if r.Code == "" {
+			t.Errorf("region entry has empty Code: %+v", r)
+		}
+		if r.BaseURL == "" || r.V4BaseURL == "" || r.SMTPHost == "" {
+			t.Errorf("region %q missing required field: %+v", r.Code, r)
+		}
+		codes[r.Code] = true
+	}
+	for _, want := range []string{"US", "EU"} {
+		if !codes[want] {
+			t.Errorf("regions registry missing %q; got %v", want, codes)
+		}
+	}
+	if regions[0].SMTPHost != DefaultSMTPHost {
+		t.Errorf("first region SMTPHost %q does not match DefaultSMTPHost %q — keep them in sync",
+			regions[0].SMTPHost, DefaultSMTPHost)
+	}
+}
+
+func TestFindRegionByCode(t *testing.T) {
+	tests := []struct {
+		code     string
+		wantCode string
+		wantOK   bool
+	}{
+		{code: "US", wantCode: "US", wantOK: true},
+		{code: "EU", wantCode: "EU", wantOK: true},
+		{code: "us", wantOK: false},
+		{code: "", wantOK: false},
+		{code: "AP", wantOK: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.code, func(t *testing.T) {
+			got, ok := findRegionByCode(tc.code)
+			if ok != tc.wantOK {
+				t.Fatalf("ok = %v, want %v", ok, tc.wantOK)
+			}
+			if ok && got.Code != tc.wantCode {
+				t.Errorf("Code = %q, want %q", got.Code, tc.wantCode)
+			}
+		})
+	}
+}
+
+func TestDetectRegionByURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		baseURL  string
+		wantCode string
+		wantOK   bool
+	}{
+		{name: "US default", baseURL: "https://api.mailgun.net/v3", wantCode: "US", wantOK: true},
+		{name: "US v4", baseURL: "https://api.mailgun.net/v4", wantCode: "US", wantOK: true},
+		{name: "EU v3", baseURL: "https://api.eu.mailgun.net/v3", wantCode: "EU", wantOK: true},
+		{name: "EU v4", baseURL: "https://api.eu.mailgun.net/v4", wantCode: "EU", wantOK: true},
+		{name: "EU marker wins over US marker", baseURL: "https://api.eu.mailgun.net/v3", wantCode: "EU", wantOK: true},
+		{name: "custom URL no match", baseURL: "https://internal.example.com/v3", wantOK: false},
+		{name: "empty", baseURL: "", wantOK: false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := detectRegionByURL(tc.baseURL)
+			if ok != tc.wantOK {
+				t.Fatalf("ok = %v, want %v (got %+v)", ok, tc.wantOK, got)
+			}
+			if ok && got.Code != tc.wantCode {
+				t.Errorf("Code = %q, want %q", got.Code, tc.wantCode)
+			}
+		})
+	}
+}
+
+func TestDeriveV4BaseURL(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{name: "v3 suffix swapped", in: "https://api.mailgun.net/v3", want: "https://api.mailgun.net/v4"},
+		{name: "EU v3 swapped", in: "https://api.eu.mailgun.net/v3", want: "https://api.eu.mailgun.net/v4"},
+		{name: "v4 kept verbatim", in: "https://api.mailgun.net/v4", want: "https://api.mailgun.net/v4"},
+		{name: "no suffix appended", in: "https://api.mailgun.net", want: "https://api.mailgun.net/v4"},
+		{name: "trailing path no suffix", in: "https://api.mailgun.net/custom", want: "https://api.mailgun.net/custom/v4"},
+		{name: "empty", in: "", want: "/v4"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := DeriveV4BaseURL(tc.in)
+			if got != tc.want {
+				t.Errorf("DeriveV4BaseURL(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}

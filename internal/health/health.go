@@ -56,6 +56,16 @@ func CreateMailgunHealthCheck(config *clients.Config) func(context.Context) erro
 		return nil
 	}
 
+	// Ensure V4BaseURL is populated. GetDomain hits the v4 Domains API, so
+	// an empty V4BaseURL yields "unsupported protocol scheme """. When the
+	// caller only supplied BaseURL we derive V4BaseURL from it using the
+	// same /v3→/v4 swap that UseProviderConfig applies.
+	if config.V4BaseURL == "" && config.BaseURL != "" {
+		v4Copy := *config
+		v4Copy.V4BaseURL = clients.DeriveV4BaseURL(config.BaseURL)
+		config = &v4Copy
+	}
+
 	return func(ctx context.Context) error {
 		// Create a client with the provided config
 		client := clients.NewClient(config)

@@ -87,6 +87,14 @@ func responseToObservation(r *DomainResponse) *domaintypes.DomainObservation {
 	combined = append(combined, obs.SendingDNSRecords...)
 	obs.DNSVerified = computeDNSVerified(combined)
 
+	// RequiredDNSRecords exposes the same union of receiving + sending records
+	// as a single list. The Mailgun v4 Domains API no longer nests DNS records
+	// inside the domain object; it surfaces them at the top level as
+	// receiving_dns_records and sending_dns_records. We populate this field for
+	// backward compatibility with callers (and the controller's event helper)
+	// that read .status.atProvider.requiredDnsRecords.
+	obs.RequiredDNSRecords = combined
+
 	return obs
 }
 

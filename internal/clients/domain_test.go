@@ -119,6 +119,21 @@ func TestCreateDomain(t *testing.T) {
 						Valid: stringPtr("unknown"),
 					},
 				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					{
+						Name:     "test.com",
+						Type:     "MX",
+						Value:    "mxa.mailgun.org",
+						Priority: stringPtr("10"),
+						Valid:    stringPtr("unknown"),
+					},
+					{
+						Name:  "test.com",
+						Type:  "TXT",
+						Value: "v=spf1 include:mailgun.org ~all",
+						Valid: stringPtr("unknown"),
+					},
+				},
 			},
 			expectedError: false,
 		},
@@ -166,6 +181,9 @@ func TestCreateDomain(t *testing.T) {
 				SendingDNSRecords: []domaintypes.DNSRecord{
 					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
 				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
+				},
 			},
 			expectedError: false,
 		},
@@ -187,6 +205,7 @@ func TestCreateDomain(t *testing.T) {
 				ID:          "empty.com",
 				State:       "unverified",
 				DNSVerified: nil,
+				RequiredDNSRecords: []domaintypes.DNSRecord{},
 			},
 			expectedError: false,
 		},
@@ -278,6 +297,11 @@ func TestGetDomain(t *testing.T) {
 					{Name: "example.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: stringPtr("valid")},
 					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: stringPtr("valid")},
 				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					{Name: "example.com", Type: "MX", Value: "mxa.mailgun.org", Priority: stringPtr("10"), Valid: stringPtr("valid")},
+					{Name: "example.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: stringPtr("valid")},
+					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: stringPtr("valid")},
+				},
 			},
 			expectedError: false,
 		},
@@ -302,6 +326,10 @@ func TestGetDomain(t *testing.T) {
 				State:       "unverified",
 				DNSVerified: boolPtr(false),
 				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "partial.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
+					{Name: "k1._domainkey.partial.com", Type: "TXT", Value: "k=rsa; p=...", Valid: stringPtr("unknown")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
 					{Name: "partial.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
 					{Name: "k1._domainkey.partial.com", Type: "TXT", Value: "k=rsa; p=...", Valid: stringPtr("unknown")},
 				},
@@ -390,6 +418,9 @@ func TestUpdateDomain(t *testing.T) {
 				State:        "active",
 				DNSVerified:  boolPtr(true),
 				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "update.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
 					{Name: "update.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
 				},
 			},

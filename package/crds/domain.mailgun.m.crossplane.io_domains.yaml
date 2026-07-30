@@ -25,6 +25,9 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
+    - jsonPath: .status.atProvider.state
+      name: STATE
+      type: string
     - jsonPath: .status.atProvider.dnsVerified
       name: DNS-VERIFIED
       type: string
@@ -233,9 +236,11 @@ spec:
                             A)
                           type: string
                         valid:
-                          description: |-
-                            Valid is the verification status as returned by Mailgun ("valid" or
-                            "unknown")
+                          description: Valid is the verification status returned by
+                            Mailgun.
+                          enum:
+                          - valid
+                          - unknown
                           type: string
                         value:
                           description: Value is the DNS record value
@@ -264,9 +269,11 @@ spec:
                             A)
                           type: string
                         valid:
-                          description: |-
-                            Valid is the verification status as returned by Mailgun ("valid" or
-                            "unknown")
+                          description: Valid is the verification status returned by
+                            Mailgun.
+                          enum:
+                          - valid
+                          - unknown
                           type: string
                         value:
                           description: Value is the DNS record value
@@ -294,9 +301,11 @@ spec:
                             A)
                           type: string
                         valid:
-                          description: |-
-                            Valid is the verification status as returned by Mailgun ("valid" or
-                            "unknown")
+                          description: Valid is the verification status returned by
+                            Mailgun.
+                          enum:
+                          - valid
+                          - unknown
                           type: string
                         value:
                           description: Value is the DNS record value

@@ -19,11 +19,15 @@ package clients
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestIsNotFound(t *testing.T) {
@@ -373,6 +377,191 @@ func TestCreateFormData(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestParseRateLimit(t *testing.T) {
+	now := time.Now()
+	resetEpoch := now.Add(time.Hour).Unix()
+
+	cases := []struct {
+		name      string
+		status    int
+		headers   map[string]string
+		wantNil   bool
+		wantAfter time.Duration
+		wantReset bool
+	}{
+		{
+			name:    "non-429 returns nil",
+			status:  http.StatusOK,
+			wantNil: true,
+		},
+		{
+			name: "retry-after seconds only",
+			status: http.StatusTooManyRequests,
+			headers: map[string]string{
+				"Retry-After": "30",
+			},
+			wantAfter: 30 * time.Second,
+		},
+		{
+			name: "x-ratelimit-reset epoch only",
+			status: http.StatusTooManyRequests,
+			headers: map[string]string{
+				"X-RateLimit-Reset": strconv.FormatInt(resetEpoch, 10),
+			},
+			wantAfter: time.Until(time.Unix(resetEpoch, 0)),
+			wantReset: true,
+		},
+		{
+			name: "retry-after wins when both present",
+			status: http.StatusTooManyRequests,
+			headers: map[string]string{
+				"Retry-After":       "5",
+				"X-RateLimit-Reset": strconv.FormatInt(resetEpoch, 10),
+			},
+			wantAfter: 5 * time.Second,
+			wantReset: true,
+		},
+		{
+			name: "limit and remaining captured",
+			status: http.StatusTooManyRequests,
+			headers: map[string]string{
+				"Retry-After":         "10",
+				"X-RateLimit-Limit":   "100",
+				"X-RateLimit-Remaining": "0",
+			},
+			wantAfter: 10 * time.Second,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			resp := &http.Response{
+				StatusCode: c.status,
+				Header:     http.Header{},
+			}
+			for k, v := range c.headers {
+				resp.Header.Set(k, v)
+			}
+
+			got := parseRateLimit(resp)
+			if c.wantNil {
+				if got != nil {
+					t.Fatalf("expected nil, got %+v", got)
+				}
+				return
+			}
+			if got == nil {
+				t.Fatal("expected non-nil RateLimitError")
+			}
+			// Allow +/-500ms slop on Reset-derived durations.
+			if d := got.RetryAfter - c.wantAfter; d < -500*time.Millisecond || d > 500*time.Millisecond {
+				t.Errorf("RetryAfter = %s, want ~%s", got.RetryAfter, c.wantAfter)
+			}
+			if c.wantReset && got.Reset.IsZero() {
+				t.Error("expected Reset to be populated")
+			}
+			if !c.wantReset && !got.Reset.IsZero() {
+				t.Errorf("expected Reset to be zero, got %s", got.Reset)
+			}
+		})
+	}
+}
+
+func TestRateLimitError_Error(t *testing.T) {
+	e := &RateLimitError{
+		RetryAfter: 30 * time.Second,
+		Reset:      time.Unix(1700000000, 0),
+		Limit:      "100",
+		Remaining:  "0",
+	}
+	msg := e.Error()
+	if !strings.Contains(msg, "429") {
+		t.Errorf("expected message to contain 429, got %q", msg)
+	}
+	if !strings.Contains(msg, "retry after 30s") {
+		t.Errorf("expected message to contain retry-after, got %q", msg)
+	}
+	if !strings.Contains(msg, "limit=100 remaining=0") {
+		t.Errorf("expected message to contain limit/remaining, got %q", msg)
+	}
+}
+
+func TestMakeRequestRateLimitRetry(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt32(&calls, 1)
+		if n == 1 {
+			w.Header().Set("Retry-After", "1") // 1 second is enough to exercise the back-off path
+			w.Header().Set("X-RateLimit-Limit", "100")
+			w.Header().Set("X-RateLimit-Remaining", "0")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte(`{"message":"rate limit"}`))
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"ok":true}`))
+	}))
+	defer server.Close()
+
+	config := &Config{
+		APIKey:     "test-key",
+		BaseURL:    server.URL,
+		HTTPClient: &http.Client{},
+	}
+	c := NewClient(config).(*mailgunClient)
+
+	start := time.Now()
+	resp, err := c.makeRequest(context.Background(), "GET", "/test", nil)
+	elapsed := time.Since(start)
+	if err != nil {
+		t.Fatalf("expected retry to succeed, got error: %v", err)
+	}
+	if resp == nil {
+		t.Fatal("expected response, got nil")
+	}
+	_ = resp.Body.Close()
+	if atomic.LoadInt32(&calls) != 2 {
+		t.Errorf("expected 2 calls, got %d", calls)
+	}
+	// Retry-After=1 should produce roughly 1s elapsed. Allow 200ms slop for slow CI.
+	if elapsed < 800*time.Millisecond {
+		t.Errorf("expected retry to wait ~1s, elapsed=%s", elapsed)
+	}
+}
+
+func TestMakeRequestRateLimitExhaustion(t *testing.T) {
+	var calls int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		w.Header().Set("Retry-After", "1")
+		w.WriteHeader(http.StatusTooManyRequests)
+	}))
+	defer server.Close()
+
+	config := &Config{
+		APIKey:     "test-key",
+		BaseURL:    server.URL,
+		HTTPClient: &http.Client{},
+	}
+	c := NewClient(config).(*mailgunClient)
+
+	resp, err := c.makeRequest(context.Background(), "GET", "/test", nil)
+	if resp != nil {
+		_ = resp.Body.Close()
+	}
+	if err == nil {
+		t.Fatal("expected error after retries exhausted")
+	}
+	var rlErr *RateLimitError
+	if !errors.As(err, &rlErr) {
+		t.Fatalf("expected RateLimitError, got %T: %v", err, err)
+	}
+	// Initial attempt + 3 retries = 4 calls.
+	if got := atomic.LoadInt32(&calls); got != 4 {
+		t.Errorf("expected 4 calls (initial + 3 retries), got %d", got)
 	}
 }
 

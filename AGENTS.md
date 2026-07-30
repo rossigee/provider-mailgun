@@ -135,7 +135,7 @@ type DomainObservation struct {
 - ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.17.2` (current - Crossplane v2 with crossplane-runtime v2.3.0 and ModernManaged)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.17.3` (current - Crossplane v2 with crossplane-runtime v2.3.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
@@ -197,6 +197,14 @@ VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 - **`REGISTRY`** - Registry location (now using ghcr.io/rossigee)
 
 ## Recent Improvements (2026-07-30)
+
+### DNS Re-Verification Loop, Rate-Limit Handling, RecordValidity Enum, Stable ServiceAccount (v0.17.3)
+- **DNS Re-Verification Loop**: When DNS records are not yet verified, the Domain controller now calls `VerifyDomain` to trigger a Mailgun DNS re-check and sets `crossplane.io/poll-interval=5m` so the next reconcile happens on a Mailgun-friendly cadence rather than the controller-runtime default. This eliminates API-quota-burning tight loops on `dnsVerified=False`. A `DNSReverifyRequested` event is emitted so the user has a visible signal.
+- **Rate-Limit Handling**: The HTTP client now detects HTTP 429 responses, parses `Retry-After` (seconds or HTTP-date) and `X-RateLimit-Reset` (epoch seconds), and honours the server-supplied back-off between retries. A typed `*RateLimitError` is returned after the configured retry budget is exhausted.
+- **Typed `RecordValidity` Enum**: `DNSRecord.Valid` is now `*RecordValidity` (a string-typed enum) instead of `*string`. `// +kubebuilder:validation:Enum=valid;unknown` is applied to the CRD field so typos are rejected at admission time. The `IsVerified()` helper encapsulates the nil / unknown check.
+- **State Printcolumn**: `kubectl get domain` now displays a `STATE` column (`active`, `unverified`, etc.) sourced from `.status.atProvider.state`.
+- **Stable ServiceAccount**: `examples/provider/stable-sa-deployment-runtime-config.yaml` shows how to pin ProviderRevisions to a stable ServiceAccount (`provider-mailgun`) via `DeploymentRuntimeConfig` and bind RBAC to it precisely. `examples/provider/events-rbac.yaml` ships the matching `ClusterRole` granting `events.events.k8s.io/v1` to the provider.
+- **Tests**: Added `TestParseRateLimit`, `TestRateLimitError_Error`, `TestMakeRequestRateLimitRetry`, `TestMakeRequestRateLimitExhaustion` for 429 handling, plus `TestDomainObserveDNSReverify` covering the new reverify / poll-interval logic. All 133+ tests pass, lint clean.
 
 ### Mailgun v4 Domains API Migration (v0.17.2)
 - **Bug Fix**: `status.atProvider.receivingDnsRecords`, `sendingDnsRecords`, `requiredDnsRecords` and `dnsVerified` were empty for every Domain reconcile under v0.17.0 / v0.17.1. Root cause: the v3 endpoints used previously do not return DNS records in their responses.

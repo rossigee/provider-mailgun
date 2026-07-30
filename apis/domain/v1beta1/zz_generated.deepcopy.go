@@ -34,7 +34,7 @@ func (in *DNSRecord) DeepCopyInto(out *DNSRecord) {
 	}
 	if in.Valid != nil {
 		in, out := &in.Valid, &out.Valid
-		*out = new(string)
+		*out = new(RecordValidity)
 		**out = **in
 	}
 }

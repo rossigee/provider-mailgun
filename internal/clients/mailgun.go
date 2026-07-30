@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -257,6 +258,76 @@ func (c *mailgunClient) makeRequest(ctx context.Context, method, path string, bo
 	return c.makeRequestAt(ctx, c.config.BaseURL, method, path, body)
 }
 
+// RateLimitError is returned when the Mailgun API responds with HTTP 429
+// Too Many Requests. It carries the retry duration Mailgun (or the
+// upstream proxy) asked for, either parsed from the Retry-After header or
+// derived from the X-RateLimit-Reset epoch.
+type RateLimitError struct {
+	// RetryAfter is the duration to wait before issuing the next request.
+	RetryAfter time.Duration
+	// Reset is the time at which the rate-limit window resets, when the
+	// X-RateLimit-Reset header was present.
+	Reset time.Time
+	// Limit and Remaining mirror the X-RateLimit-* informational headers
+	// when present.
+	Limit     string
+	Remaining string
+}
+
+// Error renders a human-readable description of the rate-limit event.
+func (e *RateLimitError) Error() string {
+	parts := []string{"mailgun API rate limit exceeded (HTTP 429)"}
+	if e.RetryAfter > 0 {
+		parts = append(parts, fmt.Sprintf("retry after %s", e.RetryAfter))
+	}
+	if !e.Reset.IsZero() {
+		parts = append(parts, fmt.Sprintf("reset at %s", e.Reset.Format(time.RFC3339)))
+	}
+	if e.Limit != "" {
+		parts = append(parts, fmt.Sprintf("limit=%s remaining=%s", e.Limit, e.Remaining))
+	}
+	return strings.Join(parts, "; ")
+}
+
+// parseRateLimit extracts Retry-After / X-RateLimit-* hints from a 429
+// response. Returns nil for any other status code.
+func parseRateLimit(resp *http.Response) *RateLimitError {
+	if resp.StatusCode != http.StatusTooManyRequests {
+		return nil
+	}
+	e := &RateLimitError{
+		Limit:     resp.Header.Get("X-RateLimit-Limit"),
+		Remaining: resp.Header.Get("X-RateLimit-Remaining"),
+	}
+
+	// Retry-After may be a number of seconds or an HTTP-date.
+	if h := resp.Header.Get("Retry-After"); h != "" {
+		if secs, err := strconv.Atoi(h); err == nil {
+			e.RetryAfter = time.Duration(secs) * time.Second
+		} else if t, err := http.ParseTime(h); err == nil {
+			d := time.Until(t)
+			if d > 0 {
+				e.RetryAfter = d
+			}
+		}
+	}
+
+	// X-RateLimit-Reset is a unix epoch (seconds) in Mailgun's response.
+	if h := resp.Header.Get("X-RateLimit-Reset"); h != "" {
+		if epoch, err := strconv.ParseInt(h, 10, 64); err == nil {
+			e.Reset = time.Unix(epoch, 0)
+		}
+	}
+
+	if e.RetryAfter == 0 && !e.Reset.IsZero() {
+		if d := time.Until(e.Reset); d > 0 {
+			e.RetryAfter = d
+		}
+	}
+
+	return e
+}
+
 // makeRequestAt issues a request against an explicit base URL, used by v4
 // Domains API calls.
 func (c *mailgunClient) makeRequestAt(ctx context.Context, baseURL, method, path string, body io.Reader) (*http.Response, error) {
@@ -288,14 +359,32 @@ func (c *mailgunClient) makeRequestAt(ctx context.Context, baseURL, method, path
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 
-	// Retry logic for 502 Bad Gateway errors
+	// Retry logic handles transient 502 Bad Gateway and 429 Too Many Requests
+	// responses. 429 honours Mailgun's Retry-After / X-RateLimit-Reset hints
+	// so we back off exactly as long as Mailgun asks.
 	var resp *http.Response
+	var lastRateLimit *RateLimitError
 	maxRetries := 3
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
-			// Wait before retry with exponential backoff
-			waitTime := time.Duration(attempt) * 2 * time.Second
-			time.Sleep(waitTime)
+			var waitTime time.Duration
+			if lastRateLimit != nil && lastRateLimit.RetryAfter > 0 {
+				// Respect server-supplied back-off. Cap to 5 minutes so a
+				// misbehaving upstream cannot wedge a reconcile forever.
+				waitTime = lastRateLimit.RetryAfter
+				if waitTime > 5*time.Minute {
+					waitTime = 5 * time.Minute
+				}
+			} else {
+				waitTime = time.Duration(attempt) * 2 * time.Second
+			}
+
+			// Honour the request context while sleeping.
+			select {
+			case <-time.After(waitTime):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
 
 			// Recreate the request for retry using stored body data
 			var retryBody io.Reader
@@ -319,6 +408,17 @@ func (c *mailgunClient) makeRequestAt(ctx context.Context, baseURL, method, path
 				return nil, errors.Wrap(err, "failed to execute request after retries")
 			}
 			continue
+		}
+
+		// Handle 429 Too Many Requests before any other status code. We
+		// honour the server-supplied Retry-After / X-RateLimit-Reset.
+		if rlErr := parseRateLimit(resp); rlErr != nil {
+			_ = resp.Body.Close()
+			lastRateLimit = rlErr
+			if attempt < maxRetries {
+				continue
+			}
+			return nil, rlErr
 		}
 
 		// If it's not a 502, return the response (success or other error)

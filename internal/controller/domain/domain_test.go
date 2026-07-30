@@ -18,13 +18,16 @@ package domain
 
 import (
 	"context"
+	"sync/atomic"
 	"testing"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	v1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
@@ -37,8 +40,11 @@ import (
 
 // MockDomainClient for testing
 type MockDomainClient struct {
-	domains map[string]*v1beta1.DomainObservation
-	err     error
+	domains       map[string]*v1beta1.DomainObservation
+	err           error
+	verifyCalls   int32
+	getCalls      int32
+	verifyUpdates map[string]*v1beta1.DomainObservation // optional override applied during VerifyDomain
 }
 
 func (m *MockDomainClient) CreateDomain(ctx context.Context, domain *v1beta1.DomainParameters) (*v1beta1.DomainObservation, error) {
@@ -57,7 +63,7 @@ func (m *MockDomainClient) CreateDomain(ctx context.Context, domain *v1beta1.Dom
 				Name:  domain.Name,
 				Type:  "TXT",
 				Value: "v=spf1 include:mailgun.org ~all",
-				Valid: stringPtr("unknown"),
+				Valid: recordValidityPtr("unknown"),
 			},
 		},
 	}
@@ -71,6 +77,7 @@ func (m *MockDomainClient) CreateDomain(ctx context.Context, domain *v1beta1.Dom
 }
 
 func (m *MockDomainClient) GetDomain(ctx context.Context, name string) (*v1beta1.DomainObservation, error) {
+	atomic.AddInt32(&m.getCalls, 1)
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -105,6 +112,7 @@ func (m *MockDomainClient) DeleteDomain(ctx context.Context, name string) error 
 }
 
 func (m *MockDomainClient) VerifyDomain(ctx context.Context, name string) (*v1beta1.DomainObservation, error) {
+	atomic.AddInt32(&m.verifyCalls, 1)
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -112,6 +120,15 @@ func (m *MockDomainClient) VerifyDomain(ctx context.Context, name string) (*v1be
 	domain, ok := m.domains[name]
 	if !ok {
 		return nil, errors.New("domain not found (404)")
+	}
+
+	if override, ok := m.verifyUpdates[name]; ok && override != nil {
+		// Test fixture says Verify flips DNSVerified to true.
+		updated := *override
+		updated.ReceivingDNSRecords = domain.ReceivingDNSRecords
+		updated.SendingDNSRecords = domain.SendingDNSRecords
+		m.domains[name] = &updated
+		return &updated, nil
 	}
 
 	if domain.DNSVerified == nil {
@@ -345,6 +362,107 @@ func TestDomainObserve(t *testing.T) {
 	}
 }
 
+func TestDomainObserveDNSReverify(t *testing.T) {
+	t.Run("calls VerifyDomain and sets poll-interval annotation when DNS unverified", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"example.com": {
+					ID:    "example.com",
+					State: "unverified",
+					SendingDNSRecords: []v1beta1.DNSRecord{
+						{Name: "example.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("unknown")},
+					},
+					DNSVerified: boolPtr(false),
+				},
+			},
+		}
+
+		mg := &v1beta1.Domain{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "example.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+
+		if atomic.LoadInt32(&mockClient.verifyCalls) != 1 {
+			t.Errorf("expected 1 VerifyDomain call, got %d", mockClient.verifyCalls)
+		}
+		ann, ok := mg.GetAnnotations()[meta.AnnotationKeyPollInterval]
+		if !ok {
+			t.Fatalf("expected %s annotation, got none", meta.AnnotationKeyPollInterval)
+		}
+		assert.Equal(t, dnsRequeueInterval.String(), ann)
+	})
+
+	t.Run("clears poll-interval annotation when DNS verified", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"verified.com": {
+					ID:          "verified.com",
+					State:       "active",
+					DNSVerified: boolPtr(true),
+					SendingDNSRecords: []v1beta1.DNSRecord{
+						{Name: "verified.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+					},
+				},
+			},
+		}
+		mg := &v1beta1.Domain{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					meta.AnnotationKeyPollInterval: dnsRequeueInterval.String(),
+				},
+			},
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "verified.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+
+		if atomic.LoadInt32(&mockClient.verifyCalls) != 0 {
+			t.Errorf("expected VerifyDomain not to be called on healthy domain, got %d calls", mockClient.verifyCalls)
+		}
+		ann, ok := mg.GetAnnotations()[meta.AnnotationKeyPollInterval]
+		if !ok {
+			// acceptable: annotation removed entirely
+			return
+		}
+		if ann != "" {
+			t.Errorf("expected %s annotation to be cleared, got %q", meta.AnnotationKeyPollInterval, ann)
+		}
+	})
+
+	t.Run("does not call VerifyDomain when state active and DNS verified", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"active.com": {
+					ID:          "active.com",
+					State:       "active",
+					DNSVerified: boolPtr(true),
+				},
+			},
+		}
+		mg := &v1beta1.Domain{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "active.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+		if atomic.LoadInt32(&mockClient.verifyCalls) != 0 {
+			t.Errorf("did not expect VerifyDomain call, got %d", mockClient.verifyCalls)
+		}
+		if _, ok := mg.GetAnnotations()[meta.AnnotationKeyPollInterval]; ok {
+			t.Errorf("did not expect %s annotation on healthy domain", meta.AnnotationKeyPollInterval)
+		}
+	})
+}
+
 func TestDomainCreate(t *testing.T) {
 	type args struct {
 		mg resource.Managed
@@ -525,4 +643,12 @@ func TestDomainDelete(t *testing.T) {
 // Helper functions
 func stringPtr(s string) *string {
 	return &s
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func recordValidityPtr(v v1beta1.RecordValidity) *v1beta1.RecordValidity {
+	return &v
 }

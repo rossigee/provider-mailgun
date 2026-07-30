@@ -48,8 +48,8 @@ func convertDNSRecords(clientRecords []DNSRecord) []domaintypes.DNSRecord {
 }
 
 // computeDNSVerified returns true if every record in the provided slice has
-// a Valid pointer set to "valid", false if at least one record is not valid,
-// and nil when there are no records to evaluate.
+// a Valid pointer set to RecordValidityValid, false if at least one record
+// is not valid, and nil when there are no records to evaluate.
 func computeDNSVerified(records []domaintypes.DNSRecord) *bool {
 	if len(records) == 0 {
 		return nil
@@ -57,7 +57,7 @@ func computeDNSVerified(records []domaintypes.DNSRecord) *bool {
 
 	allValid := true
 	for _, record := range records {
-		if record.Valid == nil || *record.Valid != "valid" {
+		if !record.Valid.IsVerified() {
 			allValid = false
 			break
 		}

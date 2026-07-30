@@ -1,0 +1,31 @@
+# ClusterRole granting provider-mailgun the permission to emit Kubernetes
+# events (events.k8s.io/v1). Bind it to the provider ServiceAccount(s) via
+# a ClusterRoleBinding. See examples/provider/stable-sa-deployment-runtime-config.yaml
+# for a binding that targets the stable ServiceAccount pattern.
+#
+# Crossplane v2 (pkg.crossplane.io/v1) renders a ClusterRole per
+# ProviderRevision named `crossplane:provider:provider-mailgun-<hash>:system`.
+# That ClusterRole includes the core/v1 Event resource but not
+# `events.events.k8s.io/v1`, which is what controller-runtime's event
+# recorder writes to. Without this rule, every reconcile emits a
+# forbidden warning of the form:
+#
+#   events.events.k8s.io is forbidden: User
+#   "system:serviceaccount:crossplane-system:provider-mailgun-<hash>"
+#   cannot create resource "events" in API group "events.k8s.io"
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: provider-mailgun-events-k8s-io
+  labels:
+    app.kubernetes.io/name: provider-mailgun
+    app.kubernetes.io/part-of: crossplane
+  annotations:
+    kubernetes.io/description: >-
+      Grants provider-mailgun ProviderRevisions permission to create
+      Kubernetes events (events.k8s.io/v1) for the controller-runtime
+      event recorder.
+rules:
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["create", "patch", "update"]

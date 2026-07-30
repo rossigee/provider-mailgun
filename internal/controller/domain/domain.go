@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
@@ -49,10 +50,17 @@ const (
 
 	eventReasonDNSVerified        = "DNSVerified"
 	eventReasonDNSInvalid         = "DNSInvalid"
+	eventReasonDNSReverify        = "DNSReverifyRequested"
 	eventReasonDomainCreate       = "DomainCreated"
 	eventReasonDomainUpdate       = "DomainUpdated"
 	eventReasonDomainDelete       = "DomainDeleted"
 	eventReasonDomainStateChange  = "DomainStateChanged"
+
+	// dnsRequeueInterval is how long we wait before the next reconcile when
+	// DNS records are not yet verified. Mailgun's verification cycle can
+	// take several minutes for new DNS records to propagate, so requeueing
+	// immediately just burns API quota.
+	dnsRequeueInterval = 5 * time.Minute
 )
 
 // Setup adds a controller that reconciles Domain managed resources.
@@ -207,6 +215,22 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.Wrap(err, "failed to get domain")
 	}
 
+	// If DNS records are not yet verified, ask Mailgun to re-check them now so
+	// the next reconcile sees a fresh validity reading. We do this only on the
+	// slow path (records still unknown or state not active) to avoid hitting
+	// Mailgun's rate limits in the happy path.
+	needsReverify := domain.State != "active" ||
+		(domain.DNSVerified != nil && !*domain.DNSVerified)
+	if needsReverify {
+		if verified, vErr := c.service.VerifyDomain(ctx, cr.Spec.ForProvider.Name); vErr == nil && verified != nil {
+			domain = verified
+			if c.recorder != nil {
+				c.recorder.Event(cr, event.Normal(eventReasonDNSReverify,
+					"Triggered Mailgun DNS re-verification; results will reflect on the next reconcile"))
+			}
+		}
+	}
+
 	upToDate := isDomainUpToDate(domain, &cr.Spec.ForProvider)
 
 	cr.Status.AtProvider = *domain
@@ -246,7 +270,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}
 	}
 
-	return managed.ExternalObservation{
+	obs := managed.ExternalObservation{
 		// Return false when the external resource does not exist. This lets
 		// the managed resource reconciler know that it needs to call Create to
 		// (re)create the resource, or that it has successfully been deleted.
@@ -263,7 +287,27 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 			"smtp_login":    []byte(domain.SMTPLogin),
 			"smtp_password": []byte(domain.SMTPPassword),
 		},
-	}, nil
+	}
+
+	// When DNS records are not yet verified, slow the next reconcile down to
+	// dnsRequeueInterval by setting the crossplane.io/poll-interval
+	// annotation. Mailgun's verification cycle takes several minutes for new
+	// DNS records to propagate, so the controller-runtime default poll
+	// cadence would just burn API quota. The DNSReverifyRequested event above
+	// ensures the user has a signal that a fresh check was triggered in the
+	// meantime. Clear the annotation once verification succeeds so the default
+	// cadence resumes.
+	if domain.DNSVerified == nil || !*domain.DNSVerified {
+		meta.AddAnnotations(cr, map[string]string{
+			meta.AnnotationKeyPollInterval: dnsRequeueInterval.String(),
+		})
+	} else if _, ok := cr.GetAnnotations()[meta.AnnotationKeyPollInterval]; ok {
+		meta.AddAnnotations(cr, map[string]string{
+			meta.AnnotationKeyPollInterval: "",
+		})
+	}
+
+	return obs, nil
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
@@ -422,7 +466,7 @@ func setDNSVerifiedCondition(cr *v1beta1.Domain, dnsVerified *bool) {
 func getInvalidRecordNames(records []v1beta1.DNSRecord) string {
 	var invalid []string
 	for _, r := range records {
-		if r.Valid == nil || *r.Valid != "valid" {
+		if !r.Valid.IsVerified() {
 			invalid = append(invalid, r.Name+" ("+r.Type+")")
 		}
 	}

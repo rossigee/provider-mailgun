@@ -128,9 +128,30 @@ type DNSRecord struct {
 	// Mailgun's v4 API (e.g. "10")
 	Priority *string `json:"priority,omitempty"`
 
-	// Valid is the verification status as returned by Mailgun ("valid" or
-	// "unknown")
-	Valid *string `json:"valid,omitempty"`
+	// Valid is the verification status returned by Mailgun.
+	// +kubebuilder:validation:Enum=valid;unknown
+	Valid *RecordValidity `json:"valid,omitempty"`
+}
+
+// RecordValidity is the verification status of a DNS record as reported by
+// Mailgun's v4 Domains API.
+type RecordValidity string
+
+// Known RecordValidity values. Mailgun may also return an empty string for
+// records that have not yet been queried; treat that as not-yet-verified.
+const (
+	// RecordValidityValid indicates Mailgun confirmed the DNS record is
+	// properly configured.
+	RecordValidityValid RecordValidity = "valid"
+
+	// RecordValidityUnknown indicates Mailgun has not yet verified the DNS
+	// record (typically because it has not been propagated yet).
+	RecordValidityUnknown RecordValidity = "unknown"
+)
+
+// IsVerified returns true when the record has been verified by Mailgun.
+func (v *RecordValidity) IsVerified() bool {
+	return v != nil && *v == RecordValidityValid
 }
 
 // A DomainSpec defines the desired state of a Domain.
@@ -151,6 +172,7 @@ type DomainStatus struct {
 // This is the Crossplane v2 namespaced version.
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
+// +kubebuilder:printcolumn:name="STATE",type="string",JSONPath=".status.atProvider.state"
 // +kubebuilder:printcolumn:name="DNS-VERIFIED",type="string",JSONPath=".status.atProvider.dnsVerified"
 // +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane.io/external-name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"

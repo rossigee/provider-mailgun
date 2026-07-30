@@ -16,6 +16,10 @@ limitations under the License.
 
 package clients
 
+import (
+	domainv1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+)
+
 // Domain represents a Mailgun domain (nested inside the response's "domain" field).
 // Per the Mailgun v4 Domains API, DNS records are NOT nested in this object; they
 // appear at the top level of the response alongside "domain". See DomainResponse.
@@ -55,21 +59,21 @@ type DomainSpec struct {
 // Mailgun returns `valid` as a string enum ("valid" or "unknown") and
 // `priority` as a string (e.g. "10") for MX records.
 type DNSRecord struct {
-	Name     string  `json:"name,omitempty"`
-	Type     string  `json:"record_type,omitempty"`
-	Value    string  `json:"value,omitempty"`
-	Priority *string `json:"priority,omitempty"`
-	Valid    *string `json:"valid,omitempty"`
+	Name     string                       `json:"name,omitempty"`
+	Type     string                       `json:"record_type,omitempty"`
+	Value    string                       `json:"value,omitempty"`
+	Priority *string                      `json:"priority,omitempty"`
+	Valid    *domainv1beta1.RecordValidity `json:"valid,omitempty"`
 }
 
 // RecordIsValid converts Mailgun's string validity into a *bool for the
 // atProvider DNSVerified field. Returns nil if v is nil (no record), true
 // when Mailgun reports "valid", false for "unknown" or any other value.
-func RecordIsValid(v *string) *bool {
+func RecordIsValid(v *domainv1beta1.RecordValidity) *bool {
 	if v == nil {
 		return nil
 	}
-	b := *v == "valid"
+	b := *v == domainv1beta1.RecordValidityValid
 	return &b
 }
 

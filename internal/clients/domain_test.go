@@ -34,6 +34,11 @@ func stringPtr(s string) *string {
 	return &s
 }
 
+// recordValidityPtr returns a pointer to the given RecordValidity.
+func recordValidityPtr(v domaintypes.RecordValidity) *domaintypes.RecordValidity {
+	return &v
+}
+
 // intPtr returns a pointer to the given int.
 func intPtr(i int) *int {
 	return &i
@@ -108,7 +113,7 @@ func TestCreateDomain(t *testing.T) {
 						Type:     "MX",
 						Value:    "mxa.mailgun.org",
 						Priority: stringPtr("10"),
-						Valid:    stringPtr("unknown"),
+						Valid:    recordValidityPtr("unknown"),
 					},
 				},
 				SendingDNSRecords: []domaintypes.DNSRecord{
@@ -116,7 +121,7 @@ func TestCreateDomain(t *testing.T) {
 						Name:  "test.com",
 						Type:  "TXT",
 						Value: "v=spf1 include:mailgun.org ~all",
-						Valid: stringPtr("unknown"),
+						Valid: recordValidityPtr("unknown"),
 					},
 				},
 				RequiredDNSRecords: []domaintypes.DNSRecord{
@@ -125,13 +130,13 @@ func TestCreateDomain(t *testing.T) {
 						Type:     "MX",
 						Value:    "mxa.mailgun.org",
 						Priority: stringPtr("10"),
-						Valid:    stringPtr("unknown"),
+						Valid:    recordValidityPtr("unknown"),
 					},
 					{
 						Name:  "test.com",
 						Type:  "TXT",
 						Value: "v=spf1 include:mailgun.org ~all",
-						Valid: stringPtr("unknown"),
+						Valid: recordValidityPtr("unknown"),
 					},
 				},
 			},
@@ -179,10 +184,10 @@ func TestCreateDomain(t *testing.T) {
 				State: "active",
 				DNSVerified: boolPtr(true),
 				SendingDNSRecords: []domaintypes.DNSRecord{
-					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
+					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
 				},
 				RequiredDNSRecords: []domaintypes.DNSRecord{
-					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
+					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
 				},
 			},
 			expectedError: false,
@@ -291,16 +296,16 @@ func TestGetDomain(t *testing.T) {
 				SMTPPassword: "password123",
 				DNSVerified:  boolPtr(true),
 				ReceivingDNSRecords: []domaintypes.DNSRecord{
-					{Name: "example.com", Type: "MX", Value: "mxa.mailgun.org", Priority: stringPtr("10"), Valid: stringPtr("valid")},
+					{Name: "example.com", Type: "MX", Value: "mxa.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("valid")},
 				},
 				SendingDNSRecords: []domaintypes.DNSRecord{
-					{Name: "example.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: stringPtr("valid")},
-					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: stringPtr("valid")},
+					{Name: "example.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: recordValidityPtr("valid")},
+					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
 				},
 				RequiredDNSRecords: []domaintypes.DNSRecord{
-					{Name: "example.com", Type: "MX", Value: "mxa.mailgun.org", Priority: stringPtr("10"), Valid: stringPtr("valid")},
-					{Name: "example.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: stringPtr("valid")},
-					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: stringPtr("valid")},
+					{Name: "example.com", Type: "MX", Value: "mxa.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("valid")},
+					{Name: "example.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: recordValidityPtr("valid")},
+					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
 				},
 			},
 			expectedError: false,
@@ -326,12 +331,12 @@ func TestGetDomain(t *testing.T) {
 				State:       "unverified",
 				DNSVerified: boolPtr(false),
 				SendingDNSRecords: []domaintypes.DNSRecord{
-					{Name: "partial.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
-					{Name: "k1._domainkey.partial.com", Type: "TXT", Value: "k=rsa; p=...", Valid: stringPtr("unknown")},
+					{Name: "partial.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+					{Name: "k1._domainkey.partial.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("unknown")},
 				},
 				RequiredDNSRecords: []domaintypes.DNSRecord{
-					{Name: "partial.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
-					{Name: "k1._domainkey.partial.com", Type: "TXT", Value: "k=rsa; p=...", Valid: stringPtr("unknown")},
+					{Name: "partial.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+					{Name: "k1._domainkey.partial.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("unknown")},
 				},
 			},
 			expectedError: false,
@@ -418,10 +423,10 @@ func TestUpdateDomain(t *testing.T) {
 				State:        "active",
 				DNSVerified:  boolPtr(true),
 				SendingDNSRecords: []domaintypes.DNSRecord{
-					{Name: "update.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
+					{Name: "update.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
 				},
 				RequiredDNSRecords: []domaintypes.DNSRecord{
-					{Name: "update.com", Type: "TXT", Value: "v=spf1", Valid: stringPtr("valid")},
+					{Name: "update.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
 				},
 			},
 			expectedError: false,
@@ -631,14 +636,14 @@ func TestVerifyDomain(t *testing.T) {
 func TestRecordIsValid(t *testing.T) {
 	cases := []struct {
 		name string
-		in   *string
+		in   *domaintypes.RecordValidity
 		want *bool
 	}{
 		{"nil pointer returns nil", nil, nil},
-		{"valid string returns true ptr", stringPtr("valid"), boolPtr(true)},
-		{"unknown string returns false ptr", stringPtr("unknown"), boolPtr(false)},
-		{"empty string returns false ptr", stringPtr(""), boolPtr(false)},
-		{"arbitrary string returns false ptr", stringPtr("foo"), boolPtr(false)},
+		{"valid returns true ptr", recordValidityPtr("valid"), boolPtr(true)},
+		{"unknown returns false ptr", recordValidityPtr("unknown"), boolPtr(false)},
+		{"empty returns false ptr", recordValidityPtr(""), boolPtr(false)},
+		{"arbitrary returns false ptr", recordValidityPtr("foo"), boolPtr(false)},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -649,6 +654,25 @@ func TestRecordIsValid(t *testing.T) {
 			}
 			require.NotNil(t, got)
 			assert.Equal(t, *c.want, *got)
+		})
+	}
+}
+
+func TestRecordValidity_IsVerified(t *testing.T) {
+	cases := []struct {
+		name string
+		in   *domaintypes.RecordValidity
+		want bool
+	}{
+		{"nil pointer returns false", nil, false},
+		{"valid returns true", recordValidityPtr("valid"), true},
+		{"unknown returns false", recordValidityPtr("unknown"), false},
+		{"empty returns false", recordValidityPtr(""), false},
+		{"arbitrary returns false", recordValidityPtr("foo"), false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, c.in.IsVerified())
 		})
 	}
 }

@@ -76,6 +76,66 @@ spec:
                     - 1024
                     - 2048
                     type: integer
+                  dnsProvider:
+                    description: |-
+                      DNSProvider optionally wires the Domain to a third-party DNS hosting
+                      provider so the controller can push the Mailgun DNS records directly
+                      (e.g. Cloudflare). When unset, the controller falls back to generic
+                      automation: ConfigMap output, external-dns annotation, and (opt-in)
+                      local DNS propagation probing. Only one provider can be configured per
+                      Domain.
+
+                      This field is optional and additive; existing Domains without a
+                      DNSProvider continue to behave exactly as before.
+                    properties:
+                      cloudflare:
+                        description: |-
+                          Cloudflare configures the controller to push the DNS records to
+                          Cloudflare. When set, the controller authenticates with the supplied
+                          API token and writes MX / TXT / CNAME records into the specified zone.
+                          The Domain is not deleted from Cloudflare automatically when the
+                          Crossplane resource is deleted - set cloudflare.keepOnDelete to true
+                          (the default) to preserve the records for inspection; flip to false to
+                          remove them.
+                        properties:
+                          apiTokenSecretRef:
+                            description: |-
+                              APITokenSecretRef references a Kubernetes Secret containing a single
+                              data key 'apiToken' with the Cloudflare API token. The token must
+                              have Zone.DNS edit permission for the zone identified by ZoneID.
+                            properties:
+                              key:
+                                default: apiToken
+                                description: |-
+                                  Key is the data key inside the Secret. Defaults to "apiToken" when
+                                  omitted; other consumers can reuse this type with different defaults.
+                                type: string
+                              name:
+                                description: Name is the name of the Secret in the
+                                  Domain's namespace.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          keepOnDelete:
+                            default: true
+                            description: |-
+                              KeepOnDelete, when true (default), leaves DNS records in Cloudflare
+                              when the Domain is deleted from Crossplane. Set to false to remove
+                              them. We default to true so a careless `kubectl delete` does not
+                              knock your email offline.
+                            type: boolean
+                          zoneID:
+                            description: |-
+                              ZoneID is the Cloudflare Zone ID where the records will be created.
+                              Find this in the Cloudflare dashboard under the domain overview page
+                              (lower-right API section).
+                            type: string
+                        required:
+                        - apiTokenSecretRef
+                        - zoneID
+                        type: object
+                    type: object
                   forceDkimAuthority:
                     default: false
                     description: ForceDKIMAuthority forces DKIM authority even if

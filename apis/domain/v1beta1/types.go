@@ -64,6 +64,65 @@ type DomainParameters struct {
 	// Wildcard setting for the domain
 	// +kubebuilder:default=false
 	Wildcard *bool `json:"wildcard,omitempty"`
+
+	// DNSProvider optionally wires the Domain to a third-party DNS hosting
+	// provider so the controller can push the Mailgun DNS records directly
+	// (e.g. Cloudflare). When unset, the controller falls back to generic
+	// automation: ConfigMap output, external-dns annotation, and (opt-in)
+	// local DNS propagation probing. Only one provider can be configured per
+	// Domain.
+	//
+	// This field is optional and additive; existing Domains without a
+	// DNSProvider continue to behave exactly as before.
+	DNSProvider *DNSProviderSpec `json:"dnsProvider,omitempty"`
+}
+
+// DNSProviderSpec selects which third-party DNS hosting provider the
+// controller should use to publish Mailgun's required DNS records.
+type DNSProviderSpec struct {
+	// Cloudflare configures the controller to push the DNS records to
+	// Cloudflare. When set, the controller authenticates with the supplied
+	// API token and writes MX / TXT / CNAME records into the specified zone.
+	// The Domain is not deleted from Cloudflare automatically when the
+	// Crossplane resource is deleted - set cloudflare.keepOnDelete to true
+	// (the default) to preserve the records for inspection; flip to false to
+	// remove them.
+	Cloudflare *CloudflareProviderSpec `json:"cloudflare,omitempty"`
+}
+
+// CloudflareProviderSpec configures Cloudflare as the DNS hosting provider
+// for the records required by a Mailgun Domain.
+type CloudflareProviderSpec struct {
+	// APITokenSecretRef references a Kubernetes Secret containing a single
+	// data key 'apiToken' with the Cloudflare API token. The token must
+	// have Zone.DNS edit permission for the zone identified by ZoneID.
+	// +kubebuilder:validation:Required
+	APITokenSecretRef *SecretKeyRef `json:"apiTokenSecretRef"`
+
+	// ZoneID is the Cloudflare Zone ID where the records will be created.
+	// Find this in the Cloudflare dashboard under the domain overview page
+	// (lower-right API section).
+	// +kubebuilder:validation:Required
+	ZoneID string `json:"zoneID"`
+
+	// KeepOnDelete, when true (default), leaves DNS records in Cloudflare
+	// when the Domain is deleted from Crossplane. Set to false to remove
+	// them. We default to true so a careless `kubectl delete` does not
+	// knock your email offline.
+	// +kubebuilder:default=true
+	KeepOnDelete *bool `json:"keepOnDelete,omitempty"`
+}
+
+// SecretKeyRef is a reference to a single key inside a Kubernetes Secret.
+type SecretKeyRef struct {
+	// Name is the name of the Secret in the Domain's namespace.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Key is the data key inside the Secret. Defaults to "apiToken" when
+	// omitted; other consumers can reuse this type with different defaults.
+	// +kubebuilder:default="apiToken"
+	Key string `json:"key,omitempty"`
 }
 
 // DomainTracking defines tracking settings for a domain
@@ -153,6 +212,44 @@ const (
 func (v *RecordValidity) IsVerified() bool {
 	return v != nil && *v == RecordValidityValid
 }
+
+// Annotation keys the provider sets on Domain resources to coordinate DNS
+// automation with external tooling.
+const (
+	// AnnotationExternalDNSHostname is the hostname annotation read by
+	// external-dns (https://github.com/kubernetes-sigs/external-dns) so it
+	// picks the Domain up as a managed DNS target. Set automatically by
+	// the controller unless the user opts out via
+	// AnnotationDisableExternalDNS.
+	AnnotationExternalDNSHostname = "external-dns.alpha.kubernetes.io/hostname"
+
+	// AnnotationDisableExternalDNS, when set to "true", prevents the
+	// controller from writing AnnotationExternalDNSHostname. Use this when
+	// you have external-dns installed but do not want it to manage the
+	// Mailgun DNS records (for example, because you manage them via a
+	// Composition that uses provider-cloudflare).
+	AnnotationDisableExternalDNS = "mailgun.crossplane.io/disable-external-dns"
+
+	// AnnotationDNSProbeEnabled, when set to "true", makes the controller
+	// query authoritative DNS resolvers for each required record and emit
+	// per-record diagnostic events (DNSNotPropagated, DNSValueMismatch,
+	// SPFNeedsMerge, DNSRecordMatches). Default is off so the provider
+	// does not require outbound DNS egress from the cluster by default.
+	AnnotationDNSProbeEnabled = "mailgun.crossplane.io/dns-probe"
+
+	// AnnotationConfigMapOutputEnabled, when set to "true", makes the
+	// controller write/update a ConfigMap named "<domain>-dns-records"
+	// containing the required DNS records in records.yaml / terraform.tf /
+	// bind-zone.txt formats. Default is off so the provider does not
+	// require ConfigMap write permissions by default.
+	AnnotationConfigMapOutputEnabled = "mailgun.crossplane.io/dns-configmap"
+
+	// PrefixDNSRecordAnnotation is prepended to event annotations that
+	// carry the expected value of a single DNS record. The full key is
+	// PrefixDNSRecordAnnotation + "<type>-<name>" (truncated/hashed to
+	// stay within Kubernetes' 63-character annotation key limit).
+	PrefixDNSRecordAnnotation = "dns-controller.mailgun.crossplane.io/"
+)
 
 // A DomainSpec defines the desired state of a Domain.
 type DomainSpec struct {

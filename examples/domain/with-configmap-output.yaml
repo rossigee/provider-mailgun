@@ -1,0 +1,45 @@
+apiVersion: mailgun.m.crossplane.io/v1beta1
+kind: Domain
+metadata:
+  name: bankrut-info
+  namespace: mailgun-resources
+  annotations:
+    # Default-off: only set this if you want the controller to
+    # create/update a ConfigMap named "bankrut-info-dns-records" in
+    # this namespace. The ConfigMap carries three keys:
+    #   records.yaml  - generic list of records for kubectl/scripting
+    #   terraform.tf  - hashicorp/dns provider resource blocks
+    #   bind-zone.txt - BIND master-file fragment for nsupdate
+    mailgun.crossplane.io/dns-configmap: "true"
+
+    # Default-on: the controller writes the
+    # external-dns.alpha.kubernetes.io/hostname annotation so an
+    # in-cluster external-dns deployment will pick up the Domain as a
+    # managed DNS target. Set this to "true" to suppress it (e.g. when
+    # you manage DNS via Composition -> provider-cloudflare).
+    # mailgun.crossplane.io/disable-external-dns: "true"
+
+    # Default-off: opt-in DNS propagation probe. When enabled, the
+    # controller queries authoritative resolvers (8.8.8.8, 1.1.1.1,
+    # 9.9.9.9) and emits one of:
+    #   DNSNotPropagated   - record not yet visible
+    #   DNSValueMismatch   - record visible but wrong value
+    #   DNSRecordMatches   - record visible and matches Mailgun
+    #   SPFNeedsMerge      - existing SPF detected, manual merge needed
+    # Requires outbound DNS egress from the cluster on UDP/TCP 53.
+    # mailgun.crossplane.io/dns-probe: "true"
+spec:
+  forProvider:
+    name: bankrut.info
+    type: sending
+    spamAction: disabled
+    webScheme: https
+    wildcard: false
+    # Per-domain tracking overrides (optional)
+    tracking:
+      click: true
+      open: true
+      unsubscribe: true
+  providerConfigRef:
+    name: mailgun-golder
+    kind: ProviderConfig

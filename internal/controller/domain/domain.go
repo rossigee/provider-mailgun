@@ -19,6 +19,7 @@ package domain
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -51,10 +52,16 @@ const (
 	eventReasonDNSVerified        = "DNSVerified"
 	eventReasonDNSInvalid         = "DNSInvalid"
 	eventReasonDNSReverify        = "DNSReverifyRequested"
+	eventReasonDNSRecordsRequired = "DNSRecordsRequired"
+	eventReasonDNSNotPropagated   = "DNSNotPropagated"
+	eventReasonDNSValueMismatch   = "DNSValueMismatch"
+	eventReasonDNSRecordMatches   = "DNSRecordMatches"
+	eventReasonDNSProbeError      = "DNSProbeError"
+	eventReasonSPFNeedsMerge      = "SPFNeedsMerge"
 	eventReasonDomainCreate       = "DomainCreated"
 	eventReasonDomainUpdate       = "DomainUpdated"
 	eventReasonDomainDelete       = "DomainDeleted"
-	eventReasonDomainStateChange  = "DomainStateChanged"
+	eventReasonDomainStateChange  = "DomainStateChange"
 
 	// dnsRequeueInterval is how long we wait before the next reconcile when
 	// DNS records are not yet verified. Mailgun's verification cycle can
@@ -152,7 +159,11 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 
 	svc := c.newServiceFn(config)
 
-	return &external{service: svc, recorder: c.recorder}, nil
+	return &external{
+		service: svc,
+		recorder: c.recorder,
+		kube:    c.kube,
+	}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
@@ -160,6 +171,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 type external struct {
 	service  clients.Client
 	recorder event.Recorder
+	kube     client.Client
 }
 
 func (c *external) Disconnect(ctx context.Context) error {
@@ -175,6 +187,49 @@ type ExternalForTesting struct {
 // NewExternalForTesting creates a new external struct for testing
 func NewExternalForTesting(client clients.Client) *ExternalForTesting {
 	return &ExternalForTesting{Client: client}
+}
+
+// convertAPIRecordsToClient converts API-typed DNSRecord slices into the
+// client-typed form expected by the ConfigMap builder and annotation
+// helpers. The two structs share field types; we copy values verbatim
+// because the API package owns the CRD type and must not be imported
+// transitively into helper signatures that have nothing to do with CRD
+// generation.
+func convertAPIRecordsToClient(api []v1beta1.DNSRecord) []clients.DNSRecord {
+	if api == nil {
+		return nil
+	}
+	out := make([]clients.DNSRecord, len(api))
+	for i, r := range api {
+		out[i] = clients.DNSRecord{
+			Name:     r.Name,
+			Type:     r.Type,
+			Value:    r.Value,
+			Priority: r.Priority,
+			Valid:    r.Valid,
+		}
+	}
+	return out
+}
+
+// formatAnnotationBlock renders a stable annotation map as a multi-line
+// string for inclusion in event messages. Keys appear in sorted order so
+// the output is reproducible across reconciles (and so `kubectl describe`
+// diffs are meaningful).
+func formatAnnotationBlock(annotations map[string]string) string {
+	if len(annotations) == 0 {
+		return "  (no annotations)"
+	}
+	keys := make([]string, 0, len(annotations))
+	for k := range annotations {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	for _, k := range keys {
+		fmt.Fprintf(&b, "  %s=%s\n", k, annotations[k])
+	}
+	return b.String()
 }
 
 // Observe delegates to the external struct
@@ -297,17 +352,82 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	// ensures the user has a signal that a fresh check was triggered in the
 	// meantime. Clear the annotation once verification succeeds so the default
 	// cadence resumes.
+	//
+	// Also publish the DNS automation side effects on the slow path:
+	//   - emit a DNSRecordsRequired event with per-record annotations so the
+	//     user (or a Composition) can `kubectl describe domain` and see the
+	//     exact value of every record Mailgun is waiting for;
+	//   - write the external-dns hostname annotation unless opted out;
+	//   - create/update the DNS-records ConfigMap if opted in.
 	if domain.DNSVerified == nil || !*domain.DNSVerified {
 		meta.AddAnnotations(cr, map[string]string{
 			meta.AnnotationKeyPollInterval: dnsRequeueInterval.String(),
 		})
-	} else if _, ok := cr.GetAnnotations()[meta.AnnotationKeyPollInterval]; ok {
-		meta.AddAnnotations(cr, map[string]string{
-			meta.AnnotationKeyPollInterval: "",
-		})
+		c.publishDNSRecordsRequired(ctx, cr, convertAPIRecordsToClient(cr.Status.AtProvider.RequiredDNSRecords))
+	} else {
+		if _, ok := cr.GetAnnotations()[meta.AnnotationKeyPollInterval]; ok {
+			meta.AddAnnotations(cr, map[string]string{
+				meta.AnnotationKeyPollInterval: "",
+			})
+		}
 	}
 
 	return obs, nil
+}
+
+// publishDNSRecordsRequired emits a Normal event describing what records
+// Mailgun is waiting on. The event carries one annotation per record so
+// `kubectl describe` shows the exact values in the message field.
+//
+// Side effects (external-dns annotation, ConfigMap, DNS probe) are
+// wired here too when the user has opted in; each is best-effort and
+// never blocks the reconcile if it fails — they only affect the
+// diagnostic experience.
+func (c *external) publishDNSRecordsRequired(ctx context.Context, cr *v1beta1.Domain, records []clients.DNSRecord) {
+	if c.recorder == nil {
+		return
+	}
+
+	annotations := DNSRecordAnnotations(records)
+
+	if len(records) == 0 {
+		c.recorder.Event(cr, event.Normal(eventReasonDNSRecordsRequired,
+			"Mailgun returned no DNS records to configure; domain is still unverified"))
+		return
+	}
+
+	c.recorder.Event(cr, event.Normal(eventReasonDNSRecordsRequired,
+		fmt.Sprintf("Mailgun requires %d DNS record(s) to verify this domain.\n"+
+			"Each record below appears as `<type>-<hash>=<expected value>` so you can pipe them straight into a Composition:\n%s",
+			len(records), formatAnnotationBlock(annotations)),
+	))
+
+	if c.kube == nil {
+		return
+	}
+	helper := newK8sExternalDNSHelper(c.kube)
+	if err := helper.setExternalDNSHostname(ctx, cr, cr.Spec.ForProvider.Name); err != nil {
+		log := ctrl.Log.WithName("domain")
+		log.Info("failed to set external-dns hostname annotation",
+			"domain", cr.Spec.ForProvider.Name, "error", err.Error())
+	}
+	if err := helper.ensureDNSRecordsConfigMap(ctx, cr, records); err != nil {
+		log := ctrl.Log.WithName("domain")
+		log.Info("failed to ensure DNS records ConfigMap",
+			"domain", cr.Spec.ForProvider.Name, "error", err.Error())
+	}
+
+	// DNS probe: opt-in only, because it requires outbound DNS egress
+	// from the cluster. We do not gate the event on success because
+	// probe failures (timeouts, NXDOMAIN on a not-yet-propagated record)
+	// are exactly what the user wants to see in the event stream.
+	if cr.GetAnnotations()[v1beta1.AnnotationDNSProbeEnabled] == "true" {
+		prober := NewMiekDNSProber()
+		probeCtx, cancel := context.WithTimeout(ctx, prober.Timeout)
+		defer cancel()
+		results := ProbeAllRecords(probeCtx, prober, records)
+		EmitProbeResults(c.recorder, cr, results)
+	}
 }
 
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {

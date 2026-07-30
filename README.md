@@ -11,7 +11,7 @@ A Crossplane v2 provider for managing Mailgun resources with complete namespace 
 
 ## Container Registry
 
-- **Primary**: `ghcr.io/rossigee/provider-mailgun:v0.17.3`
+- **Primary**: `ghcr.io/rossigee/provider-mailgun:v0.18.0`
 
 ## Overview
 
@@ -38,7 +38,7 @@ A Crossplane v2 provider for managing Mailgun resources including domains, maili
 ### Installation
 
 ```bash
-kubectl crossplane install provider ghcr.io/rossigee/provider-mailgun:v0.17.3
+kubectl crossplane install provider ghcr.io/rossigee/provider-mailgun:v0.18.0
 ```
 
 ### Configuration
@@ -109,6 +109,88 @@ spec:
   providerConfigRef:
     name: default
 ```
+
+## DNS Verification Flow
+
+When you create a `Domain` resource, Mailgun responds with a list of
+DNS records you must configure for the domain to be `active` and able to
+send/receive mail. The provider surfaces these records in three ways so
+you can choose the workflow that fits your team:
+
+### 1. Diagnostic events and status fields (always on)
+
+Every `Domain` has `.status.atProvider.requiredDnsRecords` populated with
+the exact list Mailgun is waiting on, plus a `STATE` column in
+`kubectl get domain` and a `DNS-VERIFIED` column. While records are
+unverified, the controller emits a Normal `DNSRecordsRequired` event on
+each reconcile with the full per-record manifest embedded in the message
+so `kubectl describe domain <name>` is enough to copy/paste into your DNS
+provider:
+
+```bash
+$ kubectl describe domain bankrut-info -n mailgun-resources
+Events:
+  Type    Reason              Age   From             Message
+  ----    ------              ----  ----             -------
+  Normal  DNSRecordsRequired  2m    provider-mailgun Mailgun requires 4 DNS record(s) to verify this domain.
+                                              Each record below appears as `<type>-<hash>=<expected value>`:
+                                                mx-7b2e9f0a=mxa.mailgun.org
+                                                mx-7b2e9f0a=mxb.mailgun.org
+                                                txt-1a2b3c4d=v=spf1 include:mailgun.org ~all
+                                                txt-5d6e7f80=k=rsa; p=MIGfMA0GCSqGSIb3DQEBA...
+```
+
+The controller also calls Mailgun's `/v4/domains/{name}/verify`
+endpoint on the slow path (DNS unverified) and sets
+`crossplane.io/poll-interval=5m` so the next reconcile runs on a
+Mailgun-friendly cadence rather than controller-runtime's default, which
+would burn API quota.
+
+### 2. Opt-in: DNS-records ConfigMap output
+
+Set the annotation `mailgun.crossplane.io/dns-configmap: "true"` on the
+Domain. The controller will create/update a ConfigMap named
+`<domain>-dns-records` in the Domain's namespace, containing three keys
+you can consume from any external automation:
+
+| Key              | Format                          | Use case                          |
+|------------------|---------------------------------|-----------------------------------|
+| `records.yaml`   | YAML list of records            | `kubectl apply`, generic scripts  |
+| `terraform.tf`   | HCL for `hashicorp/dns` provider| Terraform-based DNS automation    |
+| `bind-zone.txt`  | BIND master-file fragment       | `nsupdate`, manual zone includes  |
+
+The ConfigMap is owned by the Domain (OwnerReference) so it is
+garbage-collected when the Domain is deleted. To grant the provider
+permission to write ConfigMaps, apply `examples/provider/configmap-rbac.yaml`.
+The RBAC is opt-in: without the annotation, the controller never calls
+the apiserver for ConfigMaps.
+
+### 3. Opt-in: external-dns integration
+
+The controller writes the
+`external-dns.alpha.kubernetes.io/hostname` annotation onto every
+Domain that does not have `mailgun.crossplane.io/disable-external-dns:
+"true"`. With `external-dns` installed in the cluster and a Mailgun
+provider configured, the records will be pushed to Mailgun's DNS
+automatically. See `examples/domain/with-external-dns.yaml` for a
+complete Deployment + RBAC + Secret setup.
+
+### 4. Opt-in: live DNS propagation probe
+
+Set `mailgun.crossplane.io/dns-probe: "true"` on the Domain. The
+controller will query 8.8.8.8, 1.1.1.1, and 9.9.9.9 for each record
+and emit one of these events per record:
+
+| Event                  | Meaning                                              |
+|------------------------|------------------------------------------------------|
+| `DNSRecordMatches`     | Record is propagated and value matches Mailgun       |
+| `DNSValueMismatch`     | Record is propagated but value differs               |
+| `DNSNotPropagated`     | Record is not yet visible in DNS                     |
+| `SPFNeedsMerge`        | Existing SPF detected, manual merge required        |
+| `DNSProbeError`        | Resolver timeout or unexpected RCODE                 |
+
+This requires outbound UDP/TCP 53 from the provider Pod to the public
+internet. Disable egress controls accordingly.
 
 ## Resource Types
 

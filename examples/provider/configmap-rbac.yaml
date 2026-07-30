@@ -1,0 +1,49 @@
+# ClusterRole granting provider-mailgun permission to write DNS-records
+# ConfigMaps into any namespace. Only required if you opt into the
+# DNS-records ConfigMap output by setting the annotation
+# `mailgun.crossplane.io/dns-configmap: "true"` on the Domain. Without
+# the annotation the controller never calls the apiserver for ConfigMaps
+# so this ClusterRole is a no-op for you.
+#
+# The ConfigMap is owned by the Domain (OwnerReference) so it is
+# garbage-collected automatically when the Domain is deleted; we do not
+# need delete permission here for that path. Delete is granted anyway
+# so operators can `kubectl delete cm -l mailgun.crossplane.io/records=required`
+# for batch cleanup.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: provider-mailgun-dns-configmaps
+  labels:
+    app.kubernetes.io/managed-by: provider-mailgun
+    app.kubernetes.io/component: dns-automation
+  annotations:
+    description: |
+      Grants provider-mailgun permission to publish DNS-records ConfigMaps
+      alongside Mailgun Domain resources so external automation
+      (external-dns, terraform, BIND zone files) can pick up the records.
+      Bind to the provider-mailgun ServiceAccount only when you opt into
+      the ConfigMap output feature.
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+# ClusterRoleBinding that wires the ClusterRole above to every
+# ServiceAccount in the crossplane-system namespace (the standard
+# location for provider Pods). If you run provider-mailgun in a
+# different namespace, change `namespace` and `name` accordingly.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: provider-mailgun-dns-configmaps
+  labels:
+    app.kubernetes.io/managed-by: provider-mailgun
+subjects:
+  - kind: ServiceAccount
+    name: provider-mailgun
+    namespace: crossplane-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: provider-mailgun-dns-configmaps

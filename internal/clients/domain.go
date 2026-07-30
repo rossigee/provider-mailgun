@@ -28,16 +28,23 @@ import (
 
 // convertDNSRecords copies the client DNSRecord slice into the API DNSRecord
 // slice. Both structs share the same field types now, so this is a straight
-// field copy.
-func convertDNSRecords(clientRecords []DNSRecord) []domaintypes.DNSRecord {
+// field copy. MX records returned by Mailgun's v4 Domains API omit the
+// `name` field because the record belongs to the domain itself; we set it
+// to the parent domain name (supplied via parentDomain) so downstream
+// consumers see a complete record and can emit user-friendly diagnostics.
+func convertDNSRecords(clientRecords []DNSRecord, parentDomain string) []domaintypes.DNSRecord {
 	if clientRecords == nil {
 		return nil
 	}
 
 	apiRecords := make([]domaintypes.DNSRecord, len(clientRecords))
 	for i, r := range clientRecords {
+		name := r.Name
+		if name == "" && r.Type == "MX" {
+			name = parentDomain
+		}
 		apiRecords[i] = domaintypes.DNSRecord{
-			Name:     r.Name,
+			Name:     name,
 			Type:     r.Type,
 			Value:    r.Value,
 			Priority: r.Priority,
@@ -78,8 +85,8 @@ func responseToObservation(r *DomainResponse) *domaintypes.DomainObservation {
 		obs.SMTPPassword = r.Domain.SMTPPassword
 	}
 
-	obs.ReceivingDNSRecords = convertDNSRecords(r.ReceivingDNSRecords)
-	obs.SendingDNSRecords = convertDNSRecords(r.SendingDNSRecords)
+	obs.ReceivingDNSRecords = convertDNSRecords(r.ReceivingDNSRecords, obs.ID)
+	obs.SendingDNSRecords = convertDNSRecords(r.SendingDNSRecords, obs.ID)
 
 	// DNSVerified is true iff every required receiving + sending record is valid.
 	combined := make([]domaintypes.DNSRecord, 0, len(obs.ReceivingDNSRecords)+len(obs.SendingDNSRecords))

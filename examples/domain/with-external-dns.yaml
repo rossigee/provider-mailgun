@@ -1,0 +1,101 @@
+apiVersion: mailgun.m.crossplane.io/v1beta1
+kind: Domain
+metadata:
+  name: bankrut-info
+  namespace: mailgun-resources
+  annotations:
+    # Opt-in DNS probe. Emits per-record diagnostic events so you can
+    # watch Mailgun verification progress without leaving kubectl.
+    mailgun.crossplane.io/dns-probe: "true"
+spec:
+  forProvider:
+    name: bankrut.info
+    type: sending
+    spamAction: disabled
+    webScheme: https
+  providerConfigRef:
+    name: mailgun-golder
+    kind: ProviderConfig
+---
+# external-dns Deployment that watches the Cluster for the
+# external-dns.alpha.kubernetes.io/hostname annotation. The annotation
+# is written automatically by the provider-mailgun controller onto
+# every Domain that does not have mailgun.crossplane.io/disable-external-dns
+# set to "true". This Deployment uses the webhook provider so the
+# actual DNS records are pushed to Mailgun via the API - we just need
+# external-dns to translate the annotation into calls.
+#
+# IMPORTANT: this example assumes you have a Mailgun API token stored
+# in the mailgun-resources namespace as `mailgun-external-dns-secret`
+# with key `apiToken`. See README for the secret shape.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-dns
+  namespace: external-dns
+  labels:
+    app.kubernetes.io/name: external-dns
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: external-dns
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: external-dns
+    spec:
+      serviceAccountName: external-dns
+      containers:
+        - name: external-dns
+          image: registry.k8s.io/external-dns/external-dns:v0.16.1
+          args:
+            - --source=crd
+            - --crd-source-apiversion=mailgun.m.crossplane.io/v1beta1
+            - --crd-source-kind=Domain
+            - --crd-source-resourcenames-match-all=true
+            - --provider=mailgun
+            - --mailgun-api-key-file=/etc/mailgun/apiToken
+            - --txt-owner-id=provider-mailgun
+            - --domain-filter=bankrut.info
+            - --policy=sync
+            - --log-level=info
+          volumeMounts:
+            - name: mailgun-secret
+              mountPath: /etc/mailgun
+              readOnly: true
+      volumes:
+        - name: mailgun-secret
+          secret:
+            secretName: mailgun-external-dns-secret
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: external-dns
+  namespace: external-dns
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: external-dns
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["mailgun.m.crossplane.io"]
+    resources: ["domains", "domains/status"]
+    verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: external-dns
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: external-dns
+subjects:
+  - kind: ServiceAccount
+    name: external-dns
+    namespace: external-dns

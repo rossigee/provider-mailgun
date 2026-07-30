@@ -135,7 +135,7 @@ type DomainObservation struct {
 - ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.17.3` (current - Crossplane v2 with crossplane-runtime v2.3.0 and ModernManaged)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.18.0` (current - Crossplane v2 with crossplane-runtime v2.3.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
@@ -195,6 +195,17 @@ VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 - **`PLATFORMS`** - Build platforms (default: `linux/amd64,linux/arm64`)
 - **`XPKG_REG_ORGS`** - Override crossplane package registry (default: `xpkg.upbound.io/crossplane-contrib`)
 - **`REGISTRY`** - Registry location (now using ghcr.io/rossigee)
+
+## Recent Improvements (2026-07-30)
+
+### DNS Automation Paths - ConfigMap Output, external-dns Annotation, DNS Probe (v0.18.0)
+- **MX records name fix**: Mailgun's v4 Domains API omits the `name` field on MX records (they belong to the parent domain). `convertDNSRecords` now substitutes the parent domain name for MX records with empty `name`, so `kubectl describe domain` and the new ConfigMap output show complete records instead of `(MX)`.
+- **DNSProvider spec (cloudflare stub)**: New `spec.forProvider.dnsProvider` block on `Domain` — currently a placeholder for a future Cloudflare integration (kept additive so existing Domains are unaffected). The wire shape is stable: `dnsProvider.cloudflare.{apiTokenSecretRef, zoneID, keepOnDelete}`.
+- **DNS-records ConfigMap output (opt-in)**: Annotation `mailgun.crossplane.io/dns-configmap: "true"` causes the controller to create/update a ConfigMap named `<domain>-dns-records` in the Domain's namespace. Three keys: `records.yaml` (generic YAML), `terraform.tf` (hashicorp/dns HCL), `bind-zone.txt` (BIND zone fragment). Owner-referenced to the Domain for automatic cleanup. RBAC shipped as `examples/provider/configmap-rbac.yaml`.
+- **external-dns annotation (default-on)**: Controller writes `external-dns.alpha.kubernetes.io/hostname` onto every Domain that does not have `mailgun.crossplane.io/disable-external-dns: "true"`. Drop-in compatible with the standard `external-dns` Deployment + Mailgun webhook provider.
+- **DNSRecordsRequired Normal event**: Emitted on every reconcile while DNS is unverified. Message lists every record as `<type>-<hash>=<expected value>` so users can copy/paste the entire list into their DNS provider without leaving `kubectl describe`. Per-event annotations are baked into the message because Crossplane runtime v2's Recorder does not persist the `Event.Annotations` field to k8s events.
+- **DNS propagation probe (opt-in)**: Annotation `mailgun.crossplane.io/dns-probe: "true"` enables a DNS prober (miekg/dns v1.1.72) that queries 8.8.8.8, 1.1.1.1, and 9.9.9.9 and emits `DNSNotPropagated` / `DNSValueMismatch` / `DNSRecordMatches` / `SPFNeedsMerge` / `DNSProbeError`. SPF-merge detection flags TXT records at the apex whose value starts with `v=spf1` and contains `include:mailgun.org` but is not the expected Mailgun directive.
+- **Tests**: Added `TestDNSRecordsConfigMapName`, `TestBuildDNSRecordsConfigMap_HasAllThreeFormats`, `TestRenderRecordsYAML_IncludesAllRecords`, `TestRenderTerraform_RoundTripsAllRecordTypes` (with double-dot-regression guard), `TestRenderBindZone_HandlesMXAndTXT`, `TestDNSRecordAnnotationKey_*`, `TestFormatAnnotationBlock_*`, `TestProbeOne_*` (8 cases), `TestMiekDNSProber_*`, `TestRenderAnswers_*`, `TestMatchesExpected_*`, `TestSetExternalDNSHostname_*`, `TestEnsureDNSRecordsConfigMap_*`, `TestPublishDNSRecordsRequired_*`. 99+ test functions, all passing, lint clean.
 
 ## Recent Improvements (2026-07-30)
 

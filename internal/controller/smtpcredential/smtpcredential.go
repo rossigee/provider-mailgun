@@ -303,6 +303,29 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}
 		cr.SetConditions(xpv1.Available())
 
+		// Handle test email annotation even when secret exists
+		annotations := cr.GetAnnotations()
+		if annotations != nil && annotations[v1beta1.AnnotationTestEmailTo] != "" {
+			testEmailTo := annotations[v1beta1.AnnotationTestEmailTo]
+			domain := cr.Spec.ForProvider.Domain
+			from := cr.Spec.ForProvider.Login
+
+			logger.Info("test-email-to annotation detected, sending test email",
+				"from", from, "to", testEmailTo)
+
+			err := c.service.SendEmail(ctx, domain, from, testEmailTo, "Test email from provider-mailgun",
+				"Your SMTP credentials are working! This test was triggered by setting the mailgun.crossplane.io/test-email-to annotation.")
+			if err != nil {
+				c.recorder.Event(cr, event.Warning(eventReasonTestEmailFailed, errors.Wrap(err, "failed to send test email")))
+				logger.Error(err, "failed to send test email", "to", testEmailTo)
+			} else {
+				delete(annotations, v1beta1.AnnotationTestEmailTo)
+				cr.SetAnnotations(annotations)
+				c.recorder.Event(cr, event.Normal(eventReasonTestEmailSent, fmt.Sprintf("test email sent to %s", testEmailTo)))
+				logger.Info("test email sent successfully", "to", testEmailTo)
+			}
+		}
+
 		return managed.ExternalObservation{
 			ResourceExists:   true,
 			ResourceUpToDate: true,

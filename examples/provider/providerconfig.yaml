@@ -3,7 +3,7 @@ kind: ProviderConfig
 metadata:
   name: default
 spec:
-  # US region (default)
+  # US region (required: US or EU)
   region: US
   apiBaseURL: https://api.mailgun.net/v3
   credentials:

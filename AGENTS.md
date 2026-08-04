@@ -293,10 +293,10 @@ Currently registered:
 
 Most resources (mailing lists, routes, webhooks, SMTP credentials, templates, bounces, complaints, unsubscribes) hit v3 endpoints. Domain management (create, get, update, verify) uses the Mailgun v4 Domains API so that `receiving_dns_records` and `sending_dns_records` (plus their per-record `valid` status) are returned to the user.
 
-Configure via `region` field in ProviderConfig or explicit `apiBaseURL`. Region resolution priority:
+Configure via `region` field in ProviderConfig (required: US or EU) or explicit `apiBaseURL`. Region resolution priority:
 
 1. Explicit `spec.region` if it matches a registered code.
 2. URL marker on `apiBaseURL` (longest match wins, so `eu.mailgun.net` resolves to EU rather than the more general US `mailgun.net` marker).
-3. First registered region (US).
+3. First registered region (US) - fallback for backwards compatibility.
 
 When `apiBaseURL` is supplied with a `/v3` suffix, the v4 base URL is derived by replacing `/v3` with `/v4`. The SMTP host is always taken from the resolved region so downstream consumers (Keycloak, Odoo, …) authenticate against the relay that matches where the credential was issued.

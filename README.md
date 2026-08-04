@@ -60,7 +60,7 @@ metadata:
   name: default
   namespace: crossplane-system
 spec:
-  region: US
+  region: US  # Required: US or EU
   credentials:
     source: Secret
     secretRef:

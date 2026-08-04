@@ -34,8 +34,8 @@ type ProviderConfigSpec struct {
 
 	// Region specifies the Mailgun region (US or EU).
 	// +kubebuilder:validation:Enum=US;EU
-	// +kubebuilder:default="US"
-	Region *string `json:"region,omitempty"`
+	// +kubebuilder:validation:Required
+	Region string `json:"region"`
 }
 
 // ProviderCredentials required to authenticate.

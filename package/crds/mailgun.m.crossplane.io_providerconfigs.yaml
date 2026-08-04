@@ -110,7 +110,6 @@ spec:
                 - source
                 type: object
               region:
-                default: US
                 description: Region specifies the Mailgun region (US or EU).
                 enum:
                 - US
@@ -118,6 +117,7 @@ spec:
                 type: string
             required:
             - credentials
+            - region
             type: object
           status:
             description: A ProviderConfigStatus reflects the observed state of a ProviderConfig.

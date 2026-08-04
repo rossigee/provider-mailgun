@@ -323,8 +323,8 @@ func UseProviderConfig(ctx context.Context, c client.Client, mg resource.Managed
 	// Select the region. Priority: explicit spec.region (if recognised) →
 	// URL marker on apiBaseURL → first registered region (US).
 	region := regions[0]
-	if pc.Spec.Region != nil {
-		if r, ok := findRegionByCode(*pc.Spec.Region); ok {
+	if pc.Spec.Region != "" {
+		if r, ok := findRegionByCode(pc.Spec.Region); ok {
 			region = r
 		}
 	}

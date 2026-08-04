@@ -232,6 +232,10 @@ func (m *MockWebhookClient) DeleteUnsubscribe(ctx context.Context, domain, addre
 	return errors.New("not implemented")
 }
 
+func (m *MockWebhookClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
+}
+
 func TestWebhookObserve(t *testing.T) {
 	type args struct {
 		mg resource.Managed

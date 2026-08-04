@@ -239,6 +239,10 @@ func (m *MockTemplateClient) DeleteUnsubscribe(ctx context.Context, domain, addr
 	return errors.New("not implemented")
 }
 
+func (m *MockTemplateClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
+}
+
 func TestTemplateObserve(t *testing.T) {
 	type args struct {
 		mg resource.Managed

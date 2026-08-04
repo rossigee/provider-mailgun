@@ -248,6 +248,10 @@ func (m *MockMailingListClient) DeleteUnsubscribe(ctx context.Context, domain, a
 	return errors.New("not implemented")
 }
 
+func (m *MockMailingListClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
+}
+
 func TestMailingListObserve(t *testing.T) {
 	type args struct {
 		mg resource.Managed

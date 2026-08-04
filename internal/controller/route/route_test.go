@@ -251,6 +251,10 @@ func (m *MockRouteClient) DeleteUnsubscribe(ctx context.Context, domain, address
 	return errors.New("not implemented")
 }
 
+func (m *MockRouteClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
+}
+
 func TestRouteObserve(t *testing.T) {
 	type args struct {
 		mg resource.Managed

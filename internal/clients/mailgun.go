@@ -201,6 +201,9 @@ type Client interface {
 	CreateUnsubscribe(ctx context.Context, domain string, unsubscribe interface{}) (interface{}, error)
 	GetUnsubscribe(ctx context.Context, domain, address string) (interface{}, error)
 	DeleteUnsubscribe(ctx context.Context, domain, address string) error
+
+	// Email operations
+	SendEmail(ctx context.Context, domain, from, to, subject, body string) error
 }
 
 // Config holds the configuration for the Mailgun client
@@ -562,6 +565,47 @@ func (c *mailgunClient) handleResponse(resp *http.Response, target interface{}) 
 		if err := json.NewDecoder(resp.Body).Decode(target); err != nil {
 			return errors.Wrap(err, "failed to decode response")
 		}
+	}
+
+	return nil
+}
+
+// SendEmail sends a test email using the Mailgun Messages API.
+// The domain is used to determine the sending domain (e.g., golder.org in golder.org messages).
+// The from address should be a valid email on that domain.
+func (c *mailgunClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	// Build the messages API URL
+	messagesURL := fmt.Sprintf("%s/%s/messages", c.config.BaseURL, domain)
+
+	// Form data for the message
+	data := url.Values{}
+	data.Set("from", from)
+	data.Set("to", to)
+	data.Set("subject", subject)
+	data.Set("text", body)
+
+	// Make the POST request
+	req, err := http.NewRequestWithContext(ctx, "POST", messagesURL, strings.NewReader(data.Encode()))
+	if err != nil {
+		return errors.Wrap(err, "failed to create email request")
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.SetBasicAuth("api", c.config.APIKey)
+
+	resp, err := c.config.HTTPClient.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "failed to send email request")
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	// Check for errors
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return errors.Wrap(err, "failed to read email response")
+	}
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("mailgun API returned status %d: %s", resp.StatusCode, string(bodyBytes))
 	}
 
 	return nil

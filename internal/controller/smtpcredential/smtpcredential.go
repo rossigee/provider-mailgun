@@ -18,6 +18,7 @@ package smtpcredential
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -51,11 +52,17 @@ const (
 	// successfully requested removal of the external Mailgun credential,
 	// so a subsequent Observe can report the resource as gone.
 	smtpCredentialStateDeleted = "deleted"
+
+	// Event reasons
+	eventReasonTestEmailSent    = "TestEmailSent"
+	eventReasonTestEmailFailed  = "TestEmailFailed"
 )
 
 // Setup adds a controller that reconciles SMTPCredential managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1beta1.SMTPCredentialKind)
+
+	rec := event.NewAPIRecorder(mgr.GetEventRecorder(name))
 
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1beta1.SMTPCredentialGroupVersionKind),
@@ -63,10 +70,11 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
 			newServiceFn: clients.NewClient,
+			recorder:     rec,
 		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorder(name))))
+		managed.WithRecorder(rec))
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
@@ -82,6 +90,7 @@ type connector struct {
 	kube         client.Client
 	usage        resource.Tracker
 	newServiceFn func(config *clients.Config) clients.Client
+	recorder     event.Recorder
 }
 
 // Connect typically produces an ExternalClient by:
@@ -139,7 +148,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 
 	svc := c.newServiceFn(config)
 
-	return &external{service: svc, kube: c.kube, smtpHost: config.SMTPHost}, nil
+	return &external{service: svc, kube: c.kube, recorder: c.recorder, smtpHost: config.SMTPHost}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
@@ -147,6 +156,7 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 type external struct {
 	service  clients.Client
 	kube     client.Client
+	recorder event.Recorder
 	// smtpHost is the SMTP relay hostname corresponding to the ProviderConfig
 	// region (US→smtp.mailgun.org, EU→smtp.eu.mailgun.org). Populated by
 	// Connect from clients.Config.SMTPHost so the connection secret carries
@@ -351,6 +361,28 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	if annotations != nil && annotations["crossplane.io/external-create-succeeded"] != "" {
 		logger.Info("SMTP credential has successful creation annotation, treating as existing resource",
 			"createSucceededAt", annotations["crossplane.io/external-create-succeeded"])
+
+		// Handle test email annotation
+		if testEmailTo := annotations[v1beta1.AnnotationTestEmailTo]; testEmailTo != "" {
+			domain := cr.Spec.ForProvider.Domain
+			from := cr.Spec.ForProvider.Login
+
+			logger.Info("test-email-to annotation detected, sending test email",
+				"from", from, "to", testEmailTo)
+
+			err := c.service.SendEmail(ctx, domain, from, testEmailTo, "Test email from provider-mailgun",
+				"Your SMTP credentials are working! This test was triggered by setting the mailgun.crossplane.io/test-email-to annotation.")
+			if err != nil {
+				c.recorder.Event(cr, event.Warning(eventReasonTestEmailFailed, errors.Wrap(err, "failed to send test email")))
+				logger.Error(err, "failed to send test email", "to", testEmailTo)
+			} else {
+				// Clear the test email annotation after successful send
+				delete(annotations, v1beta1.AnnotationTestEmailTo)
+				cr.SetAnnotations(annotations)
+				c.recorder.Event(cr, event.Normal(eventReasonTestEmailSent, fmt.Sprintf("test email sent to %s", testEmailTo)))
+				logger.Info("test email sent successfully", "to", testEmailTo)
+			}
+		}
 
 		// Resource exists based on creation annotation, but connection secret is missing
 		// Set status based on external name and assume active state

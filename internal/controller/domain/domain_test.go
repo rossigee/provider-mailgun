@@ -270,6 +270,10 @@ func (m *MockDomainClient) DeleteUnsubscribe(ctx context.Context, domain, addres
 	return errors.New("not implemented")
 }
 
+func (m *MockDomainClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil // Mock always succeeds
+}
+
 func TestDomainObserve(t *testing.T) {
 	type args struct {
 		mg resource.Managed

@@ -99,3 +99,11 @@ type SMTPCredentialList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SMTPCredential `json:"items"`
 }
+
+// Annotation keys for SMTPCredential
+const (
+	// AnnotationTestEmailTo is the email address to send a test email to.
+	// Set this annotation on an SMTPCredential to trigger a test email.
+	// The annotation will be cleared after the test email is sent successfully.
+	AnnotationTestEmailTo = "mailgun.crossplane.io/test-email-to"
+)

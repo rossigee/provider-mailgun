@@ -219,6 +219,10 @@ func (m *MockBounceClient) DeleteUnsubscribe(ctx context.Context, domain, addres
 	return errors.New("not implemented")
 }
 
+func (m *MockBounceClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
+}
+
 func TestBounceObserve(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, v1beta1.SchemeBuilder.AddToScheme(scheme))

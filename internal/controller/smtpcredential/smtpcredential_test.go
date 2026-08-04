@@ -235,6 +235,10 @@ func (m *MockSMTPCredentialClient) DeleteUnsubscribe(ctx context.Context, domain
 	return errors.New("not implemented")
 }
 
+func (m *MockSMTPCredentialClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
+}
+
 func TestSMTPCredentialObserve(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))

@@ -319,8 +319,13 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 				c.recorder.Event(cr, event.Warning(eventReasonTestEmailFailed, errors.Wrap(err, "failed to send test email")))
 				logger.Error(err, "failed to send test email", "to", testEmailTo)
 			} else {
-				delete(annotations, v1beta1.AnnotationTestEmailTo)
-				cr.SetAnnotations(annotations)
+				// Create new annotations map to ensure Crossplane detects the change
+				newAnnotations := make(map[string]string)
+				for k, v := range annotations {
+					newAnnotations[k] = v
+				}
+				delete(newAnnotations, v1beta1.AnnotationTestEmailTo)
+				cr.SetAnnotations(newAnnotations)
 				c.recorder.Event(cr, event.Normal(eventReasonTestEmailSent, fmt.Sprintf("test email sent to %s", testEmailTo)))
 				logger.Info("test email sent successfully", "to", testEmailTo)
 			}
@@ -399,9 +404,13 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 				c.recorder.Event(cr, event.Warning(eventReasonTestEmailFailed, errors.Wrap(err, "failed to send test email")))
 				logger.Error(err, "failed to send test email", "to", testEmailTo)
 			} else {
-				// Clear the test email annotation after successful send
-				delete(annotations, v1beta1.AnnotationTestEmailTo)
-				cr.SetAnnotations(annotations)
+				// Create new annotations map to ensure Crossplane detects the change
+				newAnnotations := make(map[string]string)
+				for k, v := range annotations {
+					newAnnotations[k] = v
+				}
+				delete(newAnnotations, v1beta1.AnnotationTestEmailTo)
+				cr.SetAnnotations(newAnnotations)
 				c.recorder.Event(cr, event.Normal(eventReasonTestEmailSent, fmt.Sprintf("test email sent to %s", testEmailTo)))
 				logger.Info("test email sent successfully", "to", testEmailTo)
 			}

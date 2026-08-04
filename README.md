@@ -110,6 +110,16 @@ spec:
     name: default
 ```
 
+#### Test Email
+
+To verify SMTP credentials are working, set an annotation on the SMTPCredential:
+
+```bash
+kubectl annotate smtpcredential mailer mailgun.crossplane.io/test-email-to=you@example.com --overwrite
+```
+
+On the next reconcile, the provider will send a test email to that address using the credential's login as the sender. On success, the annotation is automatically cleared. On failure, a warning event is emitted and the annotation is retained for retry.
+
 ## DNS Verification Flow
 
 When you create a `Domain` resource, Mailgun responds with a list of

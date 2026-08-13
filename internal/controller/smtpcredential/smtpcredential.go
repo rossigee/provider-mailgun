@@ -263,6 +263,35 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		logger.Info("set external name", "externalName", externalName)
 	}
 
+	// Check for force rotation annotation before anything else. This must run
+	// before the "connection secret already exists" fast path below: that
+	// path returns early whenever a secret is present, which is always true
+	// for a credential someone would actually want to rotate - so checking
+	// this annotation only after that fast path (as it originally was)
+	// left it permanently unreachable for any already-created credential.
+	annotations := cr.GetAnnotations()
+	forceRotate := annotations != nil && annotations["mailgun.crossplane.io/force-rotate-credentials"] != ""
+	if forceRotate {
+		logger.Info("force-rotate-credentials annotation detected, triggering credential recreation")
+		op.SetAttribute("force_rotation", true)
+
+		// Remove the force rotation annotation to prevent repeated rotations and set internal flag
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		delete(annotations, "mailgun.crossplane.io/force-rotate-credentials")
+		annotations["mailgun.crossplane.io/internal-force-rotate"] = "true" // Signal to Create method
+
+		// Clear creation annotations to force recreation
+		delete(annotations, "crossplane.io/external-create-succeeded")
+		delete(annotations, "crossplane.io/external-create-pending")
+		cr.SetAnnotations(annotations)
+
+		// Return as non-existent to trigger Create flow with rotation
+		timer.RecordResourceOperation("smtpcredential", "observe", "force_rotation")
+		return managed.ExternalObservation{ResourceExists: false}, nil
+	}
+
 	// SMTP credentials are write-only in Mailgun API - we can't read them back
 	// Instead, we check if we have connection details stored (indicating successful creation)
 	// If not, we'll trigger recreation to rotate credentials
@@ -358,34 +387,9 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		op.SetAttribute("secret.reason", "empty")
 	}
 
-	// Check if we have evidence of successful external resource creation
-	// Look for crossplane.io/external-create-succeeded annotation
-	annotations := cr.GetAnnotations()
-
-	// Check for force rotation annotation first - this overrides existing resource detection
-	forceRotate := annotations != nil && annotations["mailgun.crossplane.io/force-rotate-credentials"] != ""
-	if forceRotate {
-		logger.Info("force-rotate-credentials annotation detected, triggering credential recreation")
-		op.SetAttribute("force_rotation", true)
-
-		// Remove the force rotation annotation to prevent repeated rotations and set internal flag
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
-		delete(annotations, "mailgun.crossplane.io/force-rotate-credentials")
-		annotations["mailgun.crossplane.io/internal-force-rotate"] = "true" // Signal to Create method
-		cr.SetAnnotations(annotations)
-
-		// Clear creation annotations to force recreation
-		delete(annotations, "crossplane.io/external-create-succeeded")
-		delete(annotations, "crossplane.io/external-create-pending")
-		cr.SetAnnotations(annotations)
-
-		// Return as non-existent to trigger Create flow with rotation
-		timer.RecordResourceOperation("smtpcredential", "observe", "force_rotation")
-		return managed.ExternalObservation{ResourceExists: false}, nil
-	}
-
+	// Check if we have evidence of successful external resource creation.
+	// (Force-rotation was already checked above, before the secret-exists
+	// fast path.) Look for crossplane.io/external-create-succeeded annotation.
 	if annotations != nil && annotations["crossplane.io/external-create-succeeded"] != "" {
 		logger.Info("SMTP credential has successful creation annotation, treating as existing resource",
 			"createSucceededAt", annotations["crossplane.io/external-create-succeeded"])

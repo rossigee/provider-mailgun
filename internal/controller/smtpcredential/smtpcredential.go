@@ -312,8 +312,34 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	secretKey := types.NamespacedName{Name: secretName, Namespace: secretNamespace}
 	err := c.kube.Get(ctx, secretKey, secret)
 
-	// If secret exists and has credentials, consider resource as existing
+	// If secret exists and has credentials, consider resource as existing -
+	// but verify against Mailgun first. A local secret only proves the
+	// credential existed at creation time; it says nothing about whether
+	// Mailgun still has it (deleted via the dashboard, revoked by Mailgun's
+	// own abuse/compliance systems, etc). Without this check Observe never
+	// notices such drift - it would report Ready/Synced=True forever with a
+	// secret full of a password that no longer authenticates.
 	if err == nil && secret.Data != nil && len(secret.Data) > 0 {
+		_, getErr := c.service.GetSMTPCredential(ctx, cr.Spec.ForProvider.Domain, cr.Spec.ForProvider.Login)
+		if getErr != nil {
+			if clients.IsNotFound(getErr) {
+				logger.Info("SMTP credential secret exists locally but Mailgun reports it missing, triggering recreation")
+				metrics.RecordSecretOperation("get", "success")
+				op.SetAttribute("secret.found", true)
+				op.SetAttribute("resource.exists", false)
+				op.SetAttribute("resource.mailgun_verified", false)
+				timer.RecordResourceOperation("smtpcredential", "observe", "recreate_missing")
+				return managed.ExternalObservation{ResourceExists: false}, nil
+			}
+			// A non-404 error (network, auth, rate limit, etc) doesn't tell us
+			// anything about whether the credential exists - propagate it so
+			// Crossplane retries rather than guessing either way.
+			logger.Error(getErr, "failed to verify SMTP credential against Mailgun")
+			timer.RecordResourceOperation("smtpcredential", "observe", "error")
+			op.RecordError(getErr)
+			return managed.ExternalObservation{}, errors.Wrap(getErr, "failed to verify SMTP credential against Mailgun")
+		}
+
 		logger.Info("SMTP credential exists with stored secret",
 			"secretDataKeys", getSecretDataKeys(secret.Data))
 
@@ -324,6 +350,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		op.SetAttribute("secret.keys_count", len(secret.Data))
 		op.SetAttribute("resource.exists", true)
 		op.SetAttribute("resource.up_to_date", true)
+		op.SetAttribute("resource.mailgun_verified", true)
 
 		// Resource exists and we have credentials stored
 		cr.Status.AtProvider = v1beta1.SMTPCredentialObservation{

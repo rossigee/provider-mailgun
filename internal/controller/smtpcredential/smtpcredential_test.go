@@ -260,7 +260,7 @@ func TestSMTPCredentialObserve(t *testing.T) {
 		want   want
 	}{
 		"CredentialExistsWithSecret": {
-			reason: "Should return ResourceExists when secret exists (rotation strategy)",
+			reason: "Should return ResourceExists when secret exists and Mailgun confirms credential",
 			args: args{
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
@@ -297,6 +297,41 @@ func TestSMTPCredentialObserve(t *testing.T) {
 						"smtp_port":     []byte("587"),
 						"smtp_username": []byte("test@example.com"),
 					},
+				},
+			},
+		},
+		"CredentialDriftDetectedSecretExistsButMailgunMissing": {
+			reason: "Should return ResourceExists false when secret exists locally but Mailgun reports credential missing (drift detection)",
+			args: args{
+				mg: &v1beta1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-smtp",
+					},
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
+							Domain: "example.com",
+							Login:  "drift@example.com",
+						},
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
+								Name: "drift-secret",
+							},
+						},
+					},
+				},
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "drift-secret",
+					},
+					Data: map[string][]byte{
+						"smtp_username": []byte("drift@example.com"),
+						"smtp_password": []byte("stale-password"),
+					},
+				},
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists: false,
 				},
 			},
 		},
@@ -478,31 +513,57 @@ func TestSMTPCredentialObserve(t *testing.T) {
 		},
 	}
 
-	for name, tc := range cases {
-		t.Run(name, func(t *testing.T) {
-			// Setup fake Kubernetes client
-			fakeClient := fake.NewClientBuilder().WithScheme(scheme)
-			if tc.args.secret != nil {
-				fakeClient = fakeClient.WithObjects(tc.args.secret)
-			}
-			kubeClient := fakeClient.Build()
+for name, tc := range cases {
+			t.Run(name, func(t *testing.T) {
+				// Setup fake Kubernetes client
+				fakeClient := fake.NewClientBuilder().WithScheme(scheme)
+				if tc.args.secret != nil {
+					fakeClient = fakeClient.WithObjects(tc.args.secret)
+				}
+				kubeClient := fakeClient.Build()
 
-			// Setup mock Mailgun client
-			mockClient := &MockSMTPCredentialClient{}
+				// Setup mock Mailgun client - pre-populate for cases where Mailgun should confirm credential exists
+				mockClient := &MockSMTPCredentialClient{}
+				if name == "CredentialExistsWithSecret" {
+					mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
+						"example.com/test@example.com": {
+							Login: "test@example.com",
+							CreatedAt: "2025-01-01T00:00:00Z",
+							State:     "active",
+						},
+					}
+				} else if name == "CredentialExistsWithSecretEU" {
+					mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
+						"example.eu/test@example.eu": {
+							Login: "test@example.eu",
+							CreatedAt: "2025-01-01T00:00:00Z",
+							State:     "active",
+						},
+					}
+				} else if name == "DeletionRequestedButNotYetDeletedStillTriggersDelete" {
+					mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
+						"example.com/test@example.com": {
+							Login: "test@example.com",
+							CreatedAt: "2025-01-01T00:00:00Z",
+							State:     "active",
+						},
+					}
+				}
+				// For "CredentialDriftDetectedSecretExistsButMailgunMissing", leave mockClient empty so GetSMTPCredential returns 404
 
-			// Default to US host so existing assertions don't change; the EU
-			// case below overrides this explicitly.
-			host := "smtp.mailgun.org"
-			if name == "CredentialExistsWithSecretEU" {
-				host = "smtp.eu.mailgun.org"
-			}
+				// Default to US host so existing assertions don't change; the EU
+				// case below overrides this explicitly.
+				host := "smtp.mailgun.org"
+				if name == "CredentialExistsWithSecretEU" {
+					host = "smtp.eu.mailgun.org"
+				}
 
-			e := &external{
-				service:  mockClient,
-				kube:     kubeClient,
-				smtpHost: host,
-			}
-			got, err := e.Observe(context.Background(), tc.args.mg)
+				e := &external{
+					service:  mockClient,
+					kube:     kubeClient,
+					smtpHost: host,
+				}
+				got, err := e.Observe(context.Background(), tc.args.mg)
 
 			if tc.want.err != nil {
 				require.Error(t, err)

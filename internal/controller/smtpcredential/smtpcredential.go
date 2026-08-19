@@ -54,8 +54,8 @@ const (
 	smtpCredentialStateDeleted = "deleted"
 
 	// Event reasons
-	eventReasonTestEmailSent    = "TestEmailSent"
-	eventReasonTestEmailFailed  = "TestEmailFailed"
+	eventReasonTestEmailSent   = "TestEmailSent"
+	eventReasonTestEmailFailed = "TestEmailFailed"
 )
 
 // Setup adds a controller that reconciles SMTPCredential managed resources.

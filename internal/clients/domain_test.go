@@ -180,8 +180,8 @@ func TestCreateDomain(t *testing.T) {
 				})
 			},
 			expectedDomain: &domaintypes.DomainObservation{
-				ID:    "full.com",
-				State: "active",
+				ID:          "full.com",
+				State:       "active",
 				DNSVerified: boolPtr(true),
 				SendingDNSRecords: []domaintypes.DNSRecord{
 					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
@@ -207,9 +207,9 @@ func TestCreateDomain(t *testing.T) {
 				})
 			},
 			expectedDomain: &domaintypes.DomainObservation{
-				ID:          "empty.com",
-				State:       "unverified",
-				DNSVerified: nil,
+				ID:                 "empty.com",
+				State:              "unverified",
+				DNSVerified:        nil,
 				RequiredDNSRecords: []domaintypes.DNSRecord{},
 			},
 			expectedError: false,
@@ -419,9 +419,9 @@ func TestUpdateDomain(t *testing.T) {
 				})
 			},
 			expectedDomain: &domaintypes.DomainObservation{
-				ID:           "update.com",
-				State:        "active",
-				DNSVerified:  boolPtr(true),
+				ID:          "update.com",
+				State:       "active",
+				DNSVerified: boolPtr(true),
 				SendingDNSRecords: []domaintypes.DNSRecord{
 					{Name: "update.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
 				},
@@ -537,12 +537,12 @@ func TestDeleteDomain(t *testing.T) {
 
 func TestVerifyDomain(t *testing.T) {
 	tests := []struct {
-		name                  string
-		domainName            string
-		serverResponse        func(w http.ResponseWriter, r *http.Request)
-		expectedDNSRecCount   int
-		expectedDNSVerified   *bool
-		expectedError         bool
+		name                string
+		domainName          string
+		serverResponse      func(w http.ResponseWriter, r *http.Request)
+		expectedDNSRecCount int
+		expectedDNSVerified *bool
+		expectedError       bool
 	}{
 		{
 			name:       "successful verify returns DNS records with current validity",

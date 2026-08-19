@@ -540,8 +540,8 @@ func TestNetworkFailures(t *testing.T) {
 
 				// Use a very short timeout
 				config := &Config{
-					APIKey:  "test-key",
-					BaseURL: server.URL + "/v3",
+					APIKey:    "test-key",
+					BaseURL:   server.URL + "/v3",
 					V4BaseURL: server.URL + "/v4",
 					HTTPClient: &http.Client{
 						Timeout: 100 * time.Millisecond, // Very short timeout

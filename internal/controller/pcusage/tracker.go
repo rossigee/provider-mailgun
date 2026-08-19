@@ -57,7 +57,7 @@ func (t *Tracker) Track(ctx context.Context, mg resource.ModernManaged) error {
 		pcu = &v1beta1.ProviderConfigUsage{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: v1beta1.SchemeGroupVersion.String(),
-				Kind:       v1beta1.ProviderConfigUsageKind,  // from register.go
+				Kind:       v1beta1.ProviderConfigUsageKind, // from register.go
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      pcUsageKey.Name,

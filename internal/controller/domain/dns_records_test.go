@@ -31,9 +31,9 @@ func TestDNSRecordsConfigMapName(t *testing.T) {
 		in   string
 		want string
 	}{
-		"PlainDomain":          {in: "example.com", want: "example.com-dns-records"},
-		"MixedCaseLowercased":  {in: "Example.COM", want: "example.com-dns-records"},
-		"Subdomain":            {in: "mail.example.com", want: "mail.example.com-dns-records"},
+		"PlainDomain":         {in: "example.com", want: "example.com-dns-records"},
+		"MixedCaseLowercased": {in: "Example.COM", want: "example.com-dns-records"},
+		"Subdomain":           {in: "mail.example.com", want: "mail.example.com-dns-records"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

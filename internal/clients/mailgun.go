@@ -208,8 +208,8 @@ type Client interface {
 
 // Config holds the configuration for the Mailgun client
 type Config struct {
-	APIKey   string
-	BaseURL  string
+	APIKey  string
+	BaseURL string
 	// V4BaseURL is the base URL for Mailgun v4 Domains API endpoints. When
 	// the user supplies a BaseURL with a trailing /v3 (the historic default),
 	// V4BaseURL is derived by swapping /v3 for /v4 so domain management calls
@@ -220,7 +220,7 @@ type Config struct {
 	// (US→smtp.mailgun.org, EU→smtp.eu.mailgun.org) and propagated into the
 	// connection secret so downstream consumers (Keycloak, Odoo, …) get a
 	// host that matches where the credential actually authenticates.
-	SMTPHost  string
+	SMTPHost   string
 	HTTPClient *http.Client
 }
 

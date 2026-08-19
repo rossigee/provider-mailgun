@@ -212,7 +212,7 @@ func TestRenderAnswers_TXTConcatenation(t *testing.T) {
 
 func TestRenderAnswers_MXFormat(t *testing.T) {
 	rr := &dns.MX{
-		Hdr: dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: 300},
+		Hdr:        dns.RR_Header{Name: "example.com.", Rrtype: dns.TypeMX, Class: dns.ClassINET, Ttl: 300},
 		Preference: 10,
 		Mx:         "mxa.mailgun.org.",
 	}

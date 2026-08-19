@@ -46,11 +46,11 @@ type DNSProber interface {
 // DNS. ProbedValue is the joined TXT-style value (semicolon-separated
 // for TXT, period-terminated FQDN for MX / CNAME, dotted-quad for A).
 type DNSProbeResult struct {
-	Record       clientdns.DNSRecord
-	Probed       bool
-	ProbedValue  string
-	Matched      bool
-	Err          error
+	Record        clientdns.DNSRecord
+	Probed        bool
+	ProbedValue   string
+	Matched       bool
+	Err           error
 	NeedsSPFMerge bool
 }
 

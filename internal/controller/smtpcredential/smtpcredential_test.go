@@ -24,14 +24,14 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
-	v1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
-	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
-	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -513,57 +513,57 @@ func TestSMTPCredentialObserve(t *testing.T) {
 		},
 	}
 
-for name, tc := range cases {
-			t.Run(name, func(t *testing.T) {
-				// Setup fake Kubernetes client
-				fakeClient := fake.NewClientBuilder().WithScheme(scheme)
-				if tc.args.secret != nil {
-					fakeClient = fakeClient.WithObjects(tc.args.secret)
-				}
-				kubeClient := fakeClient.Build()
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			// Setup fake Kubernetes client
+			fakeClient := fake.NewClientBuilder().WithScheme(scheme)
+			if tc.args.secret != nil {
+				fakeClient = fakeClient.WithObjects(tc.args.secret)
+			}
+			kubeClient := fakeClient.Build()
 
-				// Setup mock Mailgun client - pre-populate for cases where Mailgun should confirm credential exists
-				mockClient := &MockSMTPCredentialClient{}
-				if name == "CredentialExistsWithSecret" {
-					mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
-						"example.com/test@example.com": {
-							Login: "test@example.com",
-							CreatedAt: "2025-01-01T00:00:00Z",
-							State:     "active",
-						},
-					}
-				} else if name == "CredentialExistsWithSecretEU" {
-					mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
-						"example.eu/test@example.eu": {
-							Login: "test@example.eu",
-							CreatedAt: "2025-01-01T00:00:00Z",
-							State:     "active",
-						},
-					}
-				} else if name == "DeletionRequestedButNotYetDeletedStillTriggersDelete" {
-					mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
-						"example.com/test@example.com": {
-							Login: "test@example.com",
-							CreatedAt: "2025-01-01T00:00:00Z",
-							State:     "active",
-						},
-					}
+			// Setup mock Mailgun client - pre-populate for cases where Mailgun should confirm credential exists
+			mockClient := &MockSMTPCredentialClient{}
+			if name == "CredentialExistsWithSecret" {
+				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
+					"example.com/test@example.com": {
+						Login:     "test@example.com",
+						CreatedAt: "2025-01-01T00:00:00Z",
+						State:     "active",
+					},
 				}
-				// For "CredentialDriftDetectedSecretExistsButMailgunMissing", leave mockClient empty so GetSMTPCredential returns 404
+			} else if name == "CredentialExistsWithSecretEU" {
+				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
+					"example.eu/test@example.eu": {
+						Login:     "test@example.eu",
+						CreatedAt: "2025-01-01T00:00:00Z",
+						State:     "active",
+					},
+				}
+			} else if name == "DeletionRequestedButNotYetDeletedStillTriggersDelete" {
+				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
+					"example.com/test@example.com": {
+						Login:     "test@example.com",
+						CreatedAt: "2025-01-01T00:00:00Z",
+						State:     "active",
+					},
+				}
+			}
+			// For "CredentialDriftDetectedSecretExistsButMailgunMissing", leave mockClient empty so GetSMTPCredential returns 404
 
-				// Default to US host so existing assertions don't change; the EU
-				// case below overrides this explicitly.
-				host := "smtp.mailgun.org"
-				if name == "CredentialExistsWithSecretEU" {
-					host = "smtp.eu.mailgun.org"
-				}
+			// Default to US host so existing assertions don't change; the EU
+			// case below overrides this explicitly.
+			host := "smtp.mailgun.org"
+			if name == "CredentialExistsWithSecretEU" {
+				host = "smtp.eu.mailgun.org"
+			}
 
-				e := &external{
-					service:  mockClient,
-					kube:     kubeClient,
-					smtpHost: host,
-				}
-				got, err := e.Observe(context.Background(), tc.args.mg)
+			e := &external{
+				service:  mockClient,
+				kube:     kubeClient,
+				smtpHost: host,
+			}
+			got, err := e.Observe(context.Background(), tc.args.mg)
 
 			if tc.want.err != nil {
 				require.Error(t, err)

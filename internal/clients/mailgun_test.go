@@ -398,7 +398,7 @@ func TestParseRateLimit(t *testing.T) {
 			wantNil: true,
 		},
 		{
-			name: "retry-after seconds only",
+			name:   "retry-after seconds only",
 			status: http.StatusTooManyRequests,
 			headers: map[string]string{
 				"Retry-After": "30",
@@ -406,7 +406,7 @@ func TestParseRateLimit(t *testing.T) {
 			wantAfter: 30 * time.Second,
 		},
 		{
-			name: "x-ratelimit-reset epoch only",
+			name:   "x-ratelimit-reset epoch only",
 			status: http.StatusTooManyRequests,
 			headers: map[string]string{
 				"X-RateLimit-Reset": strconv.FormatInt(resetEpoch, 10),
@@ -415,7 +415,7 @@ func TestParseRateLimit(t *testing.T) {
 			wantReset: true,
 		},
 		{
-			name: "retry-after wins when both present",
+			name:   "retry-after wins when both present",
 			status: http.StatusTooManyRequests,
 			headers: map[string]string{
 				"Retry-After":       "5",
@@ -425,11 +425,11 @@ func TestParseRateLimit(t *testing.T) {
 			wantReset: true,
 		},
 		{
-			name: "limit and remaining captured",
+			name:   "limit and remaining captured",
 			status: http.StatusTooManyRequests,
 			headers: map[string]string{
-				"Retry-After":         "10",
-				"X-RateLimit-Limit":   "100",
+				"Retry-After":           "10",
+				"X-RateLimit-Limit":     "100",
 				"X-RateLimit-Remaining": "0",
 			},
 			wantAfter: 10 * time.Second,

@@ -160,9 +160,9 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	svc := c.newServiceFn(config)
 
 	return &external{
-		service: svc,
+		service:  svc,
 		recorder: c.recorder,
-		kube:    c.kube,
+		kube:     c.kube,
 	}, nil
 }
 

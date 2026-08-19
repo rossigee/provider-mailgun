@@ -30,8 +30,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	v1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 

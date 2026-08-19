@@ -59,10 +59,10 @@ type DomainSpec struct {
 // Mailgun returns `valid` as a string enum ("valid" or "unknown") and
 // `priority` as a string (e.g. "10") for MX records.
 type DNSRecord struct {
-	Name     string                       `json:"name,omitempty"`
-	Type     string                       `json:"record_type,omitempty"`
-	Value    string                       `json:"value,omitempty"`
-	Priority *string                      `json:"priority,omitempty"`
+	Name     string                        `json:"name,omitempty"`
+	Type     string                        `json:"record_type,omitempty"`
+	Value    string                        `json:"value,omitempty"`
+	Priority *string                       `json:"priority,omitempty"`
 	Valid    *domainv1beta1.RecordValidity `json:"valid,omitempty"`
 }
 

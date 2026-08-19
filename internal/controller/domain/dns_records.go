@@ -70,7 +70,7 @@ func BuildDNSRecordsConfigMap(domain *v1beta1.Domain, records []clientdns.DNSRec
 			Name:      dnsRecordsConfigMapName(domain.Spec.ForProvider.Name),
 			Namespace: domain.GetNamespace(),
 			Labels: map[string]string{
-				"app.kubernetes.io/managed-by":   "provider-mailgun",
+				"app.kubernetes.io/managed-by":  "provider-mailgun",
 				"mailgun.crossplane.io/domain":  domain.Spec.ForProvider.Name,
 				"mailgun.crossplane.io/records": "required",
 			},

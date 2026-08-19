@@ -19,10 +19,11 @@ package resilience
 import (
 	"context"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 // mockNetError implements net.Error for testing

@@ -20,6 +20,8 @@ package controller
 
 import (
 	"context"
+	"testing"
+
 	"github.com/pkg/errors"
 	"github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
@@ -37,7 +39,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"testing"
 )
 
 // stringPtr returns a pointer to a string

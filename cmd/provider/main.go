@@ -18,6 +18,10 @@ package main
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"runtime"
+
 	xpcontroller "github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
@@ -30,9 +34,6 @@ import (
 	"github.com/rossigee/provider-mailgun/internal/version"
 	"gopkg.in/alecthomas/kingpin.v2"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
-	"os"
-	"path/filepath"
-	"runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"

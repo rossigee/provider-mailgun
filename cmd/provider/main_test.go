@@ -18,15 +18,16 @@ package main
 
 import (
 	"context"
+	"net/http/httptest"
+	"testing"
+
 	"github.com/rossigee/provider-mailgun/internal/health"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
-	"net/http/httptest"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 func TestHealthChecker(t *testing.T) {

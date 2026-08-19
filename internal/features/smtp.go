@@ -20,15 +20,16 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
-	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
-	"github.com/rossigee/provider-mailgun/internal/clients"
-	"github.com/rossigee/provider-mailgun/internal/errors"
-	"github.com/rossigee/provider-mailgun/internal/tracing"
 	"math/big"
 	"net"
 	"regexp"
 	"strings"
 	"time"
+
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/errors"
+	"github.com/rossigee/provider-mailgun/internal/tracing"
 )
 
 // SMTPCredentialManager provides advanced SMTP credential management

@@ -19,11 +19,12 @@ package health
 import (
 	"context"
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/rossigee/provider-mailgun/internal/clients"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"net/http"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"time"
 )
 
 // HealthChecker provides health checking functionality

@@ -17,10 +17,11 @@ limitations under the License.
 package features
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestPasswordPolicy_GenerateSecurePassword(t *testing.T) {

@@ -19,15 +19,16 @@ package resilience
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
-	"github.com/prometheus/client_golang/prometheus"
 	"math"
 	"math/rand"
 	"net"
-	"sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/metrics"
 	"strings"
 	"time"
+
+	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
 )
 
 var (

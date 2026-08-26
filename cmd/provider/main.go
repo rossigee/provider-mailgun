@@ -26,6 +26,16 @@ import (
 	"github.com/crossplane/crossplane-runtime/v2/pkg/feature"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/logging"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/ratelimiter"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/statemetrics"
+	bouncev1beta1 "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	complaintv1beta1 "github.com/rossigee/provider-mailgun/apis/complaint/v1beta1"
+	domainv1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglistv1beta1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routev1beta1 "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	smtpcredentialv1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatev1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	unsubscribev1beta1 "github.com/rossigee/provider-mailgun/apis/unsubscribe/v1beta1"
+	webhookv1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	"github.com/rossigee/provider-mailgun/apis"
 	"github.com/rossigee/provider-mailgun/internal/controller"
 	"github.com/rossigee/provider-mailgun/internal/features"
@@ -37,7 +47,8 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
+	"sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 func main() {
@@ -49,6 +60,8 @@ func main() {
 		leaderElection           = app.Flag("leader-election", "Use leader election for the controller manager.").Short('l').Default("false").OverrideDefaultFromEnvar("LEADER_ELECTION").Bool()
 		maxReconcileRate         = app.Flag("max-reconcile-rate", "The global maximum rate per second at which resources may checked for drift from the desired state.").Default("100").Int()
 		enableManagementPolicies = app.Flag("enable-management-policies", "Enable support for Management Policies.").Default("true").Bool()
+		pollStateMetricInterval  = app.Flag("poll-state-metric", "State metric recording interval").Default("5s").Duration()
+		metricsBindAddress       = app.Flag("metrics-bind-address", "The address the metrics endpoint binds to.").Default(":8080").String()
 	)
 	kingpin.MustParse(app.Parse(os.Args[1:]))
 
@@ -98,8 +111,8 @@ func main() {
 		LeaderElectionResourceLock:    resourcelock.LeasesResourceLock,
 		Cache:                         cache.Options{DefaultNamespaces: map[string]cache.Config{namespace: {}}},
 		LeaderElectionReleaseOnCancel: true,
-		Metrics: server.Options{
-			BindAddress: ":8080", // Single HTTP server for both metrics and health checks
+		Metrics: metricserver.Options{
+			BindAddress: *metricsBindAddress,
 		},
 	})
 	kingpin.FatalIfError(err, "Cannot create controller manager")
@@ -116,6 +129,14 @@ func main() {
 	// Setup rate limiter
 	rateLimiter := ratelimiter.NewGlobal(*maxReconcileRate)
 
+	mrStateMetrics := statemetrics.NewMRStateMetrics()
+	metrics.Registry.MustRegister(mrStateMetrics)
+
+	mo := xpcontroller.MetricOptions{
+		PollStateMetricInterval: *pollStateMetricInterval,
+		MRStateMetrics:          mrStateMetrics,
+	}
+
 	// Setup controller options
 	o := xpcontroller.Options{
 		Logger:                  log,
@@ -123,10 +144,21 @@ func main() {
 		PollInterval:            *pollInterval,
 		GlobalRateLimiter:       rateLimiter,
 		Features:                featureFlags,
+		MetricOptions:           &mo,
 	}
 
 	// Setup all controllers
 	kingpin.FatalIfError(controller.Setup(mgr, o), "Cannot setup Mailgun controllers")
+
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &domainv1beta1.DomainList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Domain")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &mailinglistv1beta1.MailingListList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for MailingList")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &routev1beta1.RouteList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Route")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &webhookv1beta1.WebhookList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Webhook")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &templatev1beta1.TemplateList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Template")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &smtpcredentialv1beta1.SMTPCredentialList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for SMTPCredential")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &bouncev1beta1.BounceList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Bounce")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &complaintv1beta1.ComplaintList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Complaint")
+	kingpin.FatalIfError(mgr.Add(statemetrics.NewMRStateRecorder(mgr.GetClient(), o.Logger, o.MetricOptions.MRStateMetrics, &unsubscribev1beta1.UnsubscribeList{}, o.MetricOptions.PollStateMetricInterval)), "Cannot register state metrics for Unsubscribe")
 
 	// Add health checks to the manager's built-in endpoints.
 	// nil for mailgunCheck: no ProviderConfig is available at startup to

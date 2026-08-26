@@ -525,7 +525,8 @@ func TestSMTPCredentialObserve(t *testing.T) {
 
 			// Setup mock Mailgun client - pre-populate for cases where Mailgun should confirm credential exists
 			mockClient := &MockSMTPCredentialClient{}
-			if name == "CredentialExistsWithSecret" {
+			switch name {
+			case "CredentialExistsWithSecret":
 				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/test@example.com": {
 						Login:     "test@example.com",
@@ -533,7 +534,7 @@ func TestSMTPCredentialObserve(t *testing.T) {
 						State:     "active",
 					},
 				}
-			} else if name == "CredentialExistsWithSecretEU" {
+			case "CredentialExistsWithSecretEU":
 				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
 					"example.eu/test@example.eu": {
 						Login:     "test@example.eu",
@@ -541,7 +542,7 @@ func TestSMTPCredentialObserve(t *testing.T) {
 						State:     "active",
 					},
 				}
-			} else if name == "DeletionRequestedButNotYetDeletedStillTriggersDelete" {
+			case "DeletionRequestedButNotYetDeletedStillTriggersDelete":
 				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/test@example.com": {
 						Login:     "test@example.com",

@@ -11,7 +11,7 @@
 # Changes from 2025-09-26:
 # - Added publication verification step
 # - Uses github.token for registry authentication (OIDC)
-# - Confirmed softprops/action-gh-release@v2 (not deprecated v1)
+# - Confirmed softprops/action-gh-release@v3 (not deprecated v1)
 
 name: Release
 
@@ -44,7 +44,7 @@ jobs:
           submodules: true
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@v7
         with:
           go-version: ${{ env.GO_VERSION }}
 
@@ -121,7 +121,7 @@ jobs:
           # "master"), not "latest" - there is no "latest" tag to verify here.
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.version }}
           name: Release ${{ steps.version.outputs.version }}
@@ -165,7 +165,7 @@ jobs:
 #    - Fails fast if publication incomplete or tags differ
 #
 # 7. MODERN TOOLING
-#    - softprops/action-gh-release@v2 (current, not deprecated)
+#    - softprops/action-gh-release@v3 (current, not deprecated)
 #    - Auto-generated release notes
 #    - Fail-fast error handling with set -e
 #

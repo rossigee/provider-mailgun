@@ -30,6 +30,7 @@ import (
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 
 	"github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/features"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,8 +47,7 @@ const (
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1beta1.MailingListKind)
 
-	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1beta1.MailingListGroupVersionKind),
+	opts := []managed.ReconcilerOption{
 		managed.WithExternalConnector(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
@@ -55,7 +55,14 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorder(name))))
+		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorder(name))),
+	}
+	if o.Features.Enabled(features.EnableAlphaManagementPolicies) {
+		opts = append(opts, managed.WithManagementPolicies())
+	}
+	r := managed.NewReconciler(mgr,
+		resource.ManagedKind(v1beta1.MailingListGroupVersionKind),
+		opts...)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).

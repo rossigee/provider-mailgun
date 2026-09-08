@@ -38,6 +38,7 @@ import (
 	v1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/features"
 	"github.com/rossigee/provider-mailgun/internal/metrics"
 	"github.com/rossigee/provider-mailgun/internal/tracing"
 )
@@ -64,8 +65,7 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 
 	rec := event.NewAPIRecorder(mgr.GetEventRecorder(name))
 
-	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1beta1.SMTPCredentialGroupVersionKind),
+	opts := []managed.ReconcilerOption{
 		managed.WithExternalConnector(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
@@ -74,7 +74,14 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
-		managed.WithRecorder(rec))
+		managed.WithRecorder(rec),
+	}
+	if o.Features.Enabled(features.EnableAlphaManagementPolicies) {
+		opts = append(opts, managed.WithManagementPolicies())
+	}
+	r := managed.NewReconciler(mgr,
+		resource.ManagedKind(v1beta1.SMTPCredentialGroupVersionKind),
+		opts...)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).

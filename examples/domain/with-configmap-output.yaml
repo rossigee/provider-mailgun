@@ -1,4 +1,4 @@
-apiVersion: mailgun.m.crossplane.io/v1beta1
+apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
   name: bankrut-info

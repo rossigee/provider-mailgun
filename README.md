@@ -216,6 +216,8 @@ internet. Disable egress controls accordingly.
 | Complaint | `complaint.mailgun.m.crossplane.io/v1beta1` | Complaint suppressions |
 | Unsubscribe | `unsubscribe.mailgun.m.crossplane.io/v1beta1` | Unsubscribe suppressions |
 
+All resources are namespaced `v1beta1` (`.m.` groups) for Crossplane v2 multi-tenancy.
+
 ## Unsupported Mailgun APIs
 
 The following Mailgun APIs are not yet supported by this provider:

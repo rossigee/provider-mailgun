@@ -19,4 +19,3 @@ spec:
     wildcard: false
   providerConfigRef:
     name: default
-  deletionPolicy: Delete

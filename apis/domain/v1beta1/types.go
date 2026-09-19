@@ -249,6 +249,14 @@ const (
 	// PrefixDNSRecordAnnotation + "<type>-<name>" (truncated/hashed to
 	// stay within Kubernetes' 63-character annotation key limit).
 	PrefixDNSRecordAnnotation = "dns-controller.mailgun.crossplane.io/"
+
+	// AnnotationDNSLastReverify records the last time the controller asked
+	// Mailgun to re-verify the domain's DNS records (an RFC3339 timestamp of
+	// the most recent PUT /v4/domains/{name}/verify call). It throttles
+	// verification so a permanently-unverified domain does not trigger
+	// Mailgun's asynchronous DNS re-check (and its "domain is now verified"
+	// notification emails) on every reconcile.
+	AnnotationDNSLastReverify = "mailgun.crossplane.io/last-reverify"
 )
 
 // A DomainSpec defines the desired state of a Domain.

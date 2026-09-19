@@ -20,6 +20,7 @@ import (
 	"context"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -398,6 +399,86 @@ func TestDomainObserveDNSReverify(t *testing.T) {
 			t.Fatalf("expected %s annotation, got none", meta.AnnotationKeyPollInterval)
 		}
 		assert.Equal(t, dnsRequeueInterval.String(), ann)
+		lastReverify, ok := mg.GetAnnotations()[v1beta1.AnnotationDNSLastReverify]
+		if !ok {
+			t.Fatalf("expected %s annotation, got none", v1beta1.AnnotationDNSLastReverify)
+		}
+		if _, err := time.Parse(time.RFC3339, lastReverify); err != nil {
+			t.Errorf("expected RFC3339 timestamp in %s annotation, got %q: %v", v1beta1.AnnotationDNSLastReverify, lastReverify, err)
+		}
+	})
+
+	t.Run("does not re-verify within the cooldown period", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"example.com": {
+					ID:    "example.com",
+					State: "unverified",
+					SendingDNSRecords: []v1beta1.DNSRecord{
+						{Name: "example.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("unknown")},
+					},
+					DNSVerified: boolPtr(false),
+				},
+			},
+		}
+
+		mg := &v1beta1.Domain{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					v1beta1.AnnotationDNSLastReverify: time.Now().UTC().Add(-time.Minute).Format(time.RFC3339),
+				},
+			},
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "example.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+
+		if got := atomic.LoadInt32(&mockClient.verifyCalls); got != 0 {
+			t.Errorf("expected VerifyDomain not to be called within cooldown, got %d calls", got)
+		}
+	})
+
+	t.Run("re-verifies after the cooldown period elapses", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"example.com": {
+					ID:    "example.com",
+					State: "unverified",
+					SendingDNSRecords: []v1beta1.DNSRecord{
+						{Name: "example.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("unknown")},
+					},
+					DNSVerified: boolPtr(false),
+				},
+			},
+		}
+
+		mg := &v1beta1.Domain{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					v1beta1.AnnotationDNSLastReverify: time.Now().UTC().Add(-dnsReverifyCooldown - time.Minute).Format(time.RFC3339),
+				},
+			},
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "example.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+
+		if got := atomic.LoadInt32(&mockClient.verifyCalls); got != 1 {
+			t.Errorf("expected 1 VerifyDomain call after cooldown, got %d", got)
+		}
+		raw, ok := mg.GetAnnotations()[v1beta1.AnnotationDNSLastReverify]
+		if !ok {
+			t.Fatalf("expected last-reverify annotation to be refreshed, got none")
+		}
+		if _, err := time.Parse(time.RFC3339, raw); err != nil {
+			t.Errorf("expected parseable RFC3339 timestamp, got %q: %v", raw, err)
+		}
 	})
 
 	t.Run("clears poll-interval annotation when DNS verified", func(t *testing.T) {

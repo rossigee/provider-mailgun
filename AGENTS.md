@@ -122,8 +122,8 @@ type DomainObservation struct {
 - ✅ Example manifests for all resources (updated to v1beta1 namespaced)
 - ✅ DeepCopy code generation for all API types
 - ✅ Crossplane managed resource methods generation
-- ✅ All 9 controllers implementation (functional; Complaint and Unsubscribe currently lack dedicated unit tests)
-- ✅ Comprehensive test suite (162 test functions, all passing)
+- ✅ All 9 controllers implementation (functional with dedicated unit tests for all controllers)
+- ✅ Comprehensive test suite (173 test functions across 29 test files, all passing)
 - ✅ Complete integration test coverage for multi-resource workflows
 - ✅ Error handling and network failure test coverage
 - ✅ HTTP client reliability improvements with retry logic and proper body handling
@@ -137,12 +137,12 @@ type DomainObservation struct {
 - ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.22.0` (current - Crossplane v2 with crossplane-runtime v2.5.0 and ModernManaged)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.23.0` (current - Crossplane v2 with crossplane-runtime v2.5.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
-- **Test Coverage**: 35.8% overall (162 test functions across 22 test files)
-  - HTTP Client: 56.1% coverage (core networking and API communication)
-  - Controllers: 0-66.6% coverage (domain 66.6%, smtpcredential 62.9%, template 57.0%, bounce 54.1%, route 51.1%, mailinglist 47.8%, webhook 47.7%; complaint and unsubscribe untested)
+- **Test Coverage**: 38.9% overall (173 test functions across 29 test files)
+  - HTTP Client: 56.8% coverage (core networking and API communication)
+  - Controllers: 47.7-67.0% coverage (domain 67.0%, smtpcredential 62.9%, template 57.0%, bounce 54.1%, route 51.1%, mailinglist 47.8%, webhook 47.7%, complaint 59.3%, unsubscribe 59.3%)
   - Utility modules: 92.7-100% coverage (metrics 100%, errors 98.6%, health 97.1%)
 
 ## Build and Deployment Process
@@ -176,13 +176,13 @@ docker build -t provider-mailgun:latest -f cluster/images/provider-mailgun/Docke
 docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to Harbor (internal registry)
-VERSION=v0.22.0 ./build-and-push.sh
+VERSION=v0.23.0 ./build-and-push.sh
 
 # Both build and push to GHCR
-VERSION=v0.22.0 PUSH_EXTERNAL=true ./build-and-push.sh
+VERSION=v0.23.0 PUSH_EXTERNAL=true ./build-and-push.sh
 
 # Build with Crossplane package
-VERSION=v0.22.0 BUILD_PACKAGE=true ./build-and-push.sh
+VERSION=v0.23.0 BUILD_PACKAGE=true ./build-and-push.sh
 ```
 
 ### Environment Variables for Registry Override

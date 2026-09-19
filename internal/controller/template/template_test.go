@@ -18,6 +18,7 @@ package template
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -33,6 +34,7 @@ import (
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	v1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockTemplateClient for testing
@@ -86,7 +88,7 @@ func (m *MockTemplateClient) GetTemplate(ctx context.Context, domain, name strin
 		return template, nil
 	}
 
-	return nil, errors.New("template not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "template not found"}
 }
 
 func (m *MockTemplateClient) UpdateTemplate(ctx context.Context, domain, name string, template *v1beta1.TemplateParameters) (*v1beta1.TemplateObservation, error) {
@@ -102,7 +104,7 @@ func (m *MockTemplateClient) UpdateTemplate(ctx context.Context, domain, name st
 		return existing, nil
 	}
 
-	return nil, errors.New("template not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "template not found"}
 }
 
 func (m *MockTemplateClient) DeleteTemplate(ctx context.Context, domain, name string) error {

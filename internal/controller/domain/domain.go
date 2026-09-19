@@ -79,6 +79,22 @@ const (
 	dnsReverifyCooldown = 30 * time.Minute
 )
 
+// smtpConnectionDetails builds the connection secret payload for a Domain.
+// smtp_login is always included. The SMTP password is only included when
+// non-empty: Mailgun echoes it solely on domain creation, and the
+// observation field is deliberately excluded from status to keep secrets out
+// of etcd. Omitting the key on later reconciles leaves any existing secret
+// value untouched rather than blanking it.
+func smtpConnectionDetails(domain *v1beta1.DomainObservation) managed.ConnectionDetails {
+	details := managed.ConnectionDetails{
+		"smtp_login": []byte(domain.SMTPLogin),
+	}
+	if domain.SMTPPassword != "" {
+		details["smtp_password"] = []byte(domain.SMTPPassword)
+	}
+	return details
+}
+
 // Setup adds a controller that reconciles Domain managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1beta1.DomainKind)
@@ -384,10 +400,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 		// Return any details that may be required to connect to the external
 		// resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{
-			"smtp_login":    []byte(domain.SMTPLogin),
-			"smtp_password": []byte(domain.SMTPPassword),
-		},
+		ConnectionDetails: smtpConnectionDetails(domain),
 	}
 
 	// When DNS records are not yet verified, slow the next reconcile down to
@@ -506,10 +519,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalCreation{
 		// Optionally return any details that may be required to connect to the
 		// external resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{
-			"smtp_login":    []byte(domain.SMTPLogin),
-			"smtp_password": []byte(domain.SMTPPassword),
-		},
+		ConnectionDetails: smtpConnectionDetails(domain),
 	}, nil
 }
 
@@ -540,10 +550,7 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalUpdate{
 		// Optionally return any details that may be required to connect to the
 		// external resource. These will be stored as the connection secret.
-		ConnectionDetails: managed.ConnectionDetails{
-			"smtp_login":    []byte(domain.SMTPLogin),
-			"smtp_password": []byte(domain.SMTPPassword),
-		},
+		ConnectionDetails: smtpConnectionDetails(domain),
 	}, nil
 }
 

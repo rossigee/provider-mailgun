@@ -48,9 +48,12 @@ type SMTPCredentialObservation struct {
 	// Login is the SMTP username.
 	Login string `json:"login,omitempty"`
 
-	// Password is the SMTP password. This is only populated when credentials are
-	// created or retrieved from Mailgun.
-	Password string `json:"password,omitempty"`
+	// Password is the SMTP password Mailgun generated (or the caller
+	// supplied) when the credential was created. It is deliberately never
+	// persisted to status - status is world-readable. The value is only kept
+	// in memory long enough to populate the writeConnectionSecretToRef
+	// connection secret.
+	Password string `json:"-"`
 
 	// CreatedAt is when the credential was created.
 	CreatedAt string `json:"createdAt,omitempty"`

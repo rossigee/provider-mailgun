@@ -552,13 +552,63 @@ func (c *mailgunClient) makeRequestAt(ctx context.Context, baseURL, method, path
 	return resp, nil
 }
 
+// maxErrorBodyBytes bounds how much of a non-2xx response body we read when
+// building an APIError. Mailgun's error payloads are small; the limit exists
+// so a hostile or misbehaving endpoint cannot make us buffer an unbounded
+// response.
+const maxErrorBodyBytes = 4096
+
+// APIError is returned when Mailgun responds with a non-2xx HTTP status. It
+// carries the status code so callers can classify failures (for example with
+// IsNotFound) through errors.As instead of matching error strings.
+//
+// Only Mailgun's JSON "message" field is retained; the raw response body is
+// never embedded in the error. This keeps request-echoing payloads,
+// credentials and other sensitive values out of logs, Kubernetes events and
+// managed resource status.
+type APIError struct {
+	// StatusCode is the HTTP status code returned by Mailgun.
+	StatusCode int
+	// Message is the human-readable message Mailgun returned, if any.
+	Message string
+}
+
+// Error implements the error interface.
+func (e *APIError) Error() string {
+	if e.Message == "" {
+		return fmt.Sprintf("mailgun API returned HTTP %d", e.StatusCode)
+	}
+	return fmt.Sprintf("mailgun API returned HTTP %d: %s", e.StatusCode, e.Message)
+}
+
+// newAPIError builds an APIError from a non-2xx response. The body is read
+// (bounded) and closed, but only the JSON "message" field is exposed.
+func newAPIError(resp *http.Response) *APIError {
+	defer func() { _ = resp.Body.Close() }()
+
+	e := &APIError{StatusCode: resp.StatusCode}
+
+	b, err := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodyBytes))
+	if err != nil {
+		return e
+	}
+
+	var payload struct {
+		Message string `json:"message"`
+	}
+	if err := json.Unmarshal(b, &payload); err == nil {
+		e.Message = strings.TrimSpace(payload.Message)
+	}
+
+	return e
+}
+
 // Helper method to handle API responses
 func (c *mailgunClient) handleResponse(resp *http.Response, target interface{}) error {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		return errors.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		return newAPIError(resp)
 	}
 
 	if target != nil {
@@ -596,17 +646,12 @@ func (c *mailgunClient) SendEmail(ctx context.Context, domain, from, to, subject
 	if err != nil {
 		return errors.Wrap(err, "failed to send email request")
 	}
-	defer func() { _ = resp.Body.Close() }()
 
 	// Check for errors
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return errors.Wrap(err, "failed to read email response")
-	}
-
 	if resp.StatusCode >= 400 {
-		return fmt.Errorf("mailgun API returned status %d: %s", resp.StatusCode, string(bodyBytes))
+		return newAPIError(resp)
 	}
+	_ = resp.Body.Close()
 
 	return nil
 }
@@ -622,10 +667,10 @@ func createFormData(params map[string]interface{}) string {
 	return values.Encode()
 }
 
-// IsNotFound checks if an error represents a "not found" condition
+// IsNotFound reports whether err is an APIError with HTTP status 404. It uses
+// errors.As so wrapped errors are classified correctly, and deliberately does
+// not fall back to matching substrings of the error message.
 func IsNotFound(err error) bool {
-	if err == nil {
-		return false
-	}
-	return strings.Contains(err.Error(), "404") || strings.Contains(strings.ToLower(err.Error()), "not found")
+	var apiErr *APIError
+	return errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusNotFound
 }

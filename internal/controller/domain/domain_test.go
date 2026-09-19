@@ -18,6 +18,7 @@ package domain
 
 import (
 	"context"
+	"net/http"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -37,6 +38,7 @@ import (
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockDomainClient for testing
@@ -87,7 +89,7 @@ func (m *MockDomainClient) GetDomain(ctx context.Context, name string) (*v1beta1
 		return domain, nil
 	}
 
-	return nil, errors.New("domain not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 }
 
 func (m *MockDomainClient) UpdateDomain(ctx context.Context, name string, domain *v1beta1.DomainParameters) (*v1beta1.DomainObservation, error) {
@@ -100,7 +102,7 @@ func (m *MockDomainClient) UpdateDomain(ctx context.Context, name string, domain
 		return existing, nil
 	}
 
-	return nil, errors.New("domain not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 }
 
 func (m *MockDomainClient) DeleteDomain(ctx context.Context, name string) error {
@@ -120,7 +122,7 @@ func (m *MockDomainClient) VerifyDomain(ctx context.Context, name string) (*v1be
 
 	domain, ok := m.domains[name]
 	if !ok {
-		return nil, errors.New("domain not found (404)")
+		return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 	}
 
 	if override, ok := m.verifyUpdates[name]; ok && override != nil {

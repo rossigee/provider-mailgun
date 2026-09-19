@@ -375,9 +375,6 @@ spec:
                   smtpLogin:
                     description: SMTPLogin is the SMTP login for the domain
                     type: string
-                  smtpPassword:
-                    description: SMTPPassword is the SMTP password for the domain
-                    type: string
                   state:
                     description: State is the current state of the domain (active,
                       unverified, disabled)

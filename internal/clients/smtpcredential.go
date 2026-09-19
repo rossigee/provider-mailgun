@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -68,8 +69,7 @@ func (c *mailgunClient) CreateSMTPCredential(ctx context.Context, domain string,
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API request failed with status %d: %s", resp.StatusCode, string(body))
+		return nil, newAPIError(resp)
 	}
 
 	// Read response body
@@ -150,7 +150,10 @@ func (c *mailgunClient) GetSMTPCredential(ctx context.Context, domain, login str
 		}
 	}
 
-	return nil, fmt.Errorf("credential %s not found (404)", login)
+	return nil, &APIError{
+		StatusCode: http.StatusNotFound,
+		Message:    fmt.Sprintf("credential %s not found", login),
+	}
 }
 
 // UpdateSMTPCredential updates the password for an SMTP credential

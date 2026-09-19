@@ -19,6 +19,7 @@ package route
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -31,6 +32,7 @@ import (
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -87,7 +89,7 @@ func (m *MockRouteClient) GetRoute(ctx context.Context, id string) (*v1beta1.Rou
 		return route, nil
 	}
 
-	return nil, errors.New("route not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"}
 }
 
 func (m *MockRouteClient) UpdateRoute(ctx context.Context, id string, route *v1beta1.RouteParameters) (*v1beta1.RouteObservation, error) {
@@ -116,7 +118,7 @@ func (m *MockRouteClient) UpdateRoute(ctx context.Context, id string, route *v1b
 		return existing, nil
 	}
 
-	return nil, errors.New("route not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"}
 }
 
 func (m *MockRouteClient) DeleteRoute(ctx context.Context, id string) error {
@@ -706,7 +708,7 @@ func TestRouteUpdateErrors(t *testing.T) {
 		},
 		"RouteNotFound": {
 			reason:    "Should handle route not found during update",
-			mockErr:   errors.New("route not found (404)"),
+			mockErr:   &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"},
 			expectErr: true,
 		},
 	}
@@ -755,7 +757,7 @@ func TestRouteDeleteErrors(t *testing.T) {
 		},
 		"RouteNotFound": {
 			reason:    "Should handle route not found during delete gracefully",
-			mockErr:   errors.New("route not found (404)"),
+			mockErr:   &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"},
 			expectErr: false, // Should handle 404 gracefully on delete
 		},
 	}

@@ -18,6 +18,7 @@ package smtpcredential
 
 import (
 	"context"
+	"net/http"
 	"time"
 
 	"testing"
@@ -34,6 +35,7 @@ import (
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -84,7 +86,7 @@ func (m *MockSMTPCredentialClient) GetSMTPCredential(ctx context.Context, domain
 		return cred, nil
 	}
 
-	return nil, errors.New("credential not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "credential not found"}
 }
 
 func (m *MockSMTPCredentialClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*v1beta1.SMTPCredentialObservation, error) {
@@ -98,7 +100,7 @@ func (m *MockSMTPCredentialClient) UpdateSMTPCredential(ctx context.Context, dom
 		return cred, nil
 	}
 
-	return nil, errors.New("credential not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "credential not found"}
 }
 
 func (m *MockSMTPCredentialClient) DeleteSMTPCredential(ctx context.Context, domain, login string) error {

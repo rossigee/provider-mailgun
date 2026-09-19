@@ -18,6 +18,7 @@ package webhook
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -34,6 +35,7 @@ import (
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	v1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockWebhookClient for testing
@@ -77,7 +79,7 @@ func (m *MockWebhookClient) GetWebhook(ctx context.Context, domain, eventType st
 		return webhook, nil
 	}
 
-	return nil, errors.New("webhook not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "webhook not found"}
 }
 
 func (m *MockWebhookClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *v1beta1.WebhookParameters) (*v1beta1.WebhookObservation, error) {
@@ -95,7 +97,7 @@ func (m *MockWebhookClient) UpdateWebhook(ctx context.Context, domain, eventType
 		return existing, nil
 	}
 
-	return nil, errors.New("webhook not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "webhook not found"}
 }
 
 func (m *MockWebhookClient) DeleteWebhook(ctx context.Context, domain, eventType string) error {

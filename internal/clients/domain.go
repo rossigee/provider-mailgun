@@ -83,6 +83,16 @@ func responseToObservation(r *DomainResponse) *domaintypes.DomainObservation {
 		obs.CreatedAt = r.Domain.CreatedAt
 		obs.SMTPLogin = r.Domain.SMTPLogin
 		obs.SMTPPassword = r.Domain.SMTPPassword
+		obs.WebScheme = r.Domain.WebScheme
+		obs.Wildcard = r.Domain.Wildcard
+		obs.SpamAction = r.Domain.SpamAction
+		if r.Domain.Tracking != nil {
+			obs.Tracking = &domaintypes.DomainTracking{
+				Click:       r.Domain.Tracking.Click,
+				Open:        r.Domain.Tracking.Open,
+				Unsubscribe: r.Domain.Tracking.Unsubscribe,
+			}
+		}
 	}
 
 	obs.ReceivingDNSRecords = convertDNSRecords(r.ReceivingDNSRecords, obs.ID)

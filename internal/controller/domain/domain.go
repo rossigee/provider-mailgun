@@ -575,26 +575,43 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 	return managed.ExternalDelete{}, nil
 }
 
-// isDomainUpToDate checks if the external resource is up to date
+// isDomainUpToDate returns true when the mutable fields that Mailgun returns
+// on GET /v4/domains/{name} match the desired spec. Fields that are nil in the
+// desired spec are treated as "don't care" and skipped. This allows drift
+// detection for webScheme, wildcard, spamAction, and tracking so that the
+// controller can issue a PUT to Mailgun when the user changes any of them.
 func isDomainUpToDate(domain *v1beta1.DomainObservation, desired *v1beta1.DomainParameters) bool {
-	// Compare updatable fields only
-	// Note: Most domain fields cannot be updated after creation in Mailgun
-	// We only check the fields that can be modified
-
-	// SpamAction is write-only and cannot be read back from Mailgun API
-	// so we cannot compare it in the observation
-	// WebScheme and Wildcard are write-only fields in Mailgun API
-	// They are not returned in the domain response, so we cannot compare them
-	// We assume they are up to date since they were set during creation/update
-	// Note: These settings can only be verified through separate tracking/subdomain API calls
-	// which are not currently implemented in this provider
-	if desired.WebScheme != nil {
-		_ = desired.WebScheme // prevent unused variable warning
+	if desired.WebScheme != nil && domain.WebScheme != *desired.WebScheme {
+		return false
 	}
 	if desired.Wildcard != nil {
-		_ = desired.Wildcard // prevent unused variable warning
+		if domain.Wildcard == nil || *domain.Wildcard != *desired.Wildcard {
+			return false
+		}
 	}
-
+	if desired.SpamAction != nil && domain.SpamAction != *desired.SpamAction {
+		return false
+	}
+	if desired.Tracking != nil {
+		if domain.Tracking == nil {
+			return false
+		}
+		if desired.Tracking.Click != nil {
+			if domain.Tracking.Click == nil || *domain.Tracking.Click != *desired.Tracking.Click {
+				return false
+			}
+		}
+		if desired.Tracking.Open != nil {
+			if domain.Tracking.Open == nil || *domain.Tracking.Open != *desired.Tracking.Open {
+				return false
+			}
+		}
+		if desired.Tracking.Unsubscribe != nil {
+			if domain.Tracking.Unsubscribe == nil || *domain.Tracking.Unsubscribe != *desired.Tracking.Unsubscribe {
+				return false
+			}
+		}
+	}
 	return true
 }
 

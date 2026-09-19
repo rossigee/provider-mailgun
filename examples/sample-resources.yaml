@@ -6,14 +6,12 @@ metadata:
 spec:
   forProvider:
     name: example.com
-    smtp_password: "secure-password-123"
-    spam_action: "disabled"
+    smtpPassword: "secure-password-123"
+    spamAction: "disabled"
     wildcard: false
-    force_dkim_authority: false
-    dkim_key_size: 2048
+    forceDkimAuthority: false
+    dkimKeySize: 2048
     ips: []
-    pool_id: ""
-    web_prefix: "email"
   providerConfigRef:
     name: default
 ---
@@ -27,8 +25,8 @@ spec:
     address: newsletter@example.com
     name: "Example Newsletter"
     description: "A sample newsletter mailing list"
-    access_level: everyone
-    reply_preference: list
+    accessLevel: everyone
+    replyPreference: list
   providerConfigRef:
     name: default
 ---
@@ -50,9 +48,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  namespace: default
   name: smtp-password
-  namespace: default
 type: Opaque
 stringData:
   password: "super-secure-smtp-password-123"

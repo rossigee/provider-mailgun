@@ -20,16 +20,28 @@ import (
 	domainv1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 )
 
+// DomainTracking mirrors the "tracking" sub-object returned by Mailgun v4
+// Domains API on GET/PUT /v4/domains/{name}.
+type DomainTracking struct {
+	Click       *bool `json:"click,omitempty"`
+	Open        *bool `json:"open,omitempty"`
+	Unsubscribe *bool `json:"unsubscribe,omitempty"`
+}
+
 // Domain represents a Mailgun domain (nested inside the response's "domain" field).
 // Per the Mailgun v4 Domains API, DNS records are NOT nested in this object; they
 // appear at the top level of the response alongside "domain". See DomainResponse.
 type Domain struct {
-	Name         string `json:"name"`
-	Type         string `json:"type,omitempty"`
-	State        string `json:"state,omitempty"`
-	CreatedAt    string `json:"created_at,omitempty"`
-	SMTPLogin    string `json:"smtp_login,omitempty"`
-	SMTPPassword string `json:"smtp_password,omitempty"`
+	Name         string          `json:"name"`
+	Type         string          `json:"type,omitempty"`
+	State        string          `json:"state,omitempty"`
+	CreatedAt    string          `json:"created_at,omitempty"`
+	SMTPLogin    string          `json:"smtp_login,omitempty"`
+	SMTPPassword string          `json:"smtp_password,omitempty"`
+	Wildcard     *bool           `json:"wildcard,omitempty"`
+	SpamAction   string          `json:"spam_action,omitempty"`
+	WebScheme    string          `json:"web_scheme,omitempty"`
+	Tracking     *DomainTracking `json:"tracking,omitempty"`
 }
 
 // DomainResponse represents the full response shape returned by Mailgun v4

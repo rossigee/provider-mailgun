@@ -739,3 +739,151 @@ func boolPtr(b bool) *bool {
 func recordValidityPtr(v v1beta1.RecordValidity) *v1beta1.RecordValidity {
 	return &v
 }
+
+func TestIsDomainUpToDate(t *testing.T) {
+	boolTrue := true
+	boolFalse := false
+
+	cases := map[string]struct {
+		reason  string
+		domain  *v1beta1.DomainObservation
+		desired *v1beta1.DomainParameters
+		want    bool
+	}{
+		"AllFieldsMatch_UpToDate": {
+			reason: "All mutable fields match → up to date",
+			domain: &v1beta1.DomainObservation{
+				ID:         "test.com",
+				State:      "active",
+				WebScheme:  "https",
+				Wildcard:   &boolFalse,
+				SpamAction: "disabled",
+				Tracking: &v1beta1.DomainTracking{
+					Click:       &boolTrue,
+					Open:        &boolTrue,
+					Unsubscribe: &boolFalse,
+				},
+			},
+			desired: &v1beta1.DomainParameters{
+				Name:       "test.com",
+				WebScheme:  stringPtr("https"),
+				Wildcard:   &boolFalse,
+				SpamAction: stringPtr("disabled"),
+				Tracking: &v1beta1.DomainTracking{
+					Click:       &boolTrue,
+					Open:        &boolTrue,
+					Unsubscribe: &boolFalse,
+				},
+			},
+			want: true,
+		},
+		"WebSchemeMismatch_NotUpToDate": {
+			reason: "WebScheme mismatch → not up to date",
+			domain: &v1beta1.DomainObservation{
+				WebScheme: "http",
+			},
+			desired: &v1beta1.DomainParameters{
+				WebScheme: stringPtr("https"),
+			},
+			want: false,
+		},
+		"WildcardMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Wildcard: &boolFalse,
+			},
+			desired: &v1beta1.DomainParameters{
+				Wildcard: &boolTrue,
+			},
+			want: false,
+		},
+		"WildcardNilInDomain_NotUpToDate": {
+			domain:  &v1beta1.DomainObservation{},
+			desired: &v1beta1.DomainParameters{Wildcard: &boolTrue},
+			want:    false,
+		},
+		"SpamActionMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				SpamAction: "disabled",
+			},
+			desired: &v1beta1.DomainParameters{
+				SpamAction: stringPtr("block"),
+			},
+			want: false,
+		},
+		"TrackingClickMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Click: &boolFalse},
+			},
+			desired: &v1beta1.DomainParameters{
+				Tracking: &v1beta1.DomainTracking{Click: &boolTrue},
+			},
+			want: false,
+		},
+		"TrackingOpenMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Open: &boolFalse},
+			},
+			desired: &v1beta1.DomainParameters{
+				Tracking: &v1beta1.DomainTracking{Open: &boolTrue},
+			},
+			want: false,
+		},
+		"TrackingUnsubscribeMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Unsubscribe: &boolTrue},
+			},
+			desired: &v1beta1.DomainParameters{
+				Tracking: &v1beta1.DomainTracking{Unsubscribe: &boolFalse},
+			},
+			want: false,
+		},
+		"DomainTrackingNil_DesiredTrackingSet_NotUpToDate": {
+			domain:  &v1beta1.DomainObservation{},
+			desired: &v1beta1.DomainParameters{Tracking: &v1beta1.DomainTracking{Click: &boolTrue}},
+			want:    false,
+		},
+		"DesiredTrackingNil_UpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Click: &boolTrue, Open: &boolTrue},
+			},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+		"DesiredWebSchemeNil_SkipsComparison_UpToDate": {
+			domain:  &v1beta1.DomainObservation{WebScheme: "http"},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+		"DesiredWildcardNil_SkipsComparison_UpToDate": {
+			domain:  &v1beta1.DomainObservation{Wildcard: &boolTrue},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+		"DesiredSpamActionNil_SkipsComparison_UpToDate": {
+			domain:  &v1beta1.DomainObservation{SpamAction: "block"},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+		"DesiredTrackingClickNil_SkipsClickComparison_UpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Click: &boolTrue, Open: &boolTrue},
+			},
+			desired: &v1beta1.DomainParameters{
+				Tracking: &v1beta1.DomainTracking{Open: &boolTrue},
+			},
+			want: true,
+		},
+		"EmptyDomain_EmptyDesired_UpToDate": {
+			domain:  &v1beta1.DomainObservation{},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := isDomainUpToDate(tc.domain, tc.desired)
+			assert.Equal(t, tc.want, got, tc.reason)
+		})
+	}
+}

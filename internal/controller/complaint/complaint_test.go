@@ -18,6 +18,7 @@ package complaint
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -80,7 +81,7 @@ func (m *MockComplaintClient) GetComplaint(ctx context.Context, domain, address 
 		return complaint, nil
 	}
 
-	return nil, errors.New("complaint not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "complaint not found"}
 }
 
 func (m *MockComplaintClient) DeleteComplaint(ctx context.Context, domain, address string) error {
@@ -91,7 +92,7 @@ func (m *MockComplaintClient) DeleteComplaint(ctx context.Context, domain, addre
 	key := domain + "/" + address
 	m.deleteAttempts = append(m.deleteAttempts, key)
 	if _, exists := m.complaints[key]; !exists {
-		return errors.New("complaint not found (404)")
+		return &clients.APIError{StatusCode: http.StatusNotFound, Message: "complaint not found"}
 	}
 	delete(m.complaints, key)
 	return nil

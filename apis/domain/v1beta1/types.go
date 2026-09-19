@@ -154,8 +154,12 @@ type DomainObservation struct {
 	// SMTPLogin is the SMTP login for the domain
 	SMTPLogin string `json:"smtpLogin,omitempty"`
 
-	// SMTPPassword is the SMTP password for the domain
-	SMTPPassword string `json:"smtpPassword,omitempty"`
+	// SMTPPassword is the SMTP password Mailgun generated (or the caller
+	// supplied) when the domain was created. It is deliberately never
+	// persisted to status - status is world-readable. The value is only kept
+	// in memory long enough to populate the writeConnectionSecretToRef
+	// connection secret.
+	SMTPPassword string `json:"-"`
 
 	// DNSVerified indicates whether all required DNS records are properly configured
 	DNSVerified *bool `json:"dnsVerified,omitempty"`

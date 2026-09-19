@@ -18,6 +18,7 @@ package bounce
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -38,6 +39,7 @@ import (
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockBounceClient for testing
@@ -74,7 +76,7 @@ func (m *MockBounceClient) GetBounce(ctx context.Context, domain, address string
 		return bounce, nil
 	}
 
-	return nil, errors.New("bounce not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "bounce not found"}
 }
 
 func (m *MockBounceClient) DeleteBounce(ctx context.Context, domain, address string) error {

@@ -43,17 +43,17 @@ func TestIsNotFound(t *testing.T) {
 		},
 		{
 			name:     "404 error",
-			err:      &testError{msg: "API request failed with status 404: Not Found"},
+			err:      &APIError{StatusCode: 404, Message: "Not Found"},
 			expected: true,
 		},
 		{
 			name:     "other error",
-			err:      &testError{msg: "API request failed with status 500: Internal Server Error"},
+			err:      &APIError{StatusCode: 500, Message: "Internal Server Error"},
 			expected: false,
 		},
 		{
 			name:     "not found in message",
-			err:      &testError{msg: "resource not found"},
+			err:      &APIError{StatusCode: 404, Message: "resource not found"},
 			expected: true,
 		},
 	}
@@ -563,15 +563,6 @@ func TestMakeRequestRateLimitExhaustion(t *testing.T) {
 	if got := atomic.LoadInt32(&calls); got != 4 {
 		t.Errorf("expected 4 calls (initial + 3 retries), got %d", got)
 	}
-}
-
-// testError is a helper for testing error conditions
-type testError struct {
-	msg string
-}
-
-func (e *testError) Error() string {
-	return e.msg
 }
 
 func TestRegions_HasUSAndEU(t *testing.T) {

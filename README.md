@@ -138,7 +138,7 @@ so `kubectl describe domain <name>` is enough to copy/paste into your DNS
 provider:
 
 ```bash
-$ kubectl describe domain bankrut-info -n mailgun-resources
+$ kubectl describe domain example-domain -n mailgun-resources
 Events:
   Type    Reason              Age   From             Message
   ----    ------              ----  ----             -------
@@ -150,7 +150,7 @@ Events:
 ```
 
 Only the records Mailgun actually requires for the domain's type are
-listed: `bankrut-info` is a `sending` domain, so its MX (receiving)
+listed: `example-domain` is a `sending` domain, so its MX (receiving)
 records are omitted. A `receiving` domain instead requires its MX
 records, and the state of any non-required records is ignored when
 computing `.status.atProvider.dnsVerified`.

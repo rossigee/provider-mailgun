@@ -1,7 +1,7 @@
 apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
-  name: bankrut-info
+  name: example-domain
   namespace: mailgun-resources
   annotations:
     # Opt-in DNS probe. Emits per-record diagnostic events so you can
@@ -9,12 +9,12 @@ metadata:
     mailgun.crossplane.io/dns-probe: "true"
 spec:
   forProvider:
-    name: bankrut.info
+    name: example.com
     type: sending
     spamAction: disabled
     webScheme: https
   providerConfigRef:
-    name: mailgun-golder
+    name: mailgun-config
     kind: ProviderConfig
 ---
 # external-dns Deployment that watches the Cluster for the
@@ -57,7 +57,7 @@ spec:
             - --provider=mailgun
             - --mailgun-api-key-file=/etc/mailgun/apiToken
             - --txt-owner-id=provider-mailgun
-            - --domain-filter=bankrut.info
+            - --domain-filter=example.com
             - --policy=sync
             - --log-level=info
           volumeMounts:

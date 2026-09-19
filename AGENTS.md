@@ -149,7 +149,6 @@ type DomainObservation struct {
 
 ### ⚠️ Critical Build Requirements
 - **Go Version**: Go 1.27.1+ required (specified in go.mod)
-- **Docker Context**: Use `ulta-docker-engine-1` for optimal build performance
 - **Dockerfile**: Builds the provider binary via `make build` and copies `bin/${TARGETOS}_${TARGETARCH}/provider` into `gcr.io/distroless/static:nonroot`
 - **golangci-lint**: Use v2.13.2 for Go 1.27.1 compatibility
 
@@ -173,9 +172,6 @@ docker build -t provider-mailgun:latest -f cluster/images/provider-mailgun/Docke
 
 ### Docker Build Process
 ```bash
-# Switch to optimal Docker context
-docker context use ulta-docker-engine-1
-
 # Build image locally
 docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
 

@@ -88,19 +88,24 @@ func responseToObservation(r *DomainResponse) *domaintypes.DomainObservation {
 	obs.ReceivingDNSRecords = convertDNSRecords(r.ReceivingDNSRecords, obs.ID)
 	obs.SendingDNSRecords = convertDNSRecords(r.SendingDNSRecords, obs.ID)
 
-	// DNSVerified is true iff every required receiving + sending record is valid.
-	combined := make([]domaintypes.DNSRecord, 0, len(obs.ReceivingDNSRecords)+len(obs.SendingDNSRecords))
-	combined = append(combined, obs.ReceivingDNSRecords...)
-	combined = append(combined, obs.SendingDNSRecords...)
-	obs.DNSVerified = computeDNSVerified(combined)
+	// DNSVerified is true iff every record actually required for this domain's
+	// type is valid. A sending-only domain does not define MX (receiving)
+	// records, so we must not require them: Mailgun lists the MX records it
+	// would need for receiving with valid="unknown" whenever they are absent,
+	// and counting them would report a healthy sending domain as permanently
+	// unverified. Receiving-only domains are the mirror image. The v4 response
+	// echoes the domain type; we default to "sending" when it is absent.
+	required := obs.SendingDNSRecords
+	if r.Domain != nil && r.Domain.Type == "receiving" {
+		required = obs.ReceivingDNSRecords
+	}
+	obs.DNSVerified = computeDNSVerified(required)
 
-	// RequiredDNSRecords exposes the same union of receiving + sending records
-	// as a single list. The Mailgun v4 Domains API no longer nests DNS records
-	// inside the domain object; it surfaces them at the top level as
-	// receiving_dns_records and sending_dns_records. We populate this field for
-	// backward compatibility with callers (and the controller's event helper)
-	// that read .status.atProvider.requiredDnsRecords.
-	obs.RequiredDNSRecords = combined
+	// RequiredDNSRecords exposes the record set Mailgun actually expects this
+	// domain (per its type) to have configured. The controller uses this to
+	// emit DNSRecordsRequired / DNSInvalid diagnostics and to drive the
+	// external-dns annotation, ConfigMap output and DNS probe.
+	obs.RequiredDNSRecords = required
 
 	return obs
 }

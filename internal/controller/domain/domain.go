@@ -69,6 +69,14 @@ const (
 	// take several minutes for new DNS records to propagate, so requeueing
 	// immediately just burns API quota.
 	dnsRequeueInterval = 5 * time.Minute
+
+	// dnsReverifyCooldown is the minimum interval between explicit Mailgun
+	// DNS re-verification calls (PUT /v4/domains/{name}/verify) for the same
+	// Domain. Each call makes Mailgun re-run its DNS checks asynchronously
+	// and can send the account owner a "domain is now verified" notification
+	// email, so we must not trigger it on every reconcile — that was causing
+	// email churn for sending domains whose optional MX records are absent.
+	dnsReverifyCooldown = 30 * time.Minute
 )
 
 // Setup adds a controller that reconciles Domain managed resources.
@@ -263,6 +271,32 @@ func (e *ExternalForTesting) Delete(ctx context.Context, mg resource.Managed) (m
 	return ext.Delete(ctx, mg)
 }
 
+// lastReverifyAt returns the recorded last re-verification time and whether
+// the annotation was present and parseable.
+func lastReverifyAt(cr *v1beta1.Domain) (time.Time, bool) {
+	raw, ok := cr.GetAnnotations()[v1beta1.AnnotationDNSLastReverify]
+	if !ok {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
+}
+
+// shouldReverify reports whether it is time to ask Mailgun to re-check the
+// domain's DNS records. Verification calls are throttled so a
+// permanently-unverified domain does not trigger Mailgun's async DNS re-check
+// (and its "domain is now verified" notification emails) on every reconcile.
+func shouldReverify(cr *v1beta1.Domain) bool {
+	last, ok := lastReverifyAt(cr)
+	if !ok {
+		return true
+	}
+	return time.Since(last) >= dnsReverifyCooldown
+}
+
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	cr, ok := mg.(*v1beta1.Domain)
 	if !ok {
@@ -278,14 +312,19 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	}
 
 	// If DNS records are not yet verified, ask Mailgun to re-check them now so
-	// the next reconcile sees a fresh validity reading. We do this only on the
-	// slow path (records still unknown or state not active) to avoid hitting
-	// Mailgun's rate limits in the happy path.
+	// the next reconcile sees a fresh validity reading. We only do this on the
+	// slow path (records still unknown or state not active), and we throttle it
+	// with a cooldown so Mailgun's asynchronous verification (and its
+	// "domain is now verified" notification emails) is not triggered on every
+	// reconcile.
 	needsReverify := domain.State != "active" ||
 		(domain.DNSVerified != nil && !*domain.DNSVerified)
-	if needsReverify {
+	if needsReverify && shouldReverify(cr) {
 		if verified, vErr := c.service.VerifyDomain(ctx, cr.Spec.ForProvider.Name); vErr == nil && verified != nil {
 			domain = verified
+			meta.AddAnnotations(cr, map[string]string{
+				v1beta1.AnnotationDNSLastReverify: time.Now().UTC().Format(time.RFC3339),
+			})
 			if c.recorder != nil {
 				c.recorder.Event(cr, event.Normal(eventReasonDNSReverify,
 					"Triggered Mailgun DNS re-verification; results will reflect on the next reconcile"))

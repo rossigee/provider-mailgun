@@ -125,13 +125,7 @@ func TestCreateDomain(t *testing.T) {
 					},
 				},
 				RequiredDNSRecords: []domaintypes.DNSRecord{
-					{
-						Name:     "test.com",
-						Type:     "MX",
-						Value:    "mxa.mailgun.org",
-						Priority: stringPtr("10"),
-						Valid:    recordValidityPtr("unknown"),
-					},
+					// domain is type=sending, so only sending records are required.
 					{
 						Name:  "test.com",
 						Type:  "TXT",
@@ -177,6 +171,9 @@ func TestCreateDomain(t *testing.T) {
 					"sending_dns_records": []map[string]interface{}{
 						{"name": "full.com", "record_type": "TXT", "value": "v=spf1", "valid": "valid"},
 					},
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "full.com", "record_type": "MX", "value": "mx.full.com", "priority": "10", "valid": "valid"},
+					},
 				})
 			},
 			expectedDomain: &domaintypes.DomainObservation{
@@ -186,8 +183,12 @@ func TestCreateDomain(t *testing.T) {
 				SendingDNSRecords: []domaintypes.DNSRecord{
 					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
 				},
+				ReceivingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "full.com", Type: "MX", Value: "mx.full.com", Priority: stringPtr("10"), Valid: recordValidityPtr("valid")},
+				},
 				RequiredDNSRecords: []domaintypes.DNSRecord{
-					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+					// domain is type=receiving, so only receiving records are required.
+					{Name: "full.com", Type: "MX", Value: "mx.full.com", Priority: stringPtr("10"), Valid: recordValidityPtr("valid")},
 				},
 			},
 			expectedError: false,
@@ -210,7 +211,7 @@ func TestCreateDomain(t *testing.T) {
 				ID:                 "empty.com",
 				State:              "unverified",
 				DNSVerified:        nil,
-				RequiredDNSRecords: []domaintypes.DNSRecord{},
+				RequiredDNSRecords: nil,
 			},
 			expectedError: false,
 		},
@@ -303,9 +304,87 @@ func TestGetDomain(t *testing.T) {
 					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
 				},
 				RequiredDNSRecords: []domaintypes.DNSRecord{
-					{Name: "example.com", Type: "MX", Value: "mxa.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("valid")},
+					// domain is type=sending, so only sending records are required.
 					{Name: "example.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: recordValidityPtr("valid")},
 					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name:       "sending domain verified despite unknown receiving MX records",
+			domainName: "sending-only.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"domain": map[string]interface{}{
+						"name":  "sending-only.com",
+						"type":  "sending",
+						"state": "active",
+					},
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "sending-only.com", "record_type": "MX", "value": "mxa.eu.mailgun.org", "priority": "10", "valid": "unknown"},
+						{"name": "sending-only.com", "record_type": "MX", "value": "mxb.eu.mailgun.org", "priority": "10", "valid": "unknown"},
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "sending-only.com", "record_type": "TXT", "value": "v=spf1 include:mailgun.org ~all", "valid": "valid"},
+						{"name": "s1._domainkey.sending-only.com", "record_type": "TXT", "value": "k=rsa; p=...", "valid": "valid"},
+						{"name": "email.sending-only.com", "record_type": "CNAME", "value": "eu.mailgun.org", "valid": "valid"},
+					},
+				})
+			},
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:          "sending-only.com",
+				State:       "active",
+				DNSVerified: boolPtr(true), // MX (receiving) records are not required for a sending domain
+				ReceivingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "sending-only.com", Type: "MX", Value: "mxa.eu.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("unknown")},
+					{Name: "sending-only.com", Type: "MX", Value: "mxb.eu.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("unknown")},
+				},
+				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "sending-only.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: recordValidityPtr("valid")},
+					{Name: "s1._domainkey.sending-only.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
+					{Name: "email.sending-only.com", Type: "CNAME", Value: "eu.mailgun.org", Valid: recordValidityPtr("valid")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					{Name: "sending-only.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: recordValidityPtr("valid")},
+					{Name: "s1._domainkey.sending-only.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
+					{Name: "email.sending-only.com", Type: "CNAME", Value: "eu.mailgun.org", Valid: recordValidityPtr("valid")},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name:       "receiving domain unverified when MX records are unknown",
+			domainName: "receiving-unverified.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"domain": map[string]interface{}{
+						"name":  "receiving-unverified.com",
+						"type":  "receiving",
+						"state": "unverified",
+					},
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "receiving-unverified.com", "record_type": "MX", "value": "mxa.eu.mailgun.org", "priority": "10", "valid": "unknown"},
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "receiving-unverified.com", "record_type": "TXT", "value": "v=spf1", "valid": "valid"},
+					},
+				})
+			},
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:          "receiving-unverified.com",
+				State:       "unverified",
+				DNSVerified: boolPtr(false), // MX must be valid to verify a receiving domain
+				ReceivingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "receiving-unverified.com", Type: "MX", Value: "mxa.eu.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("unknown")},
+				},
+				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "receiving-unverified.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					{Name: "receiving-unverified.com", Type: "MX", Value: "mxa.eu.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("unknown")},
 				},
 			},
 			expectedError: false,
@@ -571,6 +650,31 @@ func TestVerifyDomain(t *testing.T) {
 			},
 			expectedDNSRecCount: 2,
 			expectedDNSVerified: boolPtr(false),
+			expectedError:       false,
+		},
+		{
+			name:       "verify sending domain with valid sending records despite unknown MX",
+			domainName: "sending-valid.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"message": "Domain DNS records have been updated",
+					"domain": map[string]interface{}{
+						"name":  "sending-valid.com",
+						"type":  "sending",
+						"state": "active",
+					},
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "sending-valid.com", "record_type": "MX", "value": "mxb.eu.mailgun.org", "priority": "10", "valid": "unknown"},
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "sending-valid.com", "record_type": "TXT", "value": "v=spf1 include:mailgun.org ~all", "valid": "valid"},
+						{"name": "s1._domainkey.sending-valid.com", "record_type": "TXT", "value": "k=rsa; p=...", "valid": "valid"},
+					},
+				})
+			},
+			expectedDNSRecCount: 3,
+			expectedDNSVerified: boolPtr(true), // MX is not required for a sending domain
 			expectedError:       false,
 		},
 		{

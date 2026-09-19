@@ -140,10 +140,10 @@ type DomainObservation struct {
 - Docker image: `ghcr.io/rossigee/provider-mailgun:v0.23.0` (current - Crossplane v2 with crossplane-runtime v2.5.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
-- **Test Coverage**: 38.9% overall (173 test functions across 29 test files)
+- **Test Coverage**: 41.7% overall (177 test functions across 31 test files)
   - HTTP Client: 56.8% coverage (core networking and API communication)
-  - Controllers: 47.7-67.0% coverage (domain 67.0%, smtpcredential 62.9%, template 57.0%, bounce 54.1%, route 51.1%, mailinglist 47.8%, webhook 47.7%, complaint 59.3%, unsubscribe 59.3%)
-  - Utility modules: 92.7-100% coverage (metrics 100%, errors 98.6%, health 97.1%)
+  - Controllers: 47.7-68.6% coverage (domain 68.6%, smtpcredential 62.9%, template 57.0%, bounce 54.1%, route 51.1%, mailinglist 47.8%, webhook 47.7%, complaint 59.3%, unsubscribe 59.3%, pcusage 12.5%)
+  - Utility modules: 92.7-100% coverage (metrics 100%, errors 98.6%, health 97.1%, tracing 73.0%, features 45.8%)
 
 ## Build and Deployment Process
 
@@ -194,6 +194,13 @@ VERSION=v0.23.0 BUILD_PACKAGE=true ./build-and-push.sh
 - **`REGISTRY`** - Registry location (now using ghcr.io/rossigee)
 
 ## Recent Improvements (2026-09-19)
+
+### isDomainUpToDate Drift Detection, Example Fixes, Coverage (v0.23.1)
+- **isDomainUpToDate real comparison**: previously always returned `true` (no drift detection). Mailgun's v4 GET `/domains/{name}` returns mutable fields `web_scheme`, `wildcard`, `spam_action`, `tracking`. These are now mapped via `responseToObservation` and compared in `isDomainUpToDate`, so PUT is issued when user changes any of them.
+- **Example fixes**: `examples/domain/domain.yaml` — removed duplicate `namespace:` keys; `examples/sample-resources.yaml` — removed duplicate `namespace:` in Secret, converted snake_case to camelCase for all forProvider fields, removed invalid fields `pool_id` and `web_prefix`.
+- **Coverage improvements**: Added `internal/tracing/tracing_test.go` (73.0%), `internal/controller/pcusage/tracker_test.go`, `TestIsDomainUpToDate` with 14 cases, and features tests (ValidateIPAllowlist, IsIPAllowed, LoginValidator, GetCredentialMetrics). Overall: 38.9% → 41.7%.
+- **Pre-existing bugs fixed**: complaint and unsubscribe mock clients returned plain `errors.New` instead of `*clients.APIError{StatusCode: http.StatusNotFound}` for 404 responses, breaking `IsNotFound()` checks in Observe and Delete paths.
+- **Nil tracer guard**: `StartOperation` now checks `tracer == nil` before calling `tracer.Start` to prevent panic when tracing is disabled.
 
 ### Type-Aware DNS Verification and Throttled Re-Verification (v0.22.0)
 - **Bug A - type-aware DNSVerified**: `responseToObservation` previously computed `DNSVerified` across the union of receiving + sending records. A `sending` domain has no MX records (they are not required for sending), but Mailgun's v4 API still lists them with `valid="unknown"`, so every sending domain was permanently reported unverified. `DNSVerified` and `status.atProvider.requiredDnsRecords` are now computed from only the record set required for the domain's type (`sendingDnsRecords` by default, `receivingDnsRecords` for `type=receiving`), using the type Mailgun echoes in the v4 response.

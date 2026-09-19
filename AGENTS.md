@@ -137,7 +137,7 @@ type DomainObservation struct {
 - ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.23.0` (current - Crossplane v2 with crossplane-runtime v2.5.0 and ModernManaged)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.23.1` (current - Crossplane v2 with crossplane-runtime v2.5.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 41.7% overall (177 test functions across 31 test files)
@@ -176,13 +176,13 @@ docker build -t provider-mailgun:latest -f cluster/images/provider-mailgun/Docke
 docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to Harbor (internal registry)
-VERSION=v0.23.0 ./build-and-push.sh
+VERSION=v0.23.1 ./build-and-push.sh
 
 # Both build and push to GHCR
-VERSION=v0.23.0 PUSH_EXTERNAL=true ./build-and-push.sh
+VERSION=v0.23.1 PUSH_EXTERNAL=true ./build-and-push.sh
 
 # Build with Crossplane package
-VERSION=v0.23.0 BUILD_PACKAGE=true ./build-and-push.sh
+VERSION=v0.23.1 BUILD_PACKAGE=true ./build-and-push.sh
 ```
 
 ### Environment Variables for Registry Override

@@ -17,6 +17,7 @@ limitations under the License.
 package features
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -416,12 +417,10 @@ func TestRotationPolicyTimingCalculations(t *testing.T) {
 			RotationInterval: 24 * time.Hour,
 		}
 
-		// Create a credential that was rotated 25 hours ago
 		credential := &EnhancedSMTPCredential{
 			LastRotated: func() *time.Time { t := now.Add(-25 * time.Hour); return &t }(),
 		}
 
-		// Should need rotation based on interval
 		shouldRotate := credential.LastRotated != nil &&
 			time.Since(*credential.LastRotated) > policy.RotationInterval
 		assert.True(t, shouldRotate)
@@ -433,14 +432,179 @@ func TestRotationPolicyTimingCalculations(t *testing.T) {
 			RotationInterval: 24 * time.Hour,
 		}
 
-		// Create a credential that was rotated 12 hours ago
 		credential := &EnhancedSMTPCredential{
 			LastRotated: func() *time.Time { t := now.Add(-12 * time.Hour); return &t }(),
 		}
 
-		// Should not need rotation yet
 		shouldRotate := credential.LastRotated != nil &&
 			time.Since(*credential.LastRotated) > policy.RotationInterval
 		assert.False(t, shouldRotate)
 	})
+}
+
+func TestValidateIPAllowlist(t *testing.T) {
+	t.Run("empty IP returns error", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: ""}
+		err := ValidateIPAllowlist(entry)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "IP address cannot be empty")
+	})
+
+	t.Run("invalid IP returns error", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "not-an-ip"}
+		err := ValidateIPAllowlist(entry)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid IP address")
+	})
+
+	t.Run("valid IP passes", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "192.168.1.1"}
+		err := ValidateIPAllowlist(entry)
+		require.NoError(t, err)
+	})
+
+	t.Run("valid CIDR passes", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "10.0.0.0/8"}
+		err := ValidateIPAllowlist(entry)
+		require.NoError(t, err)
+	})
+}
+
+func TestIsIPAllowed(t *testing.T) {
+	now := time.Now()
+	expires := now.Add(-1 * time.Hour)
+	notExpired := now.Add(1 * time.Hour)
+
+	t.Run("empty allowlist allows all", func(t *testing.T) {
+		allowed := IsIPAllowed("192.168.1.1", nil)
+		assert.True(t, allowed)
+		allowed = IsIPAllowed("192.168.1.1", []IPAllowlistEntry{})
+		assert.True(t, allowed)
+	})
+
+	t.Run("invalid client IP returns false", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "10.0.0.1"}
+		allowed := IsIPAllowed("invalid-ip", []IPAllowlistEntry{entry})
+		assert.False(t, allowed)
+	})
+
+	t.Run("exact IP match allows", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "10.0.0.1"}
+		allowed := IsIPAllowed("10.0.0.1", []IPAllowlistEntry{entry})
+		assert.True(t, allowed)
+	})
+
+	t.Run("non-matching IP denies", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "10.0.0.1"}
+		allowed := IsIPAllowed("10.0.0.2", []IPAllowlistEntry{entry})
+		assert.False(t, allowed)
+	})
+
+	t.Run("CIDR match allows", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "10.0.0.0/24"}
+		allowed := IsIPAllowed("10.0.0.50", []IPAllowlistEntry{entry})
+		assert.True(t, allowed)
+	})
+
+	t.Run("CIDR non-match denies", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "10.0.0.0/24"}
+		allowed := IsIPAllowed("10.0.1.1", []IPAllowlistEntry{entry})
+		assert.False(t, allowed)
+	})
+
+	t.Run("expired entry is skipped", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "10.0.0.1", ExpiresAt: &expires}
+		allowed := IsIPAllowed("10.0.0.1", []IPAllowlistEntry{entry})
+		assert.False(t, allowed)
+	})
+
+	t.Run("not expired entry matches", func(t *testing.T) {
+		entry := IPAllowlistEntry{IP: "10.0.0.1", ExpiresAt: &notExpired}
+		allowed := IsIPAllowed("10.0.0.1", []IPAllowlistEntry{entry})
+		assert.True(t, allowed)
+	})
+}
+
+func TestLoginValidator(t *testing.T) {
+	t.Run("empty login returns error", func(t *testing.T) {
+		v := NewLoginValidator()
+		err := v.ValidateLogin("")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "login cannot be empty")
+	})
+
+	t.Run("invalid email format returns error", func(t *testing.T) {
+		v := NewLoginValidator()
+		err := v.ValidateLogin("not-an-email")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "valid email address")
+	})
+
+	t.Run("valid email passes", func(t *testing.T) {
+		v := NewLoginValidator()
+		err := v.ValidateLogin("user@example.com")
+		require.NoError(t, err)
+	})
+
+	t.Run("allowed domain passes", func(t *testing.T) {
+		v := NewLoginValidator().WithAllowedDomains("example.com", "test.com")
+		err := v.ValidateLogin("user@example.com")
+		require.NoError(t, err)
+	})
+
+	t.Run("disallowed domain returns error", func(t *testing.T) {
+		v := NewLoginValidator().WithAllowedDomains("example.com")
+		err := v.ValidateLogin("user@other.com")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "not in the allowed domains list")
+	})
+
+	t.Run("forbidden pattern returns error", func(t *testing.T) {
+		v := NewLoginValidator().WithForbiddenPatterns("test@example.com")
+		err := v.ValidateLogin("test@example.com")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "forbidden pattern")
+	})
+
+	t.Run("no match on forbidden pattern passes", func(t *testing.T) {
+		v := NewLoginValidator().WithForbiddenPatterns("admin@.*")
+		err := v.ValidateLogin("user@example.com")
+		require.NoError(t, err)
+	})
+
+	t.Run("multiple allowed domains", func(t *testing.T) {
+		v := NewLoginValidator().WithAllowedDomains("a.com", "b.com", "c.com")
+		require.NoError(t, v.ValidateLogin("user@a.com"))
+		require.NoError(t, v.ValidateLogin("user@b.com"))
+		require.NoError(t, v.ValidateLogin("user@c.com"))
+	})
+}
+
+func TestGetCredentialMetrics(t *testing.T) {
+	mgr := NewSMTPCredentialManager(nil)
+	metrics, err := mgr.GetCredentialMetrics(context.Background())
+	require.NoError(t, err)
+	require.NotNil(t, metrics)
+
+	assert.Equal(t, int64(100), metrics.TotalCredentials)
+	assert.Equal(t, int64(85), metrics.ActiveCredentials)
+	assert.Equal(t, int64(15), metrics.ExpiredCredentials)
+	assert.Equal(t, int64(12), metrics.RotationsLast30Days)
+	assert.Equal(t, int64(3), metrics.FailedAuthsLast24Hours)
+	assert.Equal(t, 45*24*time.Hour, metrics.AverageCredentialAge)
+}
+
+func TestCredentialMetrics_Structure(t *testing.T) {
+	metrics := &CredentialMetrics{
+		TotalCredentials:       50,
+		ActiveCredentials:      40,
+		ExpiredCredentials:     10,
+		RotationsLast30Days:    5,
+		FailedAuthsLast24Hours: 2,
+		AverageCredentialAge:   30 * 24 * time.Hour,
+	}
+
+	assert.Equal(t, int64(50), metrics.TotalCredentials)
+	assert.Equal(t, int64(40), metrics.ActiveCredentials)
+	assert.Equal(t, int64(10), metrics.ExpiredCredentials)
 }

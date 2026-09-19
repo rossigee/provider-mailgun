@@ -135,6 +135,9 @@ func getEnv(key, def string) string {
 }
 
 func StartOperation(ctx context.Context, operation string, attrs ...string) *Operation {
+	if tracer == nil {
+		return &Operation{ctx: ctx, span: nil}
+	}
 	var opts []trace.SpanStartOption
 	for i := 0; i < len(attrs); i += 2 {
 		if i+1 < len(attrs) {

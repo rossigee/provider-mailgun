@@ -375,10 +375,43 @@ spec:
                   smtpLogin:
                     description: SMTPLogin is the SMTP login for the domain
                     type: string
+                  spamAction:
+                    description: |-
+                      SpamAction is the spam filtering action (disabled, block, tag).
+                      Mailgun returns this on GET /v4/domains/{name}.
+                    type: string
                   state:
                     description: State is the current state of the domain (active,
                       unverified, disabled)
                     type: string
+                  tracking:
+                    description: |-
+                      Tracking reflects the email tracking settings read back from Mailgun.
+                      Mailgun returns this on GET /v4/domains/{name}.
+                    properties:
+                      click:
+                        default: false
+                        description: Click tracking enabled
+                        type: boolean
+                      open:
+                        default: false
+                        description: Open tracking enabled
+                        type: boolean
+                      unsubscribe:
+                        default: false
+                        description: Unsubscribe tracking enabled
+                        type: boolean
+                    type: object
+                  webScheme:
+                    description: |-
+                      WebScheme is the scheme (http or https) used for tracking URLs.
+                      Mailgun returns this on GET /v4/domains/{name}.
+                    type: string
+                  wildcard:
+                    description: |-
+                      Wildcard is whether the domain is a wildcard domain.
+                      Mailgun returns this on GET /v4/domains/{name}.
+                    type: boolean
                 type: object
               conditions:
                 description: Conditions of the resource.

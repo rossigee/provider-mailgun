@@ -18,6 +18,7 @@ package unsubscribe
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
@@ -83,7 +84,7 @@ func (m *MockUnsubscribeClient) GetUnsubscribe(ctx context.Context, domain, addr
 		return unsubscribe, nil
 	}
 
-	return nil, errors.New("unsubscribe not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "unsubscribe not found"}
 }
 
 func (m *MockUnsubscribeClient) DeleteUnsubscribe(ctx context.Context, domain, address string) error {
@@ -94,7 +95,7 @@ func (m *MockUnsubscribeClient) DeleteUnsubscribe(ctx context.Context, domain, a
 	key := domain + "/" + address
 	m.deleteAttempts = append(m.deleteAttempts, key)
 	if _, exists := m.unsubscribes[key]; !exists {
-		return errors.New("unsubscribe not found (404)")
+		return &clients.APIError{StatusCode: http.StatusNotFound, Message: "unsubscribe not found"}
 	}
 	delete(m.unsubscribes, key)
 	return nil

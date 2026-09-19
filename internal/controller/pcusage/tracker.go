@@ -34,8 +34,8 @@ func NewTracker(kube client.Client, scheme *runtime.Scheme) *Tracker {
 	}
 }
 
-func (t *Tracker) Track(ctx context.Context, mg resource.ModernManaged) error {
-	pcRef := mg.GetProviderConfigReference()
+func (t *Tracker) Track(ctx context.Context, mg resource.Managed) error {
+	pcRef := t.getProviderConfigReference(mg)
 	if pcRef == nil {
 		return nil
 	}
@@ -57,7 +57,7 @@ func (t *Tracker) Track(ctx context.Context, mg resource.ModernManaged) error {
 		pcu = &v1beta1.ProviderConfigUsage{
 			TypeMeta: metav1.TypeMeta{
 				APIVersion: v1beta1.SchemeGroupVersion.String(),
-				Kind:       v1beta1.ProviderConfigUsageKind, // from register.go
+				Kind:       v1beta1.ProviderConfigUsageKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      pcUsageKey.Name,
@@ -82,4 +82,15 @@ func (t *Tracker) Track(ctx context.Context, mg resource.ModernManaged) error {
 	}
 
 	return nil
+}
+
+func (t *Tracker) getProviderConfigReference(mg resource.Managed) *xpv1.ProviderConfigReference {
+	switch v := mg.(type) {
+	case interface {
+		GetProviderConfigReference() *xpv1.ProviderConfigReference
+	}:
+		return v.GetProviderConfigReference()
+	default:
+		return nil
+	}
 }

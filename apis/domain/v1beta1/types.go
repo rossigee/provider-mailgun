@@ -161,6 +161,22 @@ type DomainObservation struct {
 	// connection secret.
 	SMTPPassword string `json:"-"`
 
+	// WebScheme is the scheme (http or https) used for tracking URLs.
+	// Mailgun returns this on GET /v4/domains/{name}.
+	WebScheme string `json:"webScheme,omitempty"`
+
+	// Wildcard is whether the domain is a wildcard domain.
+	// Mailgun returns this on GET /v4/domains/{name}.
+	Wildcard *bool `json:"wildcard,omitempty"`
+
+	// SpamAction is the spam filtering action (disabled, block, tag).
+	// Mailgun returns this on GET /v4/domains/{name}.
+	SpamAction string `json:"spamAction,omitempty"`
+
+	// Tracking reflects the email tracking settings read back from Mailgun.
+	// Mailgun returns this on GET /v4/domains/{name}.
+	Tracking *DomainTracking `json:"tracking,omitempty"`
+
 	// DNSVerified indicates whether all required DNS records are properly configured
 	DNSVerified *bool `json:"dnsVerified,omitempty"`
 

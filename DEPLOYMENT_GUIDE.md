@@ -22,11 +22,13 @@
 git push origin master
 ```
 
-This will trigger GitHub Actions to:
-- Build with Go 1.26.3
-- Run comprehensive test suite (34.9% coverage)
-- Create new container image with correct package format
-- Push to ghcr.io/rossigee/provider-mailgun:latest
+Pushing a version tag (for example `v0.22.0`) triggers the Release
+workflow, which:
+- Builds with Go 1.27.1
+- Runs the comprehensive test suite (35.8% coverage)
+- Creates a new container image with the correct package format
+- Pushes to `ghcr.io/rossigee/provider-mailgun:<version>`
+- Creates the GitHub release
 
 ### Step 2: Deploy Provider
 ```bash
@@ -63,6 +65,8 @@ kubectl get crd | grep mailgun
 # - smtpcredentials.smtpcredential.mailgun.m.crossplane.io
 # - templates.template.mailgun.m.crossplane.io
 # - bounces.bounce.mailgun.m.crossplane.io
+# - complaints.complaint.mailgun.m.crossplane.io
+# - unsubscribes.unsubscribe.mailgun.m.crossplane.io
 # - providerconfigs.mailgun.m.crossplane.io
 # - providerconfigusages.mailgun.m.crossplane.io
 ```

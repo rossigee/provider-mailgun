@@ -1,11 +1,11 @@
 apiVersion: domain.mailgun.m.crossplane.io/v1beta1
 kind: Domain
 metadata:
-  name: bankrut-info
+  name: example-domain
   namespace: mailgun-resources
   annotations:
     # Default-off: only set this if you want the controller to
-    # create/update a ConfigMap named "bankrut-info-dns-records" in
+    # create/update a ConfigMap named "example-domain-dns-records" in
     # this namespace. The ConfigMap carries three keys:
     #   records.yaml  - generic list of records for kubectl/scripting
     #   terraform.tf  - hashicorp/dns provider resource blocks
@@ -30,7 +30,7 @@ metadata:
     # mailgun.crossplane.io/dns-probe: "true"
 spec:
   forProvider:
-    name: bankrut.info
+    name: example.com
     type: sending
     spamAction: disabled
     webScheme: https
@@ -41,5 +41,5 @@ spec:
       open: true
       unsubscribe: true
   providerConfigRef:
-    name: mailgun-golder
+    name: mailgun-config
     kind: ProviderConfig

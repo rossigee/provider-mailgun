@@ -11,7 +11,7 @@ A Crossplane v2 provider for managing Mailgun resources with complete namespace 
 
 ## Container Registry
 
-- **Primary**: `ghcr.io/rossigee/provider-mailgun:v0.18.0`
+- **Primary**: `ghcr.io/rossigee/provider-mailgun:v0.22.0`
 
 ## Overview
 
@@ -38,7 +38,7 @@ A Crossplane v2 provider for managing Mailgun resources including domains, maili
 ### Installation
 
 ```bash
-kubectl crossplane install provider ghcr.io/rossigee/provider-mailgun:v0.18.0
+kubectl crossplane install provider ghcr.io/rossigee/provider-mailgun:v0.22.0
 ```
 
 ### Configuration
@@ -138,23 +138,32 @@ so `kubectl describe domain <name>` is enough to copy/paste into your DNS
 provider:
 
 ```bash
-$ kubectl describe domain bankrut-info -n mailgun-resources
+$ kubectl describe domain example-domain -n mailgun-resources
 Events:
   Type    Reason              Age   From             Message
   ----    ------              ----  ----             -------
-  Normal  DNSRecordsRequired  2m    provider-mailgun Mailgun requires 4 DNS record(s) to verify this domain.
+  Normal  DNSRecordsRequired  2m    provider-mailgun Mailgun requires 3 DNS record(s) to verify this domain.
                                               Each record below appears as `<type>-<hash>=<expected value>`:
-                                                mx-7b2e9f0a=mxa.mailgun.org
-                                                mx-7b2e9f0a=mxb.mailgun.org
                                                 txt-1a2b3c4d=v=spf1 include:mailgun.org ~all
                                                 txt-5d6e7f80=k=rsa; p=MIGfMA0GCSqGSIb3DQEBA...
+                                                cname-9f0c2b71=eu.mailgun.org
 ```
+
+Only the records Mailgun actually requires for the domain's type are
+listed: `example-domain` is a `sending` domain, so its MX (receiving)
+records are omitted. A `receiving` domain instead requires its MX
+records, and the state of any non-required records is ignored when
+computing `.status.atProvider.dnsVerified`.
 
 The controller also calls Mailgun's `/v4/domains/{name}/verify`
 endpoint on the slow path (DNS unverified) and sets
 `crossplane.io/poll-interval=5m` so the next reconcile runs on a
 Mailgun-friendly cadence rather than controller-runtime's default, which
-would burn API quota.
+would burn API quota. Explicit re-verification is throttled to once per
+30 minutes per Domain (tracked by the
+`mailgun.crossplane.io/last-reverify` annotation) so a stale DNS record
+cannot trigger Mailgun's asynchronous re-check and its "domain is now
+verified" notification emails on every reconcile.
 
 ### 2. Opt-in: DNS-records ConfigMap output
 

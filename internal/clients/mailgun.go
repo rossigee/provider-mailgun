@@ -571,7 +571,7 @@ func (c *mailgunClient) handleResponse(resp *http.Response, target interface{}) 
 }
 
 // SendEmail sends a test email using the Mailgun Messages API.
-// The domain is used to determine the sending domain (e.g., golder.org in golder.org messages).
+// The domain is used to determine the sending domain (e.g., example.com in example.com messages).
 // The from address should be a valid email on that domain.
 func (c *mailgunClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
 	// Build the messages API URL

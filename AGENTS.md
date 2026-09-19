@@ -112,45 +112,45 @@ type DomainObservation struct {
 
 **✅ Complete - Crossplane v2 Provider**:
 - ✅ **Crossplane v2 Architecture**: Namespaced resources only with .m. API group naming
-- ✅ **v1beta1 APIs**: All 7 resource types using namespaced v1beta1 APIs
+- ✅ **v1beta1 APIs**: All 9 resource types using namespaced v1beta1 APIs
 - ✅ **Breaking Change Migration**: Removed all v1alpha1 cluster-scoped APIs in v0.11.0
 - ✅ Multi-tenancy support through namespace isolation
 - ✅ Project structure and build configuration
-- ✅ API definitions for all resource types (Domain, MailingList, Route, Webhook, Template, SMTPCredential, Bounce)
+- ✅ API definitions for all resource types (Domain, MailingList, Route, Webhook, Template, SMTPCredential, Bounce, Complaint, Unsubscribe)
 - ✅ Mailgun client interface and HTTP client implementation
 - ✅ Provider configuration and main entry point
 - ✅ Example manifests for all resources (updated to v1beta1 namespaced)
 - ✅ DeepCopy code generation for all API types
 - ✅ Crossplane managed resource methods generation
-- ✅ All 7 controllers implementation (functional)
-- ✅ Comprehensive test suite (133+ tests, all passing)
+- ✅ All 9 controllers implementation (functional; Complaint and Unsubscribe currently lack dedicated unit tests)
+- ✅ Comprehensive test suite (162 test functions, all passing)
 - ✅ Complete integration test coverage for multi-resource workflows
 - ✅ Error handling and network failure test coverage
 - ✅ HTTP client reliability improvements with retry logic and proper body handling
 - ✅ Test performance optimizations (sub-second execution)
 - ✅ Docker build infrastructure and CI/CD workflows
-- ✅ Docker image build process (Go 1.26.3 compatible)
+- ✅ Docker image build process (Go 1.27.1 compatible)
 - ✅ Health probe endpoints (/healthz and /readyz on port 8080)
 - ✅ Improved logging configuration for production deployments
+- ✅ ManagementPolicies support (Observe-only enforcement)
+- ✅ State metrics (`MRStateMetrics`) reporting Ready/Synced counts
 - ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.18.0` (current - Crossplane v2 with crossplane-runtime v2.3.0 and ModernManaged)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.22.0` (current - Crossplane v2 with crossplane-runtime v2.5.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
-- **Test Coverage**: 36.3% overall (133 test functions across 22 test files)
-  - HTTP Client: 55.7% coverage (core networking and API communication)
-  - Controllers: 47.5-58.7% coverage across all 6 controllers
-  - Utility modules: 92.7-100% coverage (metrics, tracing, errors, health)
-  - Comprehensive integration scenarios and error handling coverage
+- **Test Coverage**: 35.8% overall (162 test functions across 22 test files)
+  - HTTP Client: 56.1% coverage (core networking and API communication)
+  - Controllers: 0-66.6% coverage (domain 66.6%, smtpcredential 62.9%, template 57.0%, bounce 54.1%, route 51.1%, mailinglist 47.8%, webhook 47.7%; complaint and unsubscribe untested)
+  - Utility modules: 92.7-100% coverage (metrics 100%, errors 98.6%, health 97.1%)
 
 ## Build and Deployment Process
 
 ### ⚠️ Critical Build Requirements
-- **Go Version**: Go 1.26.3+ required (specified in go.mod)
-- **Docker Context**: Use `ulta-docker-engine-1` for optimal build performance
-- **Dockerfile**: Updated to use `golang:1.26.3` base image for latest bugfixes
-- **golangci-lint**: Use v2.12.2 for Go 1.26.3 compatibility
+- **Go Version**: Go 1.27.1+ required (specified in go.mod)
+- **Dockerfile**: Builds the provider binary via `make build` and copies `bin/${TARGETOS}_${TARGETARCH}/provider` into `gcr.io/distroless/static:nonroot`
+- **golangci-lint**: Use v2.13.2 for Go 1.27.1 compatibility
 
 ### Standard Build Commands
 ```bash
@@ -163,7 +163,7 @@ make test
 # Generate code (DeepCopy, managed resources, CRDs)
 make generate
 
-# Docker build (requires Go 1.23 compatible Dockerfile)
+# Docker build (requires Go 1.27.1 compatible Dockerfile)
 docker build -t provider-mailgun:latest -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to multiple registries
@@ -172,20 +172,17 @@ docker build -t provider-mailgun:latest -f cluster/images/provider-mailgun/Docke
 
 ### Docker Build Process
 ```bash
-# Switch to optimal Docker context
-docker context use ulta-docker-engine-1
-
 # Build image locally
 docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to Harbor (internal registry)
-VERSION=v0.14.3 ./build-and-push.sh
+VERSION=v0.22.0 ./build-and-push.sh
 
-# Build and push to both Harbor and GHCR
-VERSION=v0.14.3 PUSH_EXTERNAL=true ./build-and-push.sh
+# Both build and push to GHCR
+VERSION=v0.22.0 PUSH_EXTERNAL=true ./build-and-push.sh
 
 # Build with Crossplane package
-VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
+VERSION=v0.22.0 BUILD_PACKAGE=true ./build-and-push.sh
 ```
 
 ### Environment Variables for Registry Override
@@ -195,6 +192,19 @@ VERSION=v0.14.3 BUILD_PACKAGE=true ./build-and-push.sh
 - **`PLATFORMS`** - Build platforms (default: `linux/amd64,linux/arm64`)
 - **`XPKG_REG_ORGS`** - Override crossplane package registry (default: `xpkg.upbound.io/crossplane-contrib`)
 - **`REGISTRY`** - Registry location (now using ghcr.io/rossigee)
+
+## Recent Improvements (2026-09-19)
+
+### Type-Aware DNS Verification and Throttled Re-Verification (v0.22.0)
+- **Bug A - type-aware DNSVerified**: `responseToObservation` previously computed `DNSVerified` across the union of receiving + sending records. A `sending` domain has no MX records (they are not required for sending), but Mailgun's v4 API still lists them with `valid="unknown"`, so every sending domain was permanently reported unverified. `DNSVerified` and `status.atProvider.requiredDnsRecords` are now computed from only the record set required for the domain's type (`sendingDnsRecords` by default, `receivingDnsRecords` for `type=receiving`), using the type Mailgun echoes in the v4 response.
+- **Bug B - throttled re-verification**: the controller called `PUT /v4/domains/{name}/verify` on every reconcile while DNS was unverified. Each call triggers Mailgun's asynchronous DNS re-check and can send the account owner a "domain is now verified" notification email, causing API and email churn every 5-10 minutes. Explicit re-verification is now throttled to once per `dnsReverifyCooldown` (30 minutes) per Domain, tracked by the new `mailgun.crossplane.io/last-reverify` annotation (`v1beta1.AnnotationDNSLastReverify`).
+- **Tests**: added client fixtures for sending-type (unknown MX + valid TXT/CNAME => verified) and receiving-type (unknown MX => unverified) semantics, a verify-path regression fixture, and controller tests for first revertify / within-cooldown skip / post-cooldown revertify plus the RFC3339 timestamp write.
+
+### ManagementPolicies, State Metrics, Required Region (v0.19.0 - v0.21.2)
+- **ManagementPolicies support (Observe)**: controllers honour Crossplane `managementPolicies`, including Observe-only enforcement.
+- **State metrics**: `MRStateMetrics` reports Ready/Synced counts per managed resource kind.
+- **Required region**: the `ProviderConfig` `region` field is required (US or EU) with no implicit default; explicit `apiBaseURL` still derives the v4 base URL by replacing the `/v3` suffix.
+- **Toolchain**: Go 1.27.1, golangci-lint 2.13.2, crossplane-runtime v2.5.0, GitHub Actions brought up to current major versions.
 
 ## Recent Improvements (2026-07-30)
 

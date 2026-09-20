@@ -1,5 +1,5 @@
 # Standardized Release Template for Crossplane Providers
-# Version: 2026-08-20 - Updated for Go 1.27.1 and modern actions
+# Version: 2026-09-08 - Updated for Go 1.27.1 and modern actions
 #
 # This template handles ALL publishing for releases
 # - Only runs on version tag creation to avoid conflicts with CI
@@ -11,7 +11,7 @@
 # Changes from 2025-09-26:
 # - Added publication verification step
 # - Uses github.token for registry authentication (OIDC)
-# - Confirmed softprops/action-gh-release@v3 (not deprecated v1)
+# - Confirmed softprops/action-gh-release@v3 (Node 24 runtime; v2 is Node 20 legacy)
 
 name: Release
 
@@ -72,6 +72,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Install Crossplane CLI v2.5.0
+        run: |
+          set -e
+          mkdir -p .cache/tools/linux_x86_64
+          echo "Installing crossplane-cli v2.5.0 (from cli.crossplane.io to match rossigee/build fork k8s_tools.mk)"
+          curl -fsSLo .cache/tools/linux_x86_64/crossplane-cli-v2.5.0 \
+            --create-dirs https://cli.crossplane.io/stable/v2.5.0/bin/linux_amd64/crossplane
+          chmod +x .cache/tools/linux_x86_64/crossplane-cli-v2.5.0
+          ls -l .cache/tools/linux_x86_64/
+
       - name: Build and Publish All Artifacts
         run: |
           set -e  # Fail fast on any error
@@ -89,7 +99,10 @@ jobs:
           # See: build/makelib/xpkg.mk:125-127 and build/makelib/common.mk:87
           export BRANCH_NAME="master"
 
-          # Build and publish using make targets that handle Docker + Crossplane packages
+          # Build artifacts (binaries + Docker image + .xpkg package)
+          make build.all build.artifacts
+
+          # Publish to registry using make publish (which handles tagging & pushing)
           make publish \
             REGISTRY_ORGS="ghcr.io/${{ github.repository_owner }}" \
             XPKG_REG_ORGS="ghcr.io/${{ github.repository_owner }}" \
@@ -109,22 +122,37 @@ jobs:
           echo "Verifying container image publication..."
           echo "Registry: ${REGISTRY_PATH}"
 
-          # Verify version tag
+          # Verify version tag (container image)
           if docker pull "${REGISTRY_PATH}:${VERSION}" > /dev/null 2>&1; then
+            VERSION_DIGEST=$(docker inspect "${REGISTRY_PATH}:${VERSION}" --format='{{index .RepoDigests 0}}')
             echo "✅ Verified container image ${VERSION}"
+            echo "   Digest: ${VERSION_DIGEST}"
           else
             echo "❌ Failed to pull container image ${VERSION}"
             exit 1
           fi
 
-          # Note: this build system tags images by CHANNEL (defaults to
-          # "master"), not "latest" - there is no "latest" tag to verify here.
+          # Verify the OCI manifest advertises both amd64 and arm64 media types
+          # (i.e. `docker buildx` produced a multi-arch index, not a single-arch
+          # image masquerading as multi-arch).
+          if docker buildx imagetools inspect "${REGISTRY_PATH}:${VERSION}" --raw 2>/dev/null \
+              | python3 -c "import json,sys; m=json.load(sys.stdin); ok=m.get('mediaType') in ('application/vnd.oci.image.index.v1+json','application/vnd.docker.distribution.manifest.list.v2+json'); sys.exit(0 if ok else 1)"; then
+            echo "✅ Multi-arch manifest index present"
+          else
+            echo "❌ Image manifest is not a multi-arch index"
+            exit 1
+          fi
+
+          # NOTE: The rossigee/build fork's `make publish` does not tag a `:latest`
+          # and does not produce a digest-equality between :VERSION and :latest,
+          # so we do not assert either here. Documented in
+          # docs/troubleshooting.md (publish workflow section).
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
+          name: ${{ github.event.repository.name }} ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
           generate_release_notes: true
@@ -165,7 +193,7 @@ jobs:
 #    - Fails fast if publication incomplete or tags differ
 #
 # 7. MODERN TOOLING
-#    - softprops/action-gh-release@v3 (current, not deprecated)
+#    - softprops/action-gh-release@v3 (Node 24; v2 is the Node 20 legacy line)
 #    - Auto-generated release notes
 #    - Fail-fast error handling with set -e
 #

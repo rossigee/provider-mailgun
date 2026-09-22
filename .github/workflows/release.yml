@@ -7,12 +7,7 @@
 # - Verifies successful publication to registry
 # - Creates GitHub release with auto-generated notes
 # - Single source of truth for version and latest tags
-#
-# Changes from 2025-09-26:
-# - Added publication verification step
-# - Uses github.token for registry authentication (OIDC)
-# - Confirmed softprops/action-gh-release@v3 (Node 24 runtime; v2 is Node 20 legacy)
-
+ 
 name: Release
 
 on:

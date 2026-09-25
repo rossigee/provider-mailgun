@@ -24,7 +24,7 @@ What you expected to happen.
 What actually happened. Include relevant `kubectl describe` output, provider logs, or Kubernetes events.
 
 ### Environment
-- provider-mailgun version: <!-- e.g. v0.22.0 -->
+- provider-mailgun version: <!-- e.g. v0.23.2 -->
 - Crossplane version:
 - Kubernetes version and distribution:
 

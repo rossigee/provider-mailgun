@@ -16,19 +16,16 @@
 
 ## 🚀 Deployment Steps
 
-### Step 1: Complete Code Push
+### Step 1: Open the Release Pull Request
+
+Push the release branch and open a PR against `master`:
+
 ```bash
-# Authenticate with hardware key and push
-git push origin master
+git push -u origin release/v0.23.2
+gh pr create --base master --head release/v0.23.2
 ```
 
-Pushing a version tag (for example `v0.22.0`) triggers the Release
-workflow, which:
-- Builds with Go 1.27.1
-- Runs the comprehensive test suite (35.8% coverage)
-- Creates a new container image with the correct package format
-- Pushes to `ghcr.io/rossigee/provider-mailgun:<version>`
-- Creates the GitHub release
+After review, CI, and security checks pass and the PR is merged, create the exact annotated version tag from the green `master` commit. The tag-only workflow builds the provider, publishes the xpkg to `ghcr.io/rossigee/provider-mailgun:<version>`, aliases `latest`, verifies the OCI index, and creates the GitHub Release.
 
 ### Step 2: Deploy Provider
 ```bash

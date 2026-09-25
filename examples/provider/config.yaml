@@ -3,4 +3,4 @@ kind: Provider
 metadata:
   name: provider-mailgun
 spec:
-  package: rossigee/provider-mailgun:latest
+  package: ghcr.io/rossigee/provider-mailgun:v0.23.2

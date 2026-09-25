@@ -137,7 +137,7 @@ type DomainObservation struct {
 - ✅ Lint-compliant codebase (0 issues)
 
 **✅ Production Deployment**:
-- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.23.1` (current - Crossplane v2 with crossplane-runtime v2.5.0 and ModernManaged)
+- Docker image: `ghcr.io/rossigee/provider-mailgun:v0.23.2` (current - Crossplane v2 with crossplane-runtime v2.5.0 and ModernManaged)
 - All controllers operational with comprehensive test coverage
 - **BREAKING CHANGE**: v0.11.0 removed all v1alpha1 cluster-scoped APIs
 - **Test Coverage**: 41.7% overall (177 test functions across 31 test files)
@@ -154,8 +154,8 @@ type DomainObservation struct {
 
 ### Standard Build Commands
 ```bash
-# Build provider binary directly (fastest method)
-go build -o provider cmd/provider/main.go
+# Build provider binary directly
+ go build -o provider cmd/provider/main.go
 
 # Run comprehensive test suite
 make test
@@ -163,35 +163,16 @@ make test
 # Generate code (DeepCopy, managed resources, CRDs)
 make generate
 
-# Docker build (requires Go 1.27.1 compatible Dockerfile)
-docker build -t provider-mailgun:latest -f cluster/images/provider-mailgun/Dockerfile .
-
-# Build and push to multiple registries
-./build-and-push.sh
+# Build the release package
+make build.all build.artifacts VERSION=v0.23.2 PLATFORMS="linux_amd64 linux_arm64"
+for platform in linux_amd64 linux_arm64; do
+  make xpkg.build VERSION=v0.23.2 PLATFORMS="linux_amd64 linux_arm64" PLATFORM="$platform"
+done
 ```
 
-### Docker Build Process
-```bash
-# Build image locally
-docker build -t provider-mailgun:test -f cluster/images/provider-mailgun/Dockerfile .
+### Release Process
 
-# Build and push to Harbor (internal registry)
-VERSION=v0.23.1 ./build-and-push.sh
-
-# Both build and push to GHCR
-VERSION=v0.23.1 PUSH_EXTERNAL=true ./build-and-push.sh
-
-# Build with Crossplane package
-VERSION=v0.23.1 BUILD_PACKAGE=true ./build-and-push.sh
-```
-
-### Environment Variables for Registry Override
-- **`VERSION`** - Image version tag (default: `dev`)
-- **`PUSH_EXTERNAL`** - Push to GHCR (GitHub Container Registry) (`true`/`false`)
-- **`BUILD_PACKAGE`** - Build Crossplane .xpkg package (`true`/`false`)
-- **`PLATFORMS`** - Build platforms (default: `linux/amd64,linux/arm64`)
-- **`XPKG_REG_ORGS`** - Override crossplane package registry (default: `xpkg.upbound.io/crossplane-contrib`)
-- **`REGISTRY`** - Registry location (now using ghcr.io/rossigee)
+Publication is performed by the tag-only GitHub Actions workflow after the release PR is merged and `master` is green. Do not push a plain image to the xpkg repository.
 
 ## Recent Improvements (2026-09-19)
 

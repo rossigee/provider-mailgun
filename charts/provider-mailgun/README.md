@@ -45,8 +45,8 @@ The following table lists the configurable parameters and their default values:
 
 | Parameter | Description | Default |
 |-----------|-------------|---------|
-| `image.repository` | Provider image repository | `crossplane/provider-mailgun` |
-| `image.tag` | Provider image tag | `v0.1.0` |
+| `image.repository` | Provider image repository | `ghcr.io/rossigee/provider-mailgun` |
+| `image.tag` | Provider image tag | `v0.23.2` |
 | `image.pullPolicy` | Image pull policy | `IfNotPresent` |
 | `resources.limits.cpu` | CPU limit | `500m` |
 | `resources.limits.memory` | Memory limit | `512Mi` |

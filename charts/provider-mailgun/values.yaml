@@ -3,8 +3,8 @@
 
 # Provider image configuration
 image:
-  repository: crossplane/provider-mailgun
-  tag: "v0.1.0"
+  repository: ghcr.io/rossigee/provider-mailgun
+  tag: "v0.23.2"
   pullPolicy: IfNotPresent
 
 # Security context
@@ -65,14 +65,14 @@ metrics:
 provider:
   # Package information
   package:
-    repository: crossplane/provider-mailgun
-    version: "v0.1.0"
+    repository: ghcr.io/rossigee/provider-mailgun
+    version: "v0.23.2"
 
   # Controller configuration
   controller:
     image:
-      repository: crossplane/provider-mailgun
-      tag: "v0.1.0"
+      repository: ghcr.io/rossigee/provider-mailgun
+      tag: "v0.23.2"
 
     # Number of controller replicas
     replicas: 1

@@ -11,7 +11,7 @@ A Crossplane v2 provider for managing Mailgun resources with complete namespace 
 
 ## Container Registry
 
-- **Primary**: `ghcr.io/rossigee/provider-mailgun:v0.22.0`
+- **Primary**: `ghcr.io/rossigee/provider-mailgun:v0.23.2`
 
 ## Overview
 
@@ -31,14 +31,14 @@ A Crossplane v2 provider for managing Mailgun resources including domains, maili
 
 ### Prerequisites
 
-- Kubernetes cluster with Crossplane installed
+- Kubernetes cluster with Crossplane >= v2.5.0 installed
 - Mailgun account with API access
 - Mailgun API key (unified key works for both US and EU regions)
 
 ### Installation
 
 ```bash
-kubectl crossplane install provider ghcr.io/rossigee/provider-mailgun:v0.22.0
+kubectl crossplane install provider ghcr.io/rossigee/provider-mailgun:v0.23.2
 ```
 
 ### Configuration

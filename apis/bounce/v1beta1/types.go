@@ -17,16 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // BounceParameters are the configurable fields of a Bounce.
 type BounceParameters struct {
 	// Address is the email address to add to the bounce list
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$"
 	Address string `json:"address"`
 
 	// Code is the error code associated with the bounce (e.g., "550")
@@ -55,13 +54,13 @@ type BounceObservation struct {
 // A BounceSpec defines the desired state of a Bounce.
 type BounceSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       BounceParameters `json:"forProvider"`
+	ForProvider              BounceParameters `json:"forProvider"`
 }
 
 // A BounceStatus represents the observed state of a Bounce.
 type BounceStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          BounceObservation `json:"atProvider,omitempty"`
+	AtProvider             BounceObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -69,7 +68,7 @@ type BounceStatus struct {
 // +kubebuilder:storageversion
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
-// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"
+// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane.io/external-name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:resource:scope=Namespaced,categories={crossplane,managed,mailgun}
 //

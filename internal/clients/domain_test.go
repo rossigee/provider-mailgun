@@ -29,6 +29,26 @@ import (
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 )
 
+// stringPtr returns a pointer to the given string.
+func stringPtr(s string) *string {
+	return &s
+}
+
+// recordValidityPtr returns a pointer to the given RecordValidity.
+func recordValidityPtr(v domaintypes.RecordValidity) *domaintypes.RecordValidity {
+	return &v
+}
+
+// intPtr returns a pointer to the given int.
+func intPtr(i int) *int {
+	return &i
+}
+
+// boolPtr returns a pointer to the given bool.
+func boolPtr(b bool) *bool {
+	return &b
+}
+
 func TestCreateDomain(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -38,40 +58,47 @@ func TestCreateDomain(t *testing.T) {
 		expectedError  bool
 	}{
 		{
-			name: "successful creation with minimal params",
+			name: "successful creation with minimal params and DNS records at top level",
 			domainSpec: &domaintypes.DomainParameters{
 				Name: "test.com",
 			},
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "POST", r.Method)
-				assert.Equal(t, "/v3/domains", r.URL.Path)
+				assert.Equal(t, "/v4/domains", r.URL.Path)
 				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
 
-				// Verify request body
 				_ = r.ParseForm()
 				assert.Equal(t, "test.com", r.FormValue("name"))
 
 				w.WriteHeader(http.StatusOK)
-				response := map[string]interface{}{
+				// Mailgun v4 response: domain object plus DNS records at the top level
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"domain": map[string]interface{}{
-						"name":         "test.com",
-						"type":         "sending",
-						"state":        "unverified",
-						"created_at":   "2025-01-01T00:00:00Z",
-						"smtp_login":   "postmaster@test.com",
+						"name":          "test.com",
+						"type":          "sending",
+						"state":         "unverified",
+						"created_at":    "2025-01-01T00:00:00Z",
+						"smtp_login":    "postmaster@test.com",
 						"smtp_password": "generated-password",
-						"required_dns_records": []map[string]interface{}{
-							{
-								"name":     "test.com",
-								"record_type": "TXT",
-								"value":    "v=spf1 include:mailgun.org ~all",
-								"priority": nil,
-								"valid":    false,
-							},
+					},
+					"receiving_dns_records": []map[string]interface{}{
+						{
+							"name":        "test.com",
+							"record_type": "MX",
+							"value":       "mxa.mailgun.org",
+							"priority":    "10",
+							"valid":       "unknown",
 						},
 					},
-				}
-				_ = json.NewEncoder(w).Encode(response)
+					"sending_dns_records": []map[string]interface{}{
+						{
+							"name":        "test.com",
+							"record_type": "TXT",
+							"value":       "v=spf1 include:mailgun.org ~all",
+							"valid":       "unknown",
+						},
+					},
+				})
 			},
 			expectedDomain: &domaintypes.DomainObservation{
 				ID:           "test.com",
@@ -79,20 +106,38 @@ func TestCreateDomain(t *testing.T) {
 				CreatedAt:    "2025-01-01T00:00:00Z",
 				SMTPLogin:    "postmaster@test.com",
 				SMTPPassword: "generated-password",
-				RequiredDNSRecords: []domaintypes.DNSRecord{
+				DNSVerified:  boolPtr(false), // at least one record is "unknown"
+				ReceivingDNSRecords: []domaintypes.DNSRecord{
 					{
 						Name:     "test.com",
-						Type:     "TXT",
-						Value:    "v=spf1 include:mailgun.org ~all",
-						Priority: nil,
-						Valid:    boolPtr(false), // "unknown" -> false
+						Type:     "MX",
+						Value:    "mxa.mailgun.org",
+						Priority: stringPtr("10"),
+						Valid:    recordValidityPtr("unknown"),
+					},
+				},
+				SendingDNSRecords: []domaintypes.DNSRecord{
+					{
+						Name:  "test.com",
+						Type:  "TXT",
+						Value: "v=spf1 include:mailgun.org ~all",
+						Valid: recordValidityPtr("unknown"),
+					},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					// domain is type=sending, so only sending records are required.
+					{
+						Name:  "test.com",
+						Type:  "TXT",
+						Value: "v=spf1 include:mailgun.org ~all",
+						Valid: recordValidityPtr("unknown"),
 					},
 				},
 			},
 			expectedError: false,
 		},
 		{
-			name: "successful creation with all params",
+			name: "successful creation with all params and all records valid",
 			domainSpec: &domaintypes.DomainParameters{
 				Name:               "full.com",
 				Type:               stringPtr("receiving"),
@@ -105,7 +150,6 @@ func TestCreateDomain(t *testing.T) {
 				IPs:                []string{"192.168.1.1", "192.168.1.2"},
 			},
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
-				// Verify all params are sent
 				_ = r.ParseForm()
 				assert.Equal(t, "full.com", r.FormValue("name"))
 				assert.Equal(t, "receiving", r.FormValue("type"))
@@ -118,18 +162,56 @@ func TestCreateDomain(t *testing.T) {
 				assert.Equal(t, "192.168.1.1,192.168.1.2", r.FormValue("ips"))
 
 				w.WriteHeader(http.StatusOK)
-				response := map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"domain": map[string]interface{}{
 						"name":  "full.com",
 						"type":  "receiving",
 						"state": "active",
 					},
-				}
-				_ = json.NewEncoder(w).Encode(response)
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "full.com", "record_type": "TXT", "value": "v=spf1", "valid": "valid"},
+					},
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "full.com", "record_type": "MX", "value": "mx.full.com", "priority": "10", "valid": "valid"},
+					},
+				})
 			},
 			expectedDomain: &domaintypes.DomainObservation{
-				ID:    "full.com",
-				State: "active",
+				ID:          "full.com",
+				State:       "active",
+				DNSVerified: boolPtr(true),
+				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "full.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+				},
+				ReceivingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "full.com", Type: "MX", Value: "mx.full.com", Priority: stringPtr("10"), Valid: recordValidityPtr("valid")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					// domain is type=receiving, so only receiving records are required.
+					{Name: "full.com", Type: "MX", Value: "mx.full.com", Priority: stringPtr("10"), Valid: recordValidityPtr("valid")},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name: "creation with empty DNS records yields nil DNSVerified",
+			domainSpec: &domaintypes.DomainParameters{
+				Name: "empty.com",
+			},
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"domain": map[string]interface{}{
+						"name":  "empty.com",
+						"state": "unverified",
+					},
+				})
+			},
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:                 "empty.com",
+				State:              "unverified",
+				DNSVerified:        nil,
+				RequiredDNSRecords: nil,
 			},
 			expectedError: false,
 		},
@@ -149,19 +231,17 @@ func TestCreateDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
 			defer server.Close()
 
-			// Create client
 			config := &Config{
 				APIKey:     "test-key",
-				BaseURL:    server.URL + "/v3",
+				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
 				HTTPClient: &http.Client{},
 			}
 			client := NewClient(config)
 
-			// Test CreateDomain
 			result, err := client.CreateDomain(context.Background(), tt.domainSpec)
 
 			if tt.expectedError {
@@ -184,24 +264,30 @@ func TestGetDomain(t *testing.T) {
 		expectedError  bool
 	}{
 		{
-			name:       "successful get",
+			name:       "successful get with DNS records",
 			domainName: "example.com",
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "GET", r.Method)
-				assert.Equal(t, "/v3/domains/example.com", r.URL.Path)
+				assert.Equal(t, "/v4/domains/example.com", r.URL.Path)
 
 				w.WriteHeader(http.StatusOK)
-				response := map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"domain": map[string]interface{}{
-						"name":         "example.com",
-						"type":         "sending",
-						"state":        "active",
-						"created_at":   "2025-01-01T00:00:00Z",
-						"smtp_login":   "postmaster@example.com",
+						"name":          "example.com",
+						"type":          "sending",
+						"state":         "active",
+						"created_at":    "2025-01-01T00:00:00Z",
+						"smtp_login":    "postmaster@example.com",
 						"smtp_password": "password123",
 					},
-				}
-				_ = json.NewEncoder(w).Encode(response)
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "example.com", "record_type": "MX", "value": "mxa.mailgun.org", "priority": "10", "valid": "valid"},
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "example.com", "record_type": "TXT", "value": "v=spf1 include:mailgun.org ~all", "valid": "valid"},
+						{"name": "k1._domainkey.example.com", "record_type": "TXT", "value": "k=rsa; p=...", "valid": "valid"},
+					},
+				})
 			},
 			expectedDomain: &domaintypes.DomainObservation{
 				ID:           "example.com",
@@ -209,6 +295,128 @@ func TestGetDomain(t *testing.T) {
 				CreatedAt:    "2025-01-01T00:00:00Z",
 				SMTPLogin:    "postmaster@example.com",
 				SMTPPassword: "password123",
+				DNSVerified:  boolPtr(true),
+				ReceivingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "example.com", Type: "MX", Value: "mxa.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("valid")},
+				},
+				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "example.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: recordValidityPtr("valid")},
+					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					// domain is type=sending, so only sending records are required.
+					{Name: "example.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: recordValidityPtr("valid")},
+					{Name: "k1._domainkey.example.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name:       "sending domain verified despite unknown receiving MX records",
+			domainName: "sending-only.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"domain": map[string]interface{}{
+						"name":  "sending-only.com",
+						"type":  "sending",
+						"state": "active",
+					},
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "sending-only.com", "record_type": "MX", "value": "mxa.eu.mailgun.org", "priority": "10", "valid": "unknown"},
+						{"name": "sending-only.com", "record_type": "MX", "value": "mxb.eu.mailgun.org", "priority": "10", "valid": "unknown"},
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "sending-only.com", "record_type": "TXT", "value": "v=spf1 include:mailgun.org ~all", "valid": "valid"},
+						{"name": "s1._domainkey.sending-only.com", "record_type": "TXT", "value": "k=rsa; p=...", "valid": "valid"},
+						{"name": "email.sending-only.com", "record_type": "CNAME", "value": "eu.mailgun.org", "valid": "valid"},
+					},
+				})
+			},
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:          "sending-only.com",
+				State:       "active",
+				DNSVerified: boolPtr(true), // MX (receiving) records are not required for a sending domain
+				ReceivingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "sending-only.com", Type: "MX", Value: "mxa.eu.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("unknown")},
+					{Name: "sending-only.com", Type: "MX", Value: "mxb.eu.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("unknown")},
+				},
+				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "sending-only.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: recordValidityPtr("valid")},
+					{Name: "s1._domainkey.sending-only.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
+					{Name: "email.sending-only.com", Type: "CNAME", Value: "eu.mailgun.org", Valid: recordValidityPtr("valid")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					{Name: "sending-only.com", Type: "TXT", Value: "v=spf1 include:mailgun.org ~all", Valid: recordValidityPtr("valid")},
+					{Name: "s1._domainkey.sending-only.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("valid")},
+					{Name: "email.sending-only.com", Type: "CNAME", Value: "eu.mailgun.org", Valid: recordValidityPtr("valid")},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name:       "receiving domain unverified when MX records are unknown",
+			domainName: "receiving-unverified.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"domain": map[string]interface{}{
+						"name":  "receiving-unverified.com",
+						"type":  "receiving",
+						"state": "unverified",
+					},
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "receiving-unverified.com", "record_type": "MX", "value": "mxa.eu.mailgun.org", "priority": "10", "valid": "unknown"},
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "receiving-unverified.com", "record_type": "TXT", "value": "v=spf1", "valid": "valid"},
+					},
+				})
+			},
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:          "receiving-unverified.com",
+				State:       "unverified",
+				DNSVerified: boolPtr(false), // MX must be valid to verify a receiving domain
+				ReceivingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "receiving-unverified.com", Type: "MX", Value: "mxa.eu.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("unknown")},
+				},
+				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "receiving-unverified.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					{Name: "receiving-unverified.com", Type: "MX", Value: "mxa.eu.mailgun.org", Priority: stringPtr("10"), Valid: recordValidityPtr("unknown")},
+				},
+			},
+			expectedError: false,
+		},
+		{
+			name:       "mixed validity returns DNSVerified false",
+			domainName: "partial.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"domain": map[string]interface{}{
+						"name":  "partial.com",
+						"state": "unverified",
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "partial.com", "record_type": "TXT", "value": "v=spf1", "valid": "valid"},
+						{"name": "k1._domainkey.partial.com", "record_type": "TXT", "value": "k=rsa; p=...", "valid": "unknown"},
+					},
+				})
+			},
+			expectedDomain: &domaintypes.DomainObservation{
+				ID:          "partial.com",
+				State:       "unverified",
+				DNSVerified: boolPtr(false),
+				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "partial.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+					{Name: "k1._domainkey.partial.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("unknown")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					{Name: "partial.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+					{Name: "k1._domainkey.partial.com", Type: "TXT", Value: "k=rsa; p=...", Valid: recordValidityPtr("unknown")},
+				},
 			},
 			expectedError: false,
 		},
@@ -226,19 +434,17 @@ func TestGetDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
 			defer server.Close()
 
-			// Create client
 			config := &Config{
 				APIKey:     "test-key",
-				BaseURL:    server.URL + "/v3",
+				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
 				HTTPClient: &http.Client{},
 			}
 			client := NewClient(config)
 
-			// Test GetDomain
 			result, err := client.GetDomain(context.Background(), tt.domainName)
 
 			if tt.expectedError {
@@ -262,7 +468,7 @@ func TestUpdateDomain(t *testing.T) {
 		expectedError  bool
 	}{
 		{
-			name:       "successful update",
+			name:       "successful update returns DNS records",
 			domainName: "update.com",
 			domainSpec: &domaintypes.DomainParameters{
 				SpamAction: stringPtr("tag"),
@@ -271,28 +477,36 @@ func TestUpdateDomain(t *testing.T) {
 			},
 			serverResponse: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "PUT", r.Method)
-				assert.Equal(t, "/v3/domains/update.com", r.URL.Path)
+				assert.Equal(t, "/v4/domains/update.com", r.URL.Path)
 				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
 
-				// Verify request body
 				_ = r.ParseForm()
 				assert.Equal(t, "tag", r.FormValue("spam_action"))
 				assert.Equal(t, "https", r.FormValue("web_scheme"))
 				assert.Equal(t, "false", r.FormValue("wildcard"))
 
 				w.WriteHeader(http.StatusOK)
-				response := map[string]interface{}{
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
 					"domain": map[string]interface{}{
 						"name":  "update.com",
 						"type":  "sending",
 						"state": "active",
 					},
-				}
-				_ = json.NewEncoder(w).Encode(response)
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "update.com", "record_type": "TXT", "value": "v=spf1", "valid": "valid"},
+					},
+				})
 			},
 			expectedDomain: &domaintypes.DomainObservation{
-				ID:    "update.com",
-				State: "active",
+				ID:          "update.com",
+				State:       "active",
+				DNSVerified: boolPtr(true),
+				SendingDNSRecords: []domaintypes.DNSRecord{
+					{Name: "update.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+				},
+				RequiredDNSRecords: []domaintypes.DNSRecord{
+					{Name: "update.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+				},
 			},
 			expectedError: false,
 		},
@@ -313,19 +527,17 @@ func TestUpdateDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
 			defer server.Close()
 
-			// Create client
 			config := &Config{
 				APIKey:     "test-key",
-				BaseURL:    server.URL + "/v3",
+				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
 				HTTPClient: &http.Client{},
 			}
 			client := NewClient(config)
 
-			// Test UpdateDomain
 			result, err := client.UpdateDomain(context.Background(), tt.domainName, tt.domainSpec)
 
 			if tt.expectedError {
@@ -354,10 +566,7 @@ func TestDeleteDomain(t *testing.T) {
 				assert.Equal(t, "/v3/domains/delete.com", r.URL.Path)
 
 				w.WriteHeader(http.StatusOK)
-				response := map[string]interface{}{
-					"message": "Domain has been deleted",
-				}
-				_ = json.NewEncoder(w).Encode(response)
+				_ = json.NewEncoder(w).Encode(map[string]string{"message": "Domain has been deleted"})
 			},
 			expectedError: false,
 		},
@@ -383,19 +592,17 @@ func TestDeleteDomain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create test server
 			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
 			defer server.Close()
 
-			// Create client
 			config := &Config{
 				APIKey:     "test-key",
-				BaseURL:    server.URL + "/v3",
+				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
 				HTTPClient: &http.Client{},
 			}
 			client := NewClient(config)
 
-			// Test DeleteDomain
 			err := client.DeleteDomain(context.Background(), tt.domainName)
 
 			if tt.expectedError {
@@ -407,15 +614,169 @@ func TestDeleteDomain(t *testing.T) {
 	}
 }
 
-// Helper functions
-func stringPtr(s string) *string {
-	return &s
+func TestVerifyDomain(t *testing.T) {
+	tests := []struct {
+		name                string
+		domainName          string
+		serverResponse      func(w http.ResponseWriter, r *http.Request)
+		expectedDNSRecCount int
+		expectedDNSVerified *bool
+		expectedError       bool
+	}{
+		{
+			name:       "successful verify returns DNS records with current validity",
+			domainName: "verify.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "PUT", r.Method)
+				assert.Equal(t, "/v4/domains/verify.com/verify", r.URL.Path)
+
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"message": "Domain DNS records have been updated",
+					"domain": map[string]interface{}{
+						"name":          "verify.com",
+						"id":            "verify-id",
+						"state":         "unverified",
+						"smtp_login":    "postmaster@verify.com",
+						"smtp_password": "secret",
+					},
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "verify.com", "record_type": "MX", "value": "mxa.mailgun.org", "priority": "10", "valid": "unknown"},
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "verify.com", "record_type": "TXT", "value": "v=spf1", "valid": "unknown"},
+					},
+				})
+			},
+			expectedDNSRecCount: 2,
+			expectedDNSVerified: boolPtr(false),
+			expectedError:       false,
+		},
+		{
+			name:       "verify sending domain with valid sending records despite unknown MX",
+			domainName: "sending-valid.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"message": "Domain DNS records have been updated",
+					"domain": map[string]interface{}{
+						"name":  "sending-valid.com",
+						"type":  "sending",
+						"state": "active",
+					},
+					"receiving_dns_records": []map[string]interface{}{
+						{"name": "sending-valid.com", "record_type": "MX", "value": "mxb.eu.mailgun.org", "priority": "10", "valid": "unknown"},
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "sending-valid.com", "record_type": "TXT", "value": "v=spf1 include:mailgun.org ~all", "valid": "valid"},
+						{"name": "s1._domainkey.sending-valid.com", "record_type": "TXT", "value": "k=rsa; p=...", "valid": "valid"},
+					},
+				})
+			},
+			expectedDNSRecCount: 3,
+			expectedDNSVerified: boolPtr(true), // MX is not required for a sending domain
+			expectedError:       false,
+		},
+		{
+			name:       "verify with all records valid",
+			domainName: "allvalid.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				_ = json.NewEncoder(w).Encode(map[string]interface{}{
+					"message": "Domain DNS records have been updated",
+					"domain": map[string]interface{}{
+						"name":  "allvalid.com",
+						"state": "active",
+					},
+					"sending_dns_records": []map[string]interface{}{
+						{"name": "allvalid.com", "record_type": "TXT", "value": "v=spf1", "valid": "valid"},
+					},
+				})
+			},
+			expectedDNSRecCount: 1,
+			expectedDNSVerified: boolPtr(true),
+			expectedError:       false,
+		},
+		{
+			name:       "verify endpoint error",
+			domainName: "badverify.com",
+			serverResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+				_, _ = w.Write([]byte("Internal server error"))
+			},
+			expectedError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(tt.serverResponse))
+			defer server.Close()
+
+			config := &Config{
+				APIKey:     "test-key",
+				BaseURL:    server.URL,
+				V4BaseURL:  server.URL + "/v4",
+				HTTPClient: &http.Client{},
+			}
+			client := NewClient(config)
+
+			result, err := client.VerifyDomain(context.Background(), tt.domainName)
+
+			if tt.expectedError {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			assert.Equal(t, tt.expectedDNSRecCount,
+				len(result.ReceivingDNSRecords)+len(result.SendingDNSRecords))
+			assert.Equal(t, tt.expectedDNSVerified, result.DNSVerified)
+		})
+	}
 }
 
-func boolPtr(b bool) *bool {
-	return &b
+func TestRecordIsValid(t *testing.T) {
+	cases := []struct {
+		name string
+		in   *domaintypes.RecordValidity
+		want *bool
+	}{
+		{"nil pointer returns nil", nil, nil},
+		{"valid returns true ptr", recordValidityPtr("valid"), boolPtr(true)},
+		{"unknown returns false ptr", recordValidityPtr("unknown"), boolPtr(false)},
+		{"empty returns false ptr", recordValidityPtr(""), boolPtr(false)},
+		{"arbitrary returns false ptr", recordValidityPtr("foo"), boolPtr(false)},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := RecordIsValid(c.in)
+			if c.want == nil {
+				assert.Nil(t, got)
+				return
+			}
+			require.NotNil(t, got)
+			assert.Equal(t, *c.want, *got)
+		})
+	}
 }
 
-func intPtr(i int) *int {
-	return &i
+func TestRecordValidity_IsVerified(t *testing.T) {
+	cases := []struct {
+		name string
+		in   *domaintypes.RecordValidity
+		want bool
+	}{
+		{"nil pointer returns false", nil, false},
+		{"valid returns true", recordValidityPtr("valid"), true},
+		{"unknown returns false", recordValidityPtr("unknown"), false},
+		{"empty returns false", recordValidityPtr(""), false},
+		{"arbitrary returns false", recordValidityPtr("foo"), false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			assert.Equal(t, c.want, c.in.IsVerified())
+		})
+	}
 }

@@ -17,16 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // MailingListParameters define the desired state of a Mailgun MailingList
 type MailingListParameters struct {
 	// Address is the mailing list email address
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$"
 	Address string `json:"address"`
 
 	// Name is the display name for the mailing list
@@ -53,7 +52,7 @@ type MailingListParameters struct {
 type MailingListMember struct {
 	// Address is the member's email address
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$"
 	Address string `json:"address"`
 
 	// Name is the member's display name
@@ -94,13 +93,13 @@ type MailingListObservation struct {
 // A MailingListSpec defines the desired state of a MailingList.
 type MailingListSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       MailingListParameters `json:"forProvider"`
+	ForProvider              MailingListParameters `json:"forProvider"`
 }
 
 // A MailingListStatus represents the observed state of a MailingList.
 type MailingListStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          MailingListObservation `json:"atProvider,omitempty"`
+	AtProvider             MailingListObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -109,7 +108,7 @@ type MailingListStatus struct {
 // A MailingList is a managed resource that represents a Mailgun MailingList
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
-// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"
+// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane.io/external-name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,categories={crossplane,managed,mailgun}

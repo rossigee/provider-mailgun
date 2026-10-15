@@ -19,23 +19,15 @@ package v1beta1
 import (
 	"reflect"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-// Package type metadata.
-const (
-	Group   = "domain.mailgun.m.crossplane.io"
-	Version = "v1beta1"
-)
-
+// DomainTracking type metadata.
 var (
-	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: Group, Version: Version}
-
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+	DomainTrackingKind             = reflect.TypeOf(DomainTracking{}).Name()
+	DomainTrackingGroupKind        = schema.GroupKind{Group: Group, Kind: DomainTrackingKind}
+	DomainTrackingKindAPIVersion   = DomainTrackingKind + "." + SchemeGroupVersion.String()
+	DomainTrackingGroupVersionKind = SchemeGroupVersion.WithKind(DomainTrackingKind)
 )
 
 // Domain type metadata.
@@ -45,12 +37,3 @@ var (
 	DomainKindAPIVersion   = DomainKind + "." + SchemeGroupVersion.String()
 	DomainGroupVersionKind = SchemeGroupVersion.WithKind(DomainKind)
 )
-
-func init() {
-	SchemeBuilder.Register(&Domain{}, &DomainList{})
-}
-
-// AddToScheme adds all types of this group into the given scheme.
-func AddToScheme(s *runtime.Scheme) error {
-	return SchemeBuilder.AddToScheme(s)
-}

@@ -21,30 +21,30 @@ limitations under the License.
 package v1beta1
 
 import (
-	xpv2 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 )
 
-func (in *MailingList) GetCondition(ct xpv2.ConditionType) xpv2.Condition {
+func (in *MailingList) GetCondition(ct xpv1.ConditionType) xpv1.Condition {
 	return in.Status.GetCondition(ct)
 }
 
-func (in *MailingList) SetConditions(c ...xpv2.Condition) {
+func (in *MailingList) SetConditions(c ...xpv1.Condition) {
 	in.Status.SetConditions(c...)
 }
 
-func (in *MailingList) GetProviderConfigReference() *xpv2.ProviderConfigReference {
+func (in *MailingList) GetProviderConfigReference() *xpv1.ProviderConfigReference {
 	return in.Spec.ProviderConfigReference
 }
 
-func (in *MailingList) GetManagementPolicies() xpv2.ManagementPolicies {
+func (in *MailingList) GetManagementPolicies() xpv1.ManagementPolicies {
 	return in.Spec.ManagementPolicies
 }
 
-func (in *MailingList) SetManagementPolicies(p xpv2.ManagementPolicies) {
+func (in *MailingList) SetManagementPolicies(p xpv1.ManagementPolicies) {
 	in.Spec.ManagementPolicies = p
 }
 
-func (in *MailingList) GetWriteConnectionSecretToReference() *xpv2.LocalSecretReference {
+func (in *MailingList) GetWriteConnectionSecretToReference() *xpv1.LocalSecretReference {
 	return in.Spec.WriteConnectionSecretToReference
 }
 

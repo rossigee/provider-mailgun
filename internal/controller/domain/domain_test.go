@@ -18,28 +18,36 @@ package domain
 
 import (
 	"context"
+	"net/http"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockDomainClient for testing
 type MockDomainClient struct {
-	domains map[string]*v1beta1.DomainObservation
-	err     error
+	domains       map[string]*v1beta1.DomainObservation
+	err           error
+	verifyCalls   int32
+	getCalls      int32
+	verifyUpdates map[string]*v1beta1.DomainObservation // optional override applied during VerifyDomain
 }
 
 func (m *MockDomainClient) CreateDomain(ctx context.Context, domain *v1beta1.DomainParameters) (*v1beta1.DomainObservation, error) {
@@ -53,13 +61,12 @@ func (m *MockDomainClient) CreateDomain(ctx context.Context, domain *v1beta1.Dom
 		CreatedAt:    "2025-01-01T00:00:00Z",
 		SMTPLogin:    "postmaster@" + domain.Name,
 		SMTPPassword: "generated-password",
-		RequiredDNSRecords: []v1beta1.DNSRecord{
+		SendingDNSRecords: []v1beta1.DNSRecord{
 			{
-				Name:     domain.Name,
-				Type:     "TXT",
-				Value:    "v=spf1 include:mailgun.org ~all",
-				Priority: nil,
-				Valid:    boolPtr(false),
+				Name:  domain.Name,
+				Type:  "TXT",
+				Value: "v=spf1 include:mailgun.org ~all",
+				Valid: recordValidityPtr("unknown"),
 			},
 		},
 	}
@@ -73,6 +80,7 @@ func (m *MockDomainClient) CreateDomain(ctx context.Context, domain *v1beta1.Dom
 }
 
 func (m *MockDomainClient) GetDomain(ctx context.Context, name string) (*v1beta1.DomainObservation, error) {
+	atomic.AddInt32(&m.getCalls, 1)
 	if m.err != nil {
 		return nil, m.err
 	}
@@ -81,7 +89,7 @@ func (m *MockDomainClient) GetDomain(ctx context.Context, name string) (*v1beta1
 		return domain, nil
 	}
 
-	return nil, errors.New("domain not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 }
 
 func (m *MockDomainClient) UpdateDomain(ctx context.Context, name string, domain *v1beta1.DomainParameters) (*v1beta1.DomainObservation, error) {
@@ -94,7 +102,7 @@ func (m *MockDomainClient) UpdateDomain(ctx context.Context, name string, domain
 		return existing, nil
 	}
 
-	return nil, errors.New("domain not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 }
 
 func (m *MockDomainClient) DeleteDomain(ctx context.Context, name string) error {
@@ -104,6 +112,45 @@ func (m *MockDomainClient) DeleteDomain(ctx context.Context, name string) error 
 
 	delete(m.domains, name)
 	return nil
+}
+
+func (m *MockDomainClient) VerifyDomain(ctx context.Context, name string) (*v1beta1.DomainObservation, error) {
+	atomic.AddInt32(&m.verifyCalls, 1)
+	if m.err != nil {
+		return nil, m.err
+	}
+
+	domain, ok := m.domains[name]
+	if !ok {
+		return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
+	}
+
+	if override, ok := m.verifyUpdates[name]; ok && override != nil {
+		// Test fixture says Verify flips DNSVerified to true.
+		updated := *override
+		updated.ReceivingDNSRecords = domain.ReceivingDNSRecords
+		updated.SendingDNSRecords = domain.SendingDNSRecords
+		m.domains[name] = &updated
+		return &updated, nil
+	}
+
+	if domain.DNSVerified == nil {
+		v := computeDNSVerifiedForTest(append(append([]v1beta1.DNSRecord{}, domain.ReceivingDNSRecords...), domain.SendingDNSRecords...))
+		domain.DNSVerified = &v
+	}
+	return domain, nil
+}
+
+func computeDNSVerifiedForTest(records []v1beta1.DNSRecord) bool {
+	if len(records) == 0 {
+		return false
+	}
+	for _, r := range records {
+		if r.Valid == nil || *r.Valid != "valid" {
+			return false
+		}
+	}
+	return true
 }
 
 // Implement other required client methods as no-ops
@@ -226,6 +273,10 @@ func (m *MockDomainClient) DeleteUnsubscribe(ctx context.Context, domain, addres
 	return errors.New("not implemented")
 }
 
+func (m *MockDomainClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil // Mock always succeeds
+}
+
 func TestDomainObserve(t *testing.T) {
 	type args struct {
 		mg resource.Managed
@@ -316,6 +367,187 @@ func TestDomainObserve(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDomainObserveDNSReverify(t *testing.T) {
+	t.Run("calls VerifyDomain and sets poll-interval annotation when DNS unverified", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"example.com": {
+					ID:    "example.com",
+					State: "unverified",
+					SendingDNSRecords: []v1beta1.DNSRecord{
+						{Name: "example.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("unknown")},
+					},
+					DNSVerified: boolPtr(false),
+				},
+			},
+		}
+
+		mg := &v1beta1.Domain{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "example.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+
+		if atomic.LoadInt32(&mockClient.verifyCalls) != 1 {
+			t.Errorf("expected 1 VerifyDomain call, got %d", mockClient.verifyCalls)
+		}
+		ann, ok := mg.GetAnnotations()[meta.AnnotationKeyPollInterval]
+		if !ok {
+			t.Fatalf("expected %s annotation, got none", meta.AnnotationKeyPollInterval)
+		}
+		assert.Equal(t, dnsRequeueInterval.String(), ann)
+		lastReverify, ok := mg.GetAnnotations()[v1beta1.AnnotationDNSLastReverify]
+		if !ok {
+			t.Fatalf("expected %s annotation, got none", v1beta1.AnnotationDNSLastReverify)
+		}
+		if _, err := time.Parse(time.RFC3339, lastReverify); err != nil {
+			t.Errorf("expected RFC3339 timestamp in %s annotation, got %q: %v", v1beta1.AnnotationDNSLastReverify, lastReverify, err)
+		}
+	})
+
+	t.Run("does not re-verify within the cooldown period", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"example.com": {
+					ID:    "example.com",
+					State: "unverified",
+					SendingDNSRecords: []v1beta1.DNSRecord{
+						{Name: "example.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("unknown")},
+					},
+					DNSVerified: boolPtr(false),
+				},
+			},
+		}
+
+		mg := &v1beta1.Domain{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					v1beta1.AnnotationDNSLastReverify: time.Now().UTC().Add(-time.Minute).Format(time.RFC3339),
+				},
+			},
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "example.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+
+		if got := atomic.LoadInt32(&mockClient.verifyCalls); got != 0 {
+			t.Errorf("expected VerifyDomain not to be called within cooldown, got %d calls", got)
+		}
+	})
+
+	t.Run("re-verifies after the cooldown period elapses", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"example.com": {
+					ID:    "example.com",
+					State: "unverified",
+					SendingDNSRecords: []v1beta1.DNSRecord{
+						{Name: "example.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("unknown")},
+					},
+					DNSVerified: boolPtr(false),
+				},
+			},
+		}
+
+		mg := &v1beta1.Domain{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					v1beta1.AnnotationDNSLastReverify: time.Now().UTC().Add(-dnsReverifyCooldown - time.Minute).Format(time.RFC3339),
+				},
+			},
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "example.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+
+		if got := atomic.LoadInt32(&mockClient.verifyCalls); got != 1 {
+			t.Errorf("expected 1 VerifyDomain call after cooldown, got %d", got)
+		}
+		raw, ok := mg.GetAnnotations()[v1beta1.AnnotationDNSLastReverify]
+		if !ok {
+			t.Fatalf("expected last-reverify annotation to be refreshed, got none")
+		}
+		if _, err := time.Parse(time.RFC3339, raw); err != nil {
+			t.Errorf("expected parseable RFC3339 timestamp, got %q: %v", raw, err)
+		}
+	})
+
+	t.Run("clears poll-interval annotation when DNS verified", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"verified.com": {
+					ID:          "verified.com",
+					State:       "active",
+					DNSVerified: boolPtr(true),
+					SendingDNSRecords: []v1beta1.DNSRecord{
+						{Name: "verified.com", Type: "TXT", Value: "v=spf1", Valid: recordValidityPtr("valid")},
+					},
+				},
+			},
+		}
+		mg := &v1beta1.Domain{
+			ObjectMeta: metav1.ObjectMeta{
+				Annotations: map[string]string{
+					meta.AnnotationKeyPollInterval: dnsRequeueInterval.String(),
+				},
+			},
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "verified.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+
+		if atomic.LoadInt32(&mockClient.verifyCalls) != 0 {
+			t.Errorf("expected VerifyDomain not to be called on healthy domain, got %d calls", mockClient.verifyCalls)
+		}
+		ann, ok := mg.GetAnnotations()[meta.AnnotationKeyPollInterval]
+		if !ok {
+			// acceptable: annotation removed entirely
+			return
+		}
+		if ann != "" {
+			t.Errorf("expected %s annotation to be cleared, got %q", meta.AnnotationKeyPollInterval, ann)
+		}
+	})
+
+	t.Run("does not call VerifyDomain when state active and DNS verified", func(t *testing.T) {
+		mockClient := &MockDomainClient{
+			domains: map[string]*v1beta1.DomainObservation{
+				"active.com": {
+					ID:          "active.com",
+					State:       "active",
+					DNSVerified: boolPtr(true),
+				},
+			},
+		}
+		mg := &v1beta1.Domain{
+			Spec: v1beta1.DomainSpec{
+				ForProvider: v1beta1.DomainParameters{Name: "active.com"},
+			},
+		}
+		e := &external{service: mockClient}
+		_, err := e.Observe(context.Background(), mg)
+		require.NoError(t, err)
+		if atomic.LoadInt32(&mockClient.verifyCalls) != 0 {
+			t.Errorf("did not expect VerifyDomain call, got %d", mockClient.verifyCalls)
+		}
+		if _, ok := mg.GetAnnotations()[meta.AnnotationKeyPollInterval]; ok {
+			t.Errorf("did not expect %s annotation on healthy domain", meta.AnnotationKeyPollInterval)
+		}
+	})
 }
 
 func TestDomainCreate(t *testing.T) {
@@ -502,4 +734,156 @@ func stringPtr(s string) *string {
 
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+func recordValidityPtr(v v1beta1.RecordValidity) *v1beta1.RecordValidity {
+	return &v
+}
+
+func TestIsDomainUpToDate(t *testing.T) {
+	boolTrue := true
+	boolFalse := false
+
+	cases := map[string]struct {
+		reason  string
+		domain  *v1beta1.DomainObservation
+		desired *v1beta1.DomainParameters
+		want    bool
+	}{
+		"AllFieldsMatch_UpToDate": {
+			reason: "All mutable fields match → up to date",
+			domain: &v1beta1.DomainObservation{
+				ID:         "test.com",
+				State:      "active",
+				WebScheme:  "https",
+				Wildcard:   &boolFalse,
+				SpamAction: "disabled",
+				Tracking: &v1beta1.DomainTracking{
+					Click:       &boolTrue,
+					Open:        &boolTrue,
+					Unsubscribe: &boolFalse,
+				},
+			},
+			desired: &v1beta1.DomainParameters{
+				Name:       "test.com",
+				WebScheme:  stringPtr("https"),
+				Wildcard:   &boolFalse,
+				SpamAction: stringPtr("disabled"),
+				Tracking: &v1beta1.DomainTracking{
+					Click:       &boolTrue,
+					Open:        &boolTrue,
+					Unsubscribe: &boolFalse,
+				},
+			},
+			want: true,
+		},
+		"WebSchemeMismatch_NotUpToDate": {
+			reason: "WebScheme mismatch → not up to date",
+			domain: &v1beta1.DomainObservation{
+				WebScheme: "http",
+			},
+			desired: &v1beta1.DomainParameters{
+				WebScheme: stringPtr("https"),
+			},
+			want: false,
+		},
+		"WildcardMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Wildcard: &boolFalse,
+			},
+			desired: &v1beta1.DomainParameters{
+				Wildcard: &boolTrue,
+			},
+			want: false,
+		},
+		"WildcardNilInDomain_NotUpToDate": {
+			domain:  &v1beta1.DomainObservation{},
+			desired: &v1beta1.DomainParameters{Wildcard: &boolTrue},
+			want:    false,
+		},
+		"SpamActionMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				SpamAction: "disabled",
+			},
+			desired: &v1beta1.DomainParameters{
+				SpamAction: stringPtr("block"),
+			},
+			want: false,
+		},
+		"TrackingClickMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Click: &boolFalse},
+			},
+			desired: &v1beta1.DomainParameters{
+				Tracking: &v1beta1.DomainTracking{Click: &boolTrue},
+			},
+			want: false,
+		},
+		"TrackingOpenMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Open: &boolFalse},
+			},
+			desired: &v1beta1.DomainParameters{
+				Tracking: &v1beta1.DomainTracking{Open: &boolTrue},
+			},
+			want: false,
+		},
+		"TrackingUnsubscribeMismatch_NotUpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Unsubscribe: &boolTrue},
+			},
+			desired: &v1beta1.DomainParameters{
+				Tracking: &v1beta1.DomainTracking{Unsubscribe: &boolFalse},
+			},
+			want: false,
+		},
+		"DomainTrackingNil_DesiredTrackingSet_NotUpToDate": {
+			domain:  &v1beta1.DomainObservation{},
+			desired: &v1beta1.DomainParameters{Tracking: &v1beta1.DomainTracking{Click: &boolTrue}},
+			want:    false,
+		},
+		"DesiredTrackingNil_UpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Click: &boolTrue, Open: &boolTrue},
+			},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+		"DesiredWebSchemeNil_SkipsComparison_UpToDate": {
+			domain:  &v1beta1.DomainObservation{WebScheme: "http"},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+		"DesiredWildcardNil_SkipsComparison_UpToDate": {
+			domain:  &v1beta1.DomainObservation{Wildcard: &boolTrue},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+		"DesiredSpamActionNil_SkipsComparison_UpToDate": {
+			domain:  &v1beta1.DomainObservation{SpamAction: "block"},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+		"DesiredTrackingClickNil_SkipsClickComparison_UpToDate": {
+			domain: &v1beta1.DomainObservation{
+				Tracking: &v1beta1.DomainTracking{Click: &boolTrue, Open: &boolTrue},
+			},
+			desired: &v1beta1.DomainParameters{
+				Tracking: &v1beta1.DomainTracking{Open: &boolTrue},
+			},
+			want: true,
+		},
+		"EmptyDomain_EmptyDesired_UpToDate": {
+			domain:  &v1beta1.DomainObservation{},
+			desired: &v1beta1.DomainParameters{},
+			want:    true,
+		},
+	}
+
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			got := isDomainUpToDate(tc.domain, tc.desired)
+			assert.Equal(t, tc.want, got, tc.reason)
+		})
+	}
 }

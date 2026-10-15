@@ -17,16 +17,15 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // DomainParameters define the desired state of a Mailgun Domain
 type DomainParameters struct {
 	// Name is the domain name to create
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
+	// +kubebuilder:validation:Pattern="^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$"
 	Name string `json:"name"`
 
 	// Type specifies the domain type (sending or receiving)
@@ -65,6 +64,65 @@ type DomainParameters struct {
 	// Wildcard setting for the domain
 	// +kubebuilder:default=false
 	Wildcard *bool `json:"wildcard,omitempty"`
+
+	// DNSProvider optionally wires the Domain to a third-party DNS hosting
+	// provider so the controller can push the Mailgun DNS records directly
+	// (e.g. Cloudflare). When unset, the controller falls back to generic
+	// automation: ConfigMap output, external-dns annotation, and (opt-in)
+	// local DNS propagation probing. Only one provider can be configured per
+	// Domain.
+	//
+	// This field is optional and additive; existing Domains without a
+	// DNSProvider continue to behave exactly as before.
+	DNSProvider *DNSProviderSpec `json:"dnsProvider,omitempty"`
+}
+
+// DNSProviderSpec selects which third-party DNS hosting provider the
+// controller should use to publish Mailgun's required DNS records.
+type DNSProviderSpec struct {
+	// Cloudflare configures the controller to push the DNS records to
+	// Cloudflare. When set, the controller authenticates with the supplied
+	// API token and writes MX / TXT / CNAME records into the specified zone.
+	// The Domain is not deleted from Cloudflare automatically when the
+	// Crossplane resource is deleted - set cloudflare.keepOnDelete to true
+	// (the default) to preserve the records for inspection; flip to false to
+	// remove them.
+	Cloudflare *CloudflareProviderSpec `json:"cloudflare,omitempty"`
+}
+
+// CloudflareProviderSpec configures Cloudflare as the DNS hosting provider
+// for the records required by a Mailgun Domain.
+type CloudflareProviderSpec struct {
+	// APITokenSecretRef references a Kubernetes Secret containing a single
+	// data key 'apiToken' with the Cloudflare API token. The token must
+	// have Zone.DNS edit permission for the zone identified by ZoneID.
+	// +kubebuilder:validation:Required
+	APITokenSecretRef *SecretKeyRef `json:"apiTokenSecretRef"`
+
+	// ZoneID is the Cloudflare Zone ID where the records will be created.
+	// Find this in the Cloudflare dashboard under the domain overview page
+	// (lower-right API section).
+	// +kubebuilder:validation:Required
+	ZoneID string `json:"zoneID"`
+
+	// KeepOnDelete, when true (default), leaves DNS records in Cloudflare
+	// when the Domain is deleted from Crossplane. Set to false to remove
+	// them. We default to true so a careless `kubectl delete` does not
+	// knock your email offline.
+	// +kubebuilder:default=true
+	KeepOnDelete *bool `json:"keepOnDelete,omitempty"`
+}
+
+// SecretKeyRef is a reference to a single key inside a Kubernetes Secret.
+type SecretKeyRef struct {
+	// Name is the name of the Secret in the Domain's namespace.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Key is the data key inside the Secret. Defaults to "apiToken" when
+	// omitted; other consumers can reuse this type with different defaults.
+	// +kubebuilder:default="apiToken"
+	Key string `json:"key,omitempty"`
 }
 
 // DomainTracking defines tracking settings for a domain
@@ -96,8 +154,31 @@ type DomainObservation struct {
 	// SMTPLogin is the SMTP login for the domain
 	SMTPLogin string `json:"smtpLogin,omitempty"`
 
-	// SMTPPassword is the SMTP password for the domain
-	SMTPPassword string `json:"smtpPassword,omitempty"`
+	// SMTPPassword is the SMTP password Mailgun generated (or the caller
+	// supplied) when the domain was created. It is deliberately never
+	// persisted to status - status is world-readable. The value is only kept
+	// in memory long enough to populate the writeConnectionSecretToRef
+	// connection secret.
+	SMTPPassword string `json:"-"`
+
+	// WebScheme is the scheme (http or https) used for tracking URLs.
+	// Mailgun returns this on GET /v4/domains/{name}.
+	WebScheme string `json:"webScheme,omitempty"`
+
+	// Wildcard is whether the domain is a wildcard domain.
+	// Mailgun returns this on GET /v4/domains/{name}.
+	Wildcard *bool `json:"wildcard,omitempty"`
+
+	// SpamAction is the spam filtering action (disabled, block, tag).
+	// Mailgun returns this on GET /v4/domains/{name}.
+	SpamAction string `json:"spamAction,omitempty"`
+
+	// Tracking reflects the email tracking settings read back from Mailgun.
+	// Mailgun returns this on GET /v4/domains/{name}.
+	Tracking *DomainTracking `json:"tracking,omitempty"`
+
+	// DNSVerified indicates whether all required DNS records are properly configured
+	DNSVerified *bool `json:"dnsVerified,omitempty"`
 
 	// RequiredDNSRecords contains the DNS records that need to be configured
 	RequiredDNSRecords []DNSRecord `json:"requiredDnsRecords,omitempty"`
@@ -109,34 +190,105 @@ type DomainObservation struct {
 	SendingDNSRecords []DNSRecord `json:"sendingDnsRecords,omitempty"`
 }
 
-// DNSRecord represents a DNS record required for domain configuration
+// DNSRecord represents a DNS record required for domain configuration.
+// `Valid` mirrors Mailgun's v4 API verbatim: "valid" if Mailgun confirms the
+// record is properly configured, "unknown" if it has not yet been verified.
 type DNSRecord struct {
 	// Name is the DNS record name
 	Name string `json:"name,omitempty"`
 
-	// Type is the DNS record type (TXT, CNAME, MX)
+	// Type is the DNS record type (TXT, CNAME, MX, A)
 	Type string `json:"type,omitempty"`
 
 	// Value is the DNS record value
 	Value string `json:"value,omitempty"`
 
-	// Priority is the MX record priority (for MX records)
-	Priority *int `json:"priority,omitempty"`
+	// Priority is the MX record priority (for MX records), as a string per
+	// Mailgun's v4 API (e.g. "10")
+	Priority *string `json:"priority,omitempty"`
 
-	// Valid indicates if the DNS record is properly configured
-	Valid *bool `json:"valid,omitempty"`
+	// Valid is the verification status returned by Mailgun.
+	// +kubebuilder:validation:Enum=valid;unknown
+	Valid *RecordValidity `json:"valid,omitempty"`
 }
+
+// RecordValidity is the verification status of a DNS record as reported by
+// Mailgun's v4 Domains API.
+type RecordValidity string
+
+// Known RecordValidity values. Mailgun may also return an empty string for
+// records that have not yet been queried; treat that as not-yet-verified.
+const (
+	// RecordValidityValid indicates Mailgun confirmed the DNS record is
+	// properly configured.
+	RecordValidityValid RecordValidity = "valid"
+
+	// RecordValidityUnknown indicates Mailgun has not yet verified the DNS
+	// record (typically because it has not been propagated yet).
+	RecordValidityUnknown RecordValidity = "unknown"
+)
+
+// IsVerified returns true when the record has been verified by Mailgun.
+func (v *RecordValidity) IsVerified() bool {
+	return v != nil && *v == RecordValidityValid
+}
+
+// Annotation keys the provider sets on Domain resources to coordinate DNS
+// automation with external tooling.
+const (
+	// AnnotationExternalDNSHostname is the hostname annotation read by
+	// external-dns (https://github.com/kubernetes-sigs/external-dns) so it
+	// picks the Domain up as a managed DNS target. Set automatically by
+	// the controller unless the user opts out via
+	// AnnotationDisableExternalDNS.
+	AnnotationExternalDNSHostname = "external-dns.alpha.kubernetes.io/hostname"
+
+	// AnnotationDisableExternalDNS, when set to "true", prevents the
+	// controller from writing AnnotationExternalDNSHostname. Use this when
+	// you have external-dns installed but do not want it to manage the
+	// Mailgun DNS records (for example, because you manage them via a
+	// Composition that uses provider-cloudflare).
+	AnnotationDisableExternalDNS = "mailgun.crossplane.io/disable-external-dns"
+
+	// AnnotationDNSProbeEnabled, when set to "true", makes the controller
+	// query authoritative DNS resolvers for each required record and emit
+	// per-record diagnostic events (DNSNotPropagated, DNSValueMismatch,
+	// SPFNeedsMerge, DNSRecordMatches). Default is off so the provider
+	// does not require outbound DNS egress from the cluster by default.
+	AnnotationDNSProbeEnabled = "mailgun.crossplane.io/dns-probe"
+
+	// AnnotationConfigMapOutputEnabled, when set to "true", makes the
+	// controller write/update a ConfigMap named "<domain>-dns-records"
+	// containing the required DNS records in records.yaml / terraform.tf /
+	// bind-zone.txt formats. Default is off so the provider does not
+	// require ConfigMap write permissions by default.
+	AnnotationConfigMapOutputEnabled = "mailgun.crossplane.io/dns-configmap"
+
+	// PrefixDNSRecordAnnotation is prepended to event annotations that
+	// carry the expected value of a single DNS record. The full key is
+	// PrefixDNSRecordAnnotation + "<type>-<name>" (truncated/hashed to
+	// stay within Kubernetes' 63-character annotation key limit).
+	PrefixDNSRecordAnnotation = "dns-controller.mailgun.crossplane.io/"
+
+	// AnnotationDNSLastReverify records the last time the controller asked
+	// Mailgun to re-verify the domain's DNS records (an RFC3339 timestamp of
+	// the most recent PUT /v4/domains/{name}/verify call). It throttles
+	// verification so a permanently-unverified domain does not trigger
+	// Mailgun's asynchronous DNS re-check (and its "domain is now verified"
+	// notification emails) on every reconcile.
+	AnnotationDNSLastReverify = "mailgun.crossplane.io/last-reverify"
+)
 
 // A DomainSpec defines the desired state of a Domain.
 type DomainSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       DomainParameters `json:"forProvider"`
+	ForProvider              DomainParameters `json:"forProvider"`
 }
 
 // A DomainStatus represents the observed state of a Domain.
 type DomainStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          DomainObservation `json:"atProvider,omitempty"`
+	AtProvider             DomainObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -145,7 +297,9 @@ type DomainStatus struct {
 // This is the Crossplane v2 namespaced version.
 // +kubebuilder:printcolumn:name="READY",type="string",JSONPath=".status.conditions[?(@.type=='Ready')].status"
 // +kubebuilder:printcolumn:name="SYNCED",type="string",JSONPath=".status.conditions[?(@.type=='Synced')].status"
-// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane\\.io/external-name"
+// +kubebuilder:printcolumn:name="STATE",type="string",JSONPath=".status.atProvider.state"
+// +kubebuilder:printcolumn:name="DNS-VERIFIED",type="string",JSONPath=".status.atProvider.dnsVerified"
+// +kubebuilder:printcolumn:name="EXTERNAL-NAME",type="string",JSONPath=".metadata.annotations.crossplane.io/external-name"
 // +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:subresource:status
 // +kubebuilder:resource:scope=Namespaced,categories={crossplane,managed,mailgun}

@@ -312,7 +312,7 @@ func TestWithRetry(t *testing.T) {
 		errStr := err.Error()
 		isTimeoutOrCancellation :=
 			strings.Contains(errStr, "operation cancelled during retry backoff") ||
-			strings.Contains(errStr, "operation failed after")
+				strings.Contains(errStr, "operation failed after")
 		assert.True(t, isTimeoutOrCancellation, "Expected timeout or cancellation error, got: %s", errStr)
 	})
 

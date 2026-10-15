@@ -5,7 +5,7 @@ metadata:
   name: welcome-email-template
 spec:
   forProvider:
-    domain: golder.org
+    domain: example.com
     name: welcome-email
     description: Welcome email template for new users
     engine: mustache

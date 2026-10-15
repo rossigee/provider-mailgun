@@ -19,22 +19,22 @@ package route
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"testing"
-
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	"github.com/pkg/errors"
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // MockRouteClient for testing
@@ -89,7 +89,7 @@ func (m *MockRouteClient) GetRoute(ctx context.Context, id string) (*v1beta1.Rou
 		return route, nil
 	}
 
-	return nil, errors.New("route not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"}
 }
 
 func (m *MockRouteClient) UpdateRoute(ctx context.Context, id string, route *v1beta1.RouteParameters) (*v1beta1.RouteObservation, error) {
@@ -118,7 +118,7 @@ func (m *MockRouteClient) UpdateRoute(ctx context.Context, id string, route *v1b
 		return existing, nil
 	}
 
-	return nil, errors.New("route not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"}
 }
 
 func (m *MockRouteClient) DeleteRoute(ctx context.Context, id string) error {
@@ -145,6 +145,10 @@ func (m *MockRouteClient) UpdateDomain(ctx context.Context, name string, domain 
 
 func (m *MockRouteClient) DeleteDomain(ctx context.Context, name string) error {
 	return errors.New("not implemented")
+}
+
+func (m *MockRouteClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (m *MockRouteClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
@@ -248,6 +252,10 @@ func (m *MockRouteClient) GetUnsubscribe(ctx context.Context, domain, address st
 
 func (m *MockRouteClient) DeleteUnsubscribe(ctx context.Context, domain, address string) error {
 	return errors.New("not implemented")
+}
+
+func (m *MockRouteClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
 }
 
 func TestRouteObserve(t *testing.T) {
@@ -584,10 +592,10 @@ func TestRouteUpdate(t *testing.T) {
 // Test error handling scenarios
 func TestRouteObserveErrors(t *testing.T) {
 	cases := map[string]struct {
-		reason     string
-		mockErr    error
-		setupMock  func(*MockRouteClient)
-		expectErr  bool
+		reason       string
+		mockErr      error
+		setupMock    func(*MockRouteClient)
+		expectErr    bool
 		expectExists bool
 	}{
 		"ClientError": {
@@ -700,7 +708,7 @@ func TestRouteUpdateErrors(t *testing.T) {
 		},
 		"RouteNotFound": {
 			reason:    "Should handle route not found during update",
-			mockErr:   errors.New("route not found (404)"),
+			mockErr:   &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"},
 			expectErr: true,
 		},
 	}
@@ -749,7 +757,7 @@ func TestRouteDeleteErrors(t *testing.T) {
 		},
 		"RouteNotFound": {
 			reason:    "Should handle route not found during delete gracefully",
-			mockErr:   errors.New("route not found (404)"),
+			mockErr:   &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"},
 			expectErr: false, // Should handle 404 gracefully on delete
 		},
 	}

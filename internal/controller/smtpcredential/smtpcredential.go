@@ -18,24 +18,27 @@ package smtpcredential
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/event"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/meta"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/pkg/errors"
 
-	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
-	clients "github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/clients"
+	"github.com/rossigee/provider-mailgun/internal/features"
 	"github.com/rossigee/provider-mailgun/internal/metrics"
 	"github.com/rossigee/provider-mailgun/internal/tracing"
 )
@@ -46,22 +49,39 @@ const (
 	errGetPC             = "cannot get ProviderConfig"
 	errGetCreds          = "cannot get credentials"
 
+	// smtpCredentialStateDeleted marks AtProvider.State once Delete has
+	// successfully requested removal of the external Mailgun credential,
+	// so a subsequent Observe can report the resource as gone.
+	smtpCredentialStateDeleted = "deleted"
+
+	// Event reasons
+	eventReasonTestEmailSent   = "TestEmailSent"
+	eventReasonTestEmailFailed = "TestEmailFailed"
 )
 
 // Setup adds a controller that reconciles SMTPCredential managed resources.
 func Setup(mgr ctrl.Manager, o controller.Options) error {
 	name := managed.ControllerName(v1beta1.SMTPCredentialKind)
 
-	r := managed.NewReconciler(mgr,
-		resource.ManagedKind(v1beta1.SMTPCredentialGroupVersionKind),
+	rec := event.NewAPIRecorder(mgr.GetEventRecorder(name))
+
+	opts := []managed.ReconcilerOption{
 		managed.WithExternalConnector(&connector{
 			kube:         mgr.GetClient(),
 			usage:        resource.TrackerFn(func(ctx context.Context, mg resource.Managed) error { return nil }),
 			newServiceFn: clients.NewClient,
+			recorder:     rec,
 		}),
 		managed.WithLogger(o.Logger.WithValues("controller", name)),
 		managed.WithPollInterval(o.PollInterval),
-		managed.WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorder(name))))
+		managed.WithRecorder(rec),
+	}
+	if o.Features.Enabled(features.EnableAlphaManagementPolicies) {
+		opts = append(opts, managed.WithManagementPolicies())
+	}
+	r := managed.NewReconciler(mgr,
+		resource.ManagedKind(v1beta1.SMTPCredentialGroupVersionKind),
+		opts...)
 
 	return ctrl.NewControllerManagedBy(mgr).
 		Named(name).
@@ -77,6 +97,7 @@ type connector struct {
 	kube         client.Client
 	usage        resource.Tracker
 	newServiceFn func(config *clients.Config) clients.Client
+	recorder     event.Recorder
 }
 
 // Connect typically produces an ExternalClient by:
@@ -134,14 +155,20 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 
 	svc := c.newServiceFn(config)
 
-	return &external{service: svc, kube: c.kube}, nil
+	return &external{service: svc, kube: c.kube, recorder: c.recorder, smtpHost: config.SMTPHost}, nil
 }
 
 // An ExternalClient observes, then either creates, updates, or deletes an
 // external resource to ensure it reflects the managed resource's desired state.
 type external struct {
-	service clients.Client
-	kube    client.Client
+	service  clients.Client
+	kube     client.Client
+	recorder event.Recorder
+	// smtpHost is the SMTP relay hostname corresponding to the ProviderConfig
+	// region (US→smtp.mailgun.org, EU→smtp.eu.mailgun.org). Populated by
+	// Connect from clients.Config.SMTPHost so the connection secret carries
+	// a host that matches where the credential actually authenticates.
+	smtpHost string
 }
 
 func (c *external) Disconnect(ctx context.Context) error {
@@ -186,9 +213,9 @@ func (e *ExternalForTesting) Delete(ctx context.Context, mg resource.Managed) (m
 
 func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.ExternalObservation, error) {
 	op := tracing.StartOperation(ctx, tracing.SpanResourceObserve,
-		tracing.AttrResourceType.String("SMTPCredential"),
-		tracing.AttrResourceName.String(mg.GetName()),
-		tracing.AttrOperation.String("observe"),
+		"crossplane.resource.type", "SMTPCredential",
+		"crossplane.resource.name", mg.GetName(),
+		"crossplane.operation", "observe",
 	)
 	defer op.End()
 
@@ -218,12 +245,58 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 
 	logger.Info("starting SMTP credential observation")
 
+	// SMTP credentials are write-only in Mailgun's API, so once deletion has
+	// been requested we can't ask Mailgun whether the credential is really
+	// gone. We therefore can't rely on the connection secret's presence as
+	// our "does it still exist" signal during deletion: that secret is only
+	// removed by the reconciler's UnpublishConnection call, which only runs
+	// once we report ResourceExists=false - creating a deadlock where the
+	// secret never goes away because finalization never runs, and
+	// finalization never runs because the secret (our only signal) never
+	// goes away. Delete() marks AtProvider.State "deleted" before returning;
+	// once we see that, report the resource as gone so the reconciler can
+	// finalize, regardless of whether the connection secret still exists.
+	if meta.WasDeleted(cr) && cr.Status.AtProvider.State == smtpCredentialStateDeleted {
+		logger.Info("external SMTP credential deletion already requested, allowing resource to finalize")
+		timer.RecordResourceOperation("smtpcredential", "observe", "deleted")
+		return managed.ExternalObservation{ResourceExists: false}, nil
+	}
+
 	// Use the login as external name
 	externalName := meta.GetExternalName(cr)
 	if externalName == "" {
 		externalName = cr.Spec.ForProvider.Login
 		meta.SetExternalName(cr, externalName)
 		logger.Info("set external name", "externalName", externalName)
+	}
+
+	// Check for force rotation annotation before anything else. This must run
+	// before the "connection secret already exists" fast path below: that
+	// path returns early whenever a secret is present, which is always true
+	// for a credential someone would actually want to rotate - so checking
+	// this annotation only after that fast path (as it originally was)
+	// left it permanently unreachable for any already-created credential.
+	annotations := cr.GetAnnotations()
+	forceRotate := annotations != nil && annotations["mailgun.crossplane.io/force-rotate-credentials"] != ""
+	if forceRotate {
+		logger.Info("force-rotate-credentials annotation detected, triggering credential recreation")
+		op.SetAttribute("force_rotation", true)
+
+		// Remove the force rotation annotation to prevent repeated rotations and set internal flag
+		if annotations == nil {
+			annotations = make(map[string]string)
+		}
+		delete(annotations, "mailgun.crossplane.io/force-rotate-credentials")
+		annotations["mailgun.crossplane.io/internal-force-rotate"] = "true" // Signal to Create method
+
+		// Clear creation annotations to force recreation
+		delete(annotations, "crossplane.io/external-create-succeeded")
+		delete(annotations, "crossplane.io/external-create-pending")
+		cr.SetAnnotations(annotations)
+
+		// Return as non-existent to trigger Create flow with rotation
+		timer.RecordResourceOperation("smtpcredential", "observe", "force_rotation")
+		return managed.ExternalObservation{ResourceExists: false}, nil
 	}
 
 	// SMTP credentials are write-only in Mailgun API - we can't read them back
@@ -246,8 +319,34 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 	secretKey := types.NamespacedName{Name: secretName, Namespace: secretNamespace}
 	err := c.kube.Get(ctx, secretKey, secret)
 
-	// If secret exists and has credentials, consider resource as existing
+	// If secret exists and has credentials, consider resource as existing -
+	// but verify against Mailgun first. A local secret only proves the
+	// credential existed at creation time; it says nothing about whether
+	// Mailgun still has it (deleted via the dashboard, revoked by Mailgun's
+	// own abuse/compliance systems, etc). Without this check Observe never
+	// notices such drift - it would report Ready/Synced=True forever with a
+	// secret full of a password that no longer authenticates.
 	if err == nil && secret.Data != nil && len(secret.Data) > 0 {
+		_, getErr := c.service.GetSMTPCredential(ctx, cr.Spec.ForProvider.Domain, cr.Spec.ForProvider.Login)
+		if getErr != nil {
+			if clients.IsNotFound(getErr) {
+				logger.Info("SMTP credential secret exists locally but Mailgun reports it missing, triggering recreation")
+				metrics.RecordSecretOperation("get", "success")
+				op.SetAttribute("secret.found", true)
+				op.SetAttribute("resource.exists", false)
+				op.SetAttribute("resource.mailgun_verified", false)
+				timer.RecordResourceOperation("smtpcredential", "observe", "recreate_missing")
+				return managed.ExternalObservation{ResourceExists: false}, nil
+			}
+			// A non-404 error (network, auth, rate limit, etc) doesn't tell us
+			// anything about whether the credential exists - propagate it so
+			// Crossplane retries rather than guessing either way.
+			logger.Error(getErr, "failed to verify SMTP credential against Mailgun")
+			timer.RecordResourceOperation("smtpcredential", "observe", "error")
+			op.RecordError(getErr)
+			return managed.ExternalObservation{}, errors.Wrap(getErr, "failed to verify SMTP credential against Mailgun")
+		}
+
 		logger.Info("SMTP credential exists with stored secret",
 			"secretDataKeys", getSecretDataKeys(secret.Data))
 
@@ -258,6 +357,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		op.SetAttribute("secret.keys_count", len(secret.Data))
 		op.SetAttribute("resource.exists", true)
 		op.SetAttribute("resource.up_to_date", true)
+		op.SetAttribute("resource.mailgun_verified", true)
 
 		// Resource exists and we have credentials stored
 		cr.Status.AtProvider = v1beta1.SMTPCredentialObservation{
@@ -266,11 +366,39 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		}
 		cr.SetConditions(xpv1.Available())
 
+		// Handle test email annotation even when secret exists
+		annotations := cr.GetAnnotations()
+		if annotations != nil && annotations[v1beta1.AnnotationTestEmailTo] != "" {
+			testEmailTo := annotations[v1beta1.AnnotationTestEmailTo]
+			domain := cr.Spec.ForProvider.Domain
+			from := cr.Spec.ForProvider.Login
+
+			logger.Info("test-email-to annotation detected, sending test email",
+				"from", from, "to", testEmailTo)
+
+			err := c.service.SendEmail(ctx, domain, from, testEmailTo, "Test email from provider-mailgun",
+				"Your SMTP credentials are working! This test was triggered by setting the mailgun.crossplane.io/test-email-to annotation.")
+			if err != nil {
+				c.recorder.Event(cr, event.Warning(eventReasonTestEmailFailed, errors.Wrap(err, "failed to send test email")))
+				logger.Error(err, "failed to send test email", "to", testEmailTo)
+			} else {
+				// Create new annotations map to ensure Crossplane detects the change
+				newAnnotations := make(map[string]string)
+				for k, v := range annotations {
+					newAnnotations[k] = v
+				}
+				delete(newAnnotations, v1beta1.AnnotationTestEmailTo)
+				cr.SetAnnotations(newAnnotations)
+				c.recorder.Event(cr, event.Normal(eventReasonTestEmailSent, fmt.Sprintf("test email sent to %s", testEmailTo)))
+				logger.Info("test email sent successfully", "to", testEmailTo)
+			}
+		}
+
 		return managed.ExternalObservation{
 			ResourceExists:   true,
 			ResourceUpToDate: true,
 			ConnectionDetails: managed.ConnectionDetails{
-				"smtp_host":     []byte("smtp.mailgun.org"),
+				"smtp_host":     []byte(c.smtpHostOrDefault()),
 				"smtp_port":     []byte("587"),
 				"smtp_username": []byte(cr.Spec.ForProvider.Login),
 				// Password is already stored in the secret, don't overwrite
@@ -293,37 +421,38 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		op.SetAttribute("secret.reason", "empty")
 	}
 
-	// Check if we have evidence of successful external resource creation
-	// Look for crossplane.io/external-create-succeeded annotation
-	annotations := cr.GetAnnotations()
-
-	// Check for force rotation annotation first - this overrides existing resource detection
-	forceRotate := annotations != nil && annotations["mailgun.crossplane.io/force-rotate-credentials"] != ""
-	if forceRotate {
-		logger.Info("force-rotate-credentials annotation detected, triggering credential recreation")
-		op.SetAttribute("force_rotation", true)
-
-		// Remove the force rotation annotation to prevent repeated rotations and set internal flag
-		if annotations == nil {
-			annotations = make(map[string]string)
-		}
-		delete(annotations, "mailgun.crossplane.io/force-rotate-credentials")
-		annotations["mailgun.crossplane.io/internal-force-rotate"] = "true" // Signal to Create method
-		cr.SetAnnotations(annotations)
-
-		// Clear creation annotations to force recreation
-		delete(annotations, "crossplane.io/external-create-succeeded")
-		delete(annotations, "crossplane.io/external-create-pending")
-		cr.SetAnnotations(annotations)
-
-		// Return as non-existent to trigger Create flow with rotation
-		timer.RecordResourceOperation("smtpcredential", "observe", "force_rotation")
-		return managed.ExternalObservation{ResourceExists: false}, nil
-	}
-
+	// Check if we have evidence of successful external resource creation.
+	// (Force-rotation was already checked above, before the secret-exists
+	// fast path.) Look for crossplane.io/external-create-succeeded annotation.
 	if annotations != nil && annotations["crossplane.io/external-create-succeeded"] != "" {
 		logger.Info("SMTP credential has successful creation annotation, treating as existing resource",
 			"createSucceededAt", annotations["crossplane.io/external-create-succeeded"])
+
+		// Handle test email annotation
+		if testEmailTo := annotations[v1beta1.AnnotationTestEmailTo]; testEmailTo != "" {
+			domain := cr.Spec.ForProvider.Domain
+			from := cr.Spec.ForProvider.Login
+
+			logger.Info("test-email-to annotation detected, sending test email",
+				"from", from, "to", testEmailTo)
+
+			err := c.service.SendEmail(ctx, domain, from, testEmailTo, "Test email from provider-mailgun",
+				"Your SMTP credentials are working! This test was triggered by setting the mailgun.crossplane.io/test-email-to annotation.")
+			if err != nil {
+				c.recorder.Event(cr, event.Warning(eventReasonTestEmailFailed, errors.Wrap(err, "failed to send test email")))
+				logger.Error(err, "failed to send test email", "to", testEmailTo)
+			} else {
+				// Create new annotations map to ensure Crossplane detects the change
+				newAnnotations := make(map[string]string)
+				for k, v := range annotations {
+					newAnnotations[k] = v
+				}
+				delete(newAnnotations, v1beta1.AnnotationTestEmailTo)
+				cr.SetAnnotations(newAnnotations)
+				c.recorder.Event(cr, event.Normal(eventReasonTestEmailSent, fmt.Sprintf("test email sent to %s", testEmailTo)))
+				logger.Info("test email sent successfully", "to", testEmailTo)
+			}
+		}
 
 		// Resource exists based on creation annotation, but connection secret is missing
 		// Set status based on external name and assume active state
@@ -342,7 +471,7 @@ func (c *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 			ResourceExists:   true,
 			ResourceUpToDate: true,
 			ConnectionDetails: managed.ConnectionDetails{
-				"smtp_host":     []byte("smtp.mailgun.org"),
+				"smtp_host":     []byte(c.smtpHostOrDefault()),
 				"smtp_port":     []byte("587"),
 				"smtp_username": []byte(externalName),
 				// Note: password is not available since secret is missing
@@ -367,11 +496,22 @@ func getSecretDataKeys(data map[string][]byte) []string {
 	return keys
 }
 
+// smtpHostOrDefault returns the configured SMTP host or the US default if
+// none was set on the external. This keeps unit tests that build an external
+// directly (without going through Connect) working without a separate
+// constructor on every test path.
+func (c *external) smtpHostOrDefault() string {
+	if c.smtpHost != "" {
+		return c.smtpHost
+	}
+	return clients.DefaultSMTPHost
+}
+
 func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {
 	op := tracing.StartOperation(ctx, tracing.SpanResourceCreate,
-		tracing.AttrResourceType.String("SMTPCredential"),
-		tracing.AttrResourceName.String(mg.GetName()),
-		tracing.AttrOperation.String("create"),
+		"crossplane.resource.type", "SMTPCredential",
+		"crossplane.resource.name", mg.GetName(),
+		"crossplane.operation", "create",
 	)
 	defer op.End()
 
@@ -440,12 +580,25 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 		op.SetAttribute("rotation_strategy", false)
 	}
 
-	// Use provided password or let Mailgun generate one
+	// Use provided password, or read from CredentialsSecretRef (sync: preserve if exists), or let Mailgun generate
 	password := cr.Spec.ForProvider.Password
+	if password == nil && cr.Spec.ForProvider.CredentialsSecretRef != nil {
+		secret := &corev1.Secret{}
+		key := types.NamespacedName{Name: cr.Spec.ForProvider.CredentialsSecretRef.Name, Namespace: cr.GetNamespace()}
+		if err := c.kube.Get(ctx, key, secret); err == nil {
+			if val, ok := secret.Data[cr.Spec.ForProvider.CredentialsSecretRef.Key]; ok && len(val) > 0 {
+				pw := string(val)
+				password = &pw
+				logger.Info("using password from credentialsSecretRef")
+			}
+		}
+	}
 	if password == nil {
 		logger.Info("no password provided, letting Mailgun generate one")
-	} else {
+	} else if cr.Spec.ForProvider.Password != nil {
 		logger.Info("using provided password for SMTP credential")
+	} else {
+		logger.Info("using password from credentialsSecretRef for sync")
 	}
 
 	logger.Info("creating new SMTP credential via Mailgun API")
@@ -510,7 +663,7 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 	return managed.ExternalCreation{
 		ConnectionDetails: managed.ConnectionDetails{
-			"smtp_host":     []byte("smtp.mailgun.org"),
+			"smtp_host":     []byte(c.smtpHostOrDefault()),
 			"smtp_port":     []byte("587"),
 			"smtp_username": []byte(credential.Login),
 			"smtp_password": []byte(connectionPassword),
@@ -520,9 +673,9 @@ func (c *external) Create(ctx context.Context, mg resource.Managed) (managed.Ext
 
 func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.ExternalUpdate, error) {
 	op := tracing.StartOperation(ctx, tracing.SpanResourceUpdate,
-		tracing.AttrResourceType.String("SMTPCredential"),
-		tracing.AttrResourceName.String(mg.GetName()),
-		tracing.AttrOperation.String("update"),
+		"crossplane.resource.type", "SMTPCredential",
+		"crossplane.resource.name", mg.GetName(),
+		"crossplane.operation", "update",
 	)
 	defer op.End()
 
@@ -557,9 +710,9 @@ func (c *external) Update(ctx context.Context, mg resource.Managed) (managed.Ext
 
 func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.ExternalDelete, error) {
 	op := tracing.StartOperation(ctx, tracing.SpanResourceDelete,
-		tracing.AttrResourceType.String("SMTPCredential"),
-		tracing.AttrResourceName.String(mg.GetName()),
-		tracing.AttrOperation.String("delete"),
+		"crossplane.resource.type", "SMTPCredential",
+		"crossplane.resource.name", mg.GetName(),
+		"crossplane.operation", "delete",
 	)
 	defer op.End()
 
@@ -587,6 +740,12 @@ func (c *external) Delete(ctx context.Context, mg resource.Managed) (managed.Ext
 		op.SetAttribute("credential.deleted", true)
 	}
 
+	// Persisted via the reconciler's status update immediately after this
+	// call returns; the next Observe checks this to break the deadlock
+	// described there (write-only credentials can't be re-verified against
+	// Mailgun, so we track deletion completion in status instead).
+	cr.Status.AtProvider.State = smtpCredentialStateDeleted
+
 	return managed.ExternalDelete{}, nil
 }
 
@@ -601,7 +760,67 @@ func newProviderConfigUsageTracker(kube client.Client) resource.Tracker {
 }
 
 func (t *providerConfigUsageTracker) Track(ctx context.Context, mg resource.Managed) error {
-	// TODO: Fix ProviderConfigUsage tracking for v2 compatibility
-	// The v2 ProviderConfigUsage interface has changed and needs to be updated
+	pcRef := t.getProviderConfigReference(mg)
+	if pcRef == nil {
+		return nil
+	}
+
+	pc := &apisv1beta1.ProviderConfig{}
+	if err := t.kube.Get(ctx, types.NamespacedName{Name: pcRef.Name}, pc); err != nil {
+		return errors.Wrap(err, errGetPC)
+	}
+
+	pcu := &apisv1beta1.ProviderConfigUsage{}
+	pcUsageKey := types.NamespacedName{
+		Name:      string(mg.GetUID()),
+		Namespace: mg.GetNamespace(),
+	}
+	if pcUsageKey.Namespace == "" {
+		pcUsageKey.Namespace = "crossplane-system"
+	}
+	if err := t.kube.Get(ctx, pcUsageKey, pcu); err != nil {
+		if client.IgnoreNotFound(err) != nil {
+			return errors.Wrap(err, errTrackPCUsage)
+		}
+
+		gvk := mg.GetObjectKind().GroupVersionKind()
+		pcu = &apisv1beta1.ProviderConfigUsage{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: apisv1beta1.SchemeGroupVersion.String(),
+				Kind:       apisv1beta1.ProviderConfigUsageKind,
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pcUsageKey.Name,
+				Namespace: pcUsageKey.Namespace,
+			},
+			ProviderConfigUsage: xpv1.ProviderConfigUsage{
+				ProviderConfigReference: xpv1.Reference{
+					Name: pcRef.Name,
+				},
+				ResourceReference: xpv1.TypedReference{
+					APIVersion: gvk.GroupVersion().String(),
+					Kind:       gvk.Kind,
+					Name:       mg.GetName(),
+					UID:        mg.GetUID(),
+				},
+			},
+		}
+
+		if err := t.kube.Create(ctx, pcu); err != nil {
+			return errors.Wrap(err, errTrackPCUsage)
+		}
+	}
+
 	return nil
+}
+
+func (t *providerConfigUsageTracker) getProviderConfigReference(mg resource.Managed) *xpv1.ProviderConfigReference {
+	switch v := mg.(type) {
+	case interface {
+		GetProviderConfigReference() *xpv1.ProviderConfigReference
+	}:
+		return v.GetProviderConfigReference()
+	default:
+		return nil
+	}
 }

@@ -1,0 +1,80 @@
+# Stable ServiceAccount for provider-mailgun ProviderRevisions.
+#
+# Crossplane v2 (pkg.crossplane.io/v1) auto-renders one ServiceAccount per
+# ProviderRevision in the crossplane-system namespace, named
+# `provider-mailgun-<revision-hash>`. The SA name changes whenever a new
+# package revision rolls out, which means ClusterRoleBindings must either
+# target a wildcard group of SAs in crossplane-system, or chase the per-revision
+# name. Neither is ideal.
+#
+# This example pins the ServiceAccount name to a stable value
+# (`provider-mailgun`) by overriding the pod template through a
+# DeploymentRuntimeConfig. The Provider references the config via
+# `runtimeConfigRef`. Crossplane will then create (or reuse) the SA with the
+# stable name and the Deployment will run as it, so RBAC bindings can target
+# it precisely with no wildcards and no per-revision churn.
+#
+# Apply once per cluster. The crossplane-system namespace is created by
+# Crossplane itself; we only need to add the SA, the DeploymentRuntimeConfig,
+# and the ClusterRoleBinding. The Provider must be installed separately
+# (see examples/provider/config.yaml) with `runtimeConfigRef.name` pointing
+# at `provider-mailgun-stable-sa`.
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: provider-mailgun
+  namespace: crossplane-system
+  labels:
+    app.kubernetes.io/name: provider-mailgun
+    app.kubernetes.io/part-of: crossplane
+---
+# Pins the provider-mailgun ProviderRevisions to run as the
+# `provider-mailgun` ServiceAccount above instead of the per-revision
+# `provider-mailgun-<hash>` SA Crossplane would otherwise create.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: provider-mailgun-stable-sa
+  labels:
+    app.kubernetes.io/name: provider-mailgun
+    app.kubernetes.io/part-of: crossplane
+  annotations:
+    kubernetes.io/description: >-
+      Run provider-mailgun ProviderRevisions as a stable ServiceAccount
+      so RBAC can be bound to a single, well-known identity.
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          serviceAccountName: provider-mailgun
+---
+# Grants the stable provider-mailgun ServiceAccount permission to write
+# Kubernetes events (events.k8s.io/v1) - the controller-runtime event
+# recorder requires this, and Crossplane v2's per-revision ClusterRole
+# does not include the events.k8s.io API group. If you need additional
+# permissions (custom verbs, custom resources, etc.) extend the rules
+# here or add another binding.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: provider-mailgun-stable-sa-events
+  labels:
+    app.kubernetes.io/name: provider-mailgun
+    app.kubernetes.io/part-of: crossplane
+  annotations:
+    kubernetes.io/description: >-
+      Allows provider-mailgun's stable ServiceAccount to emit
+      Kubernetes events. Replace or supplement this binding with the
+      additional RBAC your environment requires.
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: provider-mailgun-events-k8s-io
+subjects:
+  - kind: ServiceAccount
+    name: provider-mailgun
+    namespace: crossplane-system

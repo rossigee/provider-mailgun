@@ -17,17 +17,17 @@ limitations under the License.
 package controller
 
 import (
-	ctrl "sigs.k8s.io/controller-runtime"
-
 	"github.com/crossplane/crossplane-runtime/v2/pkg/controller"
-
 	"github.com/rossigee/provider-mailgun/internal/controller/bounce"
+	"github.com/rossigee/provider-mailgun/internal/controller/complaint"
 	"github.com/rossigee/provider-mailgun/internal/controller/domain"
 	"github.com/rossigee/provider-mailgun/internal/controller/mailinglist"
 	"github.com/rossigee/provider-mailgun/internal/controller/route"
 	"github.com/rossigee/provider-mailgun/internal/controller/smtpcredential"
 	"github.com/rossigee/provider-mailgun/internal/controller/template"
+	"github.com/rossigee/provider-mailgun/internal/controller/unsubscribe"
 	"github.com/rossigee/provider-mailgun/internal/controller/webhook"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // Setup sets up all Mailgun controllers
@@ -35,6 +35,8 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 	for _, setup := range []func(ctrl.Manager, controller.Options) error{
 		// bounce controllers
 		bounce.Setup,
+		// complaint controllers
+		complaint.Setup,
 		// domain controllers
 		domain.Setup,
 		// mailinglist controllers
@@ -45,6 +47,8 @@ func Setup(mgr ctrl.Manager, o controller.Options) error {
 		smtpcredential.Setup,
 		// template controllers
 		template.Setup,
+		// unsubscribe controllers
+		unsubscribe.Setup,
 		// webhook controllers
 		webhook.Setup,
 	} {

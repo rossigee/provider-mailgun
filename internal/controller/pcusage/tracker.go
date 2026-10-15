@@ -4,26 +4,26 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
+	"github.com/rossigee/provider-mailgun/apis/v1beta1"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 )
 
 const (
-	errTrackPCUsage     = "cannot track ProviderConfig usage"
+	errTrackPCUsage      = "cannot track ProviderConfig usage"
 	errGetProviderConfig = "cannot get ProviderConfig"
-	errCreatePCUsage    = "cannot create ProviderConfigUsage"
-	errGetPCUsage       = "cannot get ProviderConfigUsage"
+	errCreatePCUsage     = "cannot create ProviderConfigUsage"
+	errGetPCUsage        = "cannot get ProviderConfigUsage"
 )
 
 type Tracker struct {
-	kube client.Client
+	kube   client.Client
 	scheme *runtime.Scheme
 }
 
@@ -34,18 +34,18 @@ func NewTracker(kube client.Client, scheme *runtime.Scheme) *Tracker {
 	}
 }
 
-func (t *Tracker) Track(ctx context.Context, mg resource.ModernManaged) error {
-	pcRef := mg.GetProviderConfigReference()
+func (t *Tracker) Track(ctx context.Context, mg resource.Managed) error {
+	pcRef := t.getProviderConfigReference(mg)
 	if pcRef == nil {
 		return nil
 	}
 
-	pc := &apisv1beta1.ProviderConfig{}
+	pc := &v1beta1.ProviderConfig{}
 	if err := t.kube.Get(ctx, types.NamespacedName{Name: pcRef.Name}, pc); err != nil {
 		return errors.Wrap(err, errGetProviderConfig)
 	}
 
-	pcu := &apisv1beta1.ProviderConfigUsage{}
+	pcu := &v1beta1.ProviderConfigUsage{}
 	pcUsageKey := types.NamespacedName{
 		Name: fmt.Sprintf("%s-%s", mg.GetName(), mg.GetUID()),
 	}
@@ -54,10 +54,10 @@ func (t *Tracker) Track(ctx context.Context, mg resource.ModernManaged) error {
 			return errors.Wrap(err, errGetPCUsage)
 		}
 
-		pcu = &apisv1beta1.ProviderConfigUsage{
+		pcu = &v1beta1.ProviderConfigUsage{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: apisv1beta1.SchemeGroupVersion.String(),
-				Kind:       apisv1beta1.ProviderConfigUsageKind,
+				APIVersion: v1beta1.SchemeGroupVersion.String(),
+				Kind:       v1beta1.ProviderConfigUsageKind,
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      pcUsageKey.Name,
@@ -82,4 +82,15 @@ func (t *Tracker) Track(ctx context.Context, mg resource.ModernManaged) error {
 	}
 
 	return nil
+}
+
+func (t *Tracker) getProviderConfigReference(mg resource.Managed) *xpv1.ProviderConfigReference {
+	switch v := mg.(type) {
+	case interface {
+		GetProviderConfigReference() *xpv1.ProviderConfigReference
+	}:
+		return v.GetProviderConfigReference()
+	default:
+		return nil
+	}
 }

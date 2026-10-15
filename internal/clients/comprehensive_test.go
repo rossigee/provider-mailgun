@@ -44,15 +44,15 @@ func TestMailgunAPISimulation(t *testing.T) {
 				"total_count": 2,
 				"items": []map[string]interface{}{
 					{
-						"name":  "example.com",
-						"type":  "sending",
-						"state": "active",
+						"name":       "example.com",
+						"type":       "sending",
+						"state":      "active",
 						"created_at": "2025-01-01T00:00:00Z",
 					},
 					{
-						"name":  "test.com",
-						"type":  "receiving",
-						"state": "active",
+						"name":       "test.com",
+						"type":       "receiving",
+						"state":      "active",
 						"created_at": "2025-01-01T00:00:00Z",
 					},
 				},
@@ -73,9 +73,9 @@ func TestMailgunAPISimulation(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"domain": map[string]interface{}{
-					"name":  "example.com",
-					"type":  "sending",
-					"state": "active",
+					"name":       "example.com",
+					"type":       "sending",
+					"state":      "active",
 					"created_at": "2025-01-01T00:00:00Z",
 					"smtp_login": "postmaster@example.com",
 				},
@@ -91,11 +91,11 @@ func TestMailgunAPISimulation(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"list": map[string]interface{}{
-					"address":     "test@example.com",
-					"name":        "Test List",
-					"description": "A test mailing list",
+					"address":      "test@example.com",
+					"name":         "Test List",
+					"description":  "A test mailing list",
 					"access_level": "readonly",
-					"created_at":  "2025-01-01T00:00:00Z",
+					"created_at":   "2025-01-01T00:00:00Z",
 				},
 				"message": "Mailing list has been created",
 			})
@@ -104,10 +104,10 @@ func TestMailgunAPISimulation(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"list": map[string]interface{}{
-					"address":      "test@example.com",
-					"name":         "Test List",
-					"description":  "A test mailing list",
-					"access_level": "readonly",
+					"address":       "test@example.com",
+					"name":          "Test List",
+					"description":   "A test mailing list",
+					"access_level":  "readonly",
 					"members_count": 0,
 				},
 			})
@@ -146,9 +146,9 @@ func TestMailgunAPISimulation(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"webhooks": []map[string]interface{}{
 					{
-						"id":  "webhook123",
-						"url": "https://example.com/webhook",
-						"events": []string{"delivered", "opened"},
+						"id":         "webhook123",
+						"url":        "https://example.com/webhook",
+						"events":     []string{"delivered", "opened"},
 						"created_at": "2025-01-01T00:00:00Z",
 					},
 				},
@@ -158,8 +158,8 @@ func TestMailgunAPISimulation(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"webhook": map[string]interface{}{
-					"id":  "webhook456",
-					"url": "https://example.com/new-webhook",
+					"id":     "webhook456",
+					"url":    "https://example.com/new-webhook",
 					"events": []string{"delivered", "opened", "clicked"},
 				},
 				"message": "Webhook has been created",

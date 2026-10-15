@@ -19,33 +19,108 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
-
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 )
 
-// convertDNSRecords converts client DNSRecord slice to API DNSRecord slice
-func convertDNSRecords(clientRecords []DNSRecord) []domaintypes.DNSRecord {
+// convertDNSRecords copies the client DNSRecord slice into the API DNSRecord
+// slice. Both structs share the same field types now, so this is a straight
+// field copy. MX records returned by Mailgun's v4 Domains API omit the
+// `name` field because the record belongs to the domain itself; we set it
+// to the parent domain name (supplied via parentDomain) so downstream
+// consumers see a complete record and can emit user-friendly diagnostics.
+func convertDNSRecords(clientRecords []DNSRecord, parentDomain string) []domaintypes.DNSRecord {
 	if clientRecords == nil {
 		return nil
 	}
 
 	apiRecords := make([]domaintypes.DNSRecord, len(clientRecords))
-	for i, record := range clientRecords {
+	for i, r := range clientRecords {
+		name := r.Name
+		if name == "" && r.Type == "MX" {
+			name = parentDomain
+		}
 		apiRecords[i] = domaintypes.DNSRecord{
-			Name:     record.Name,
-			Type:     record.Type,
-			Value:    record.Value,
-			Priority: record.Priority,
-			Valid:    record.Valid,
+			Name:     name,
+			Type:     r.Type,
+			Value:    r.Value,
+			Priority: r.Priority,
+			Valid:    r.Valid,
 		}
 	}
 	return apiRecords
 }
 
-// CreateDomain creates a new domain in Mailgun
+// computeDNSVerified returns true if every record in the provided slice has
+// a Valid pointer set to RecordValidityValid, false if at least one record
+// is not valid, and nil when there are no records to evaluate.
+func computeDNSVerified(records []domaintypes.DNSRecord) *bool {
+	if len(records) == 0 {
+		return nil
+	}
+
+	allValid := true
+	for _, record := range records {
+		if !record.Valid.IsVerified() {
+			allValid = false
+			break
+		}
+	}
+	return &allValid
+}
+
+// responseToObservation converts a Mailgun v4 DomainResponse into the API
+// DomainObservation, computing DNSVerified across receiving + sending records.
+func responseToObservation(r *DomainResponse) *domaintypes.DomainObservation {
+	obs := &domaintypes.DomainObservation{}
+
+	if r.Domain != nil {
+		obs.ID = r.Domain.Name
+		obs.State = r.Domain.State
+		obs.CreatedAt = r.Domain.CreatedAt
+		obs.SMTPLogin = r.Domain.SMTPLogin
+		obs.SMTPPassword = r.Domain.SMTPPassword
+		obs.WebScheme = r.Domain.WebScheme
+		obs.Wildcard = r.Domain.Wildcard
+		obs.SpamAction = r.Domain.SpamAction
+		if r.Domain.Tracking != nil {
+			obs.Tracking = &domaintypes.DomainTracking{
+				Click:       r.Domain.Tracking.Click,
+				Open:        r.Domain.Tracking.Open,
+				Unsubscribe: r.Domain.Tracking.Unsubscribe,
+			}
+		}
+	}
+
+	obs.ReceivingDNSRecords = convertDNSRecords(r.ReceivingDNSRecords, obs.ID)
+	obs.SendingDNSRecords = convertDNSRecords(r.SendingDNSRecords, obs.ID)
+
+	// DNSVerified is true iff every record actually required for this domain's
+	// type is valid. A sending-only domain does not define MX (receiving)
+	// records, so we must not require them: Mailgun lists the MX records it
+	// would need for receiving with valid="unknown" whenever they are absent,
+	// and counting them would report a healthy sending domain as permanently
+	// unverified. Receiving-only domains are the mirror image. The v4 response
+	// echoes the domain type; we default to "sending" when it is absent.
+	required := obs.SendingDNSRecords
+	if r.Domain != nil && r.Domain.Type == "receiving" {
+		required = obs.ReceivingDNSRecords
+	}
+	obs.DNSVerified = computeDNSVerified(required)
+
+	// RequiredDNSRecords exposes the record set Mailgun actually expects this
+	// domain (per its type) to have configured. The controller uses this to
+	// emit DNSRecordsRequired / DNSInvalid diagnostics and to drive the
+	// external-dns annotation, ConfigMap output and DNS probe.
+	obs.RequiredDNSRecords = required
+
+	return obs
+}
+
+// CreateDomain creates a new domain in Mailgun via the v4 Domains API.
 func (c *mailgunClient) CreateDomain(ctx context.Context, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	params := map[string]interface{}{
 		"name": domain.Name,
@@ -77,64 +152,38 @@ func (c *mailgunClient) CreateDomain(ctx context.Context, domain *domaintypes.Do
 	}
 
 	body := strings.NewReader(createFormData(params))
-	resp, err := c.makeRequest(ctx, "POST", "/domains", body)
+	resp, err := c.makeRequestAt(ctx, c.config.V4BaseURL, "POST", "/domains", body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create domain")
 	}
 
-	var result struct {
-		Domain *Domain `json:"domain"`
-	}
+	var result DomainResponse
 	if err := c.handleResponse(resp, &result); err != nil {
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	// Convert client Domain to API DomainObservation
-	observation := &domaintypes.DomainObservation{
-		ID:                   result.Domain.Name, // Mailgun uses name as ID
-		State:                result.Domain.State,
-		CreatedAt:            result.Domain.CreatedAt,
-		SMTPLogin:            result.Domain.SMTPLogin,
-		SMTPPassword:         result.Domain.SMTPPassword,
-		RequiredDNSRecords:   convertDNSRecords(result.Domain.RequiredDNSRecords),
-		ReceivingDNSRecords:  convertDNSRecords(result.Domain.ReceivingDNSRecords),
-		SendingDNSRecords:    convertDNSRecords(result.Domain.SendingDNSRecords),
-	}
-
-	return observation, nil
+	return responseToObservation(&result), nil
 }
 
-// GetDomain retrieves a domain from Mailgun
+// GetDomain retrieves a domain from Mailgun via the v4 Domains API. The
+// response includes the receiving and sending DNS records at the top level
+// along with their current validity status.
 func (c *mailgunClient) GetDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
-	path := fmt.Sprintf("/domains/%s", name)
-	resp, err := c.makeRequest(ctx, "GET", path, nil)
+	path := fmt.Sprintf("/domains/%s", url.PathEscape(name))
+	resp, err := c.makeRequestAt(ctx, c.config.V4BaseURL, "GET", path, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get domain")
 	}
 
-	var result struct {
-		Domain *Domain `json:"domain"`
-	}
+	var result DomainResponse
 	if err := c.handleResponse(resp, &result); err != nil {
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	// Convert client Domain to API DomainObservation
-	observation := &domaintypes.DomainObservation{
-		ID:                   result.Domain.Name, // Mailgun uses name as ID
-		State:                result.Domain.State,
-		CreatedAt:            result.Domain.CreatedAt,
-		SMTPLogin:            result.Domain.SMTPLogin,
-		SMTPPassword:         result.Domain.SMTPPassword,
-		RequiredDNSRecords:   convertDNSRecords(result.Domain.RequiredDNSRecords),
-		ReceivingDNSRecords:  convertDNSRecords(result.Domain.ReceivingDNSRecords),
-		SendingDNSRecords:    convertDNSRecords(result.Domain.SendingDNSRecords),
-	}
-
-	return observation, nil
+	return responseToObservation(&result), nil
 }
 
-// UpdateDomain updates an existing domain in Mailgun
+// UpdateDomain updates an existing domain in Mailgun via the v4 Domains API.
 func (c *mailgunClient) UpdateDomain(ctx context.Context, name string, domain *domaintypes.DomainParameters) (*domaintypes.DomainObservation, error) {
 	params := map[string]interface{}{}
 
@@ -149,37 +198,24 @@ func (c *mailgunClient) UpdateDomain(ctx context.Context, name string, domain *d
 	}
 
 	body := strings.NewReader(createFormData(params))
-	path := fmt.Sprintf("/domains/%s", name)
-	resp, err := c.makeRequest(ctx, "PUT", path, body)
+	path := fmt.Sprintf("/domains/%s", url.PathEscape(name))
+	resp, err := c.makeRequestAt(ctx, c.config.V4BaseURL, "PUT", path, body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to update domain")
 	}
 
-	var result struct {
-		Domain *Domain `json:"domain"`
-	}
+	var result DomainResponse
 	if err := c.handleResponse(resp, &result); err != nil {
 		return nil, errors.Wrap(err, "failed to handle response")
 	}
 
-	// Convert client Domain to API DomainObservation
-	observation := &domaintypes.DomainObservation{
-		ID:                   result.Domain.Name, // Mailgun uses name as ID
-		State:                result.Domain.State,
-		CreatedAt:            result.Domain.CreatedAt,
-		SMTPLogin:            result.Domain.SMTPLogin,
-		SMTPPassword:         result.Domain.SMTPPassword,
-		RequiredDNSRecords:   convertDNSRecords(result.Domain.RequiredDNSRecords),
-		ReceivingDNSRecords:  convertDNSRecords(result.Domain.ReceivingDNSRecords),
-		SendingDNSRecords:    convertDNSRecords(result.Domain.SendingDNSRecords),
-	}
-
-	return observation, nil
+	return responseToObservation(&result), nil
 }
 
-// DeleteDomain deletes a domain from Mailgun
+// DeleteDomain deletes a domain from Mailgun. The v4 Domains API does not
+// expose DELETE, so we use the legacy /v3 endpoint.
 func (c *mailgunClient) DeleteDomain(ctx context.Context, name string) error {
-	path := fmt.Sprintf("/domains/%s", name)
+	path := fmt.Sprintf("/v3/domains/%s", name)
 	resp, err := c.makeRequest(ctx, "DELETE", path, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to delete domain")
@@ -190,4 +226,23 @@ func (c *mailgunClient) DeleteDomain(ctx context.Context, name string) error {
 	}
 
 	return nil
+}
+
+// VerifyDomain triggers DNS verification on a domain via the v4 Domains API
+// and returns the verification result including the DNS records and their
+// current validity status. This is the authoritative source for DNS
+// verification information in Mailgun.
+func (c *mailgunClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	path := fmt.Sprintf("/domains/%s/verify", url.PathEscape(name))
+	resp, err := c.makeRequestAt(ctx, c.config.V4BaseURL, "PUT", path, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to verify domain")
+	}
+
+	var result DomainResponse
+	if err := c.handleResponse(resp, &result); err != nil {
+		return nil, errors.Wrap(err, "failed to handle response")
+	}
+
+	return responseToObservation(&result), nil
 }

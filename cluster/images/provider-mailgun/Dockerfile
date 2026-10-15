@@ -12,9 +12,9 @@ LABEL org.opencontainers.image.documentation="https://github.com/rossigee/provid
 ARG TARGETOS
 ARG TARGETARCH
 
-ADD bin/${TARGETOS}_${TARGETARCH}/provider /usr/local/bin/provider
-ADD package/crossplane.yaml /package.yaml
-ADD package/crds /crds
+COPY --chmod=0755 bin/${TARGETOS}_${TARGETARCH}/provider /usr/local/bin/provider
+COPY --chmod=0644 package.yaml /package.yaml
+COPY --chmod=0644 crds /crds
 
 USER 65532:65532
 ENTRYPOINT ["/usr/local/bin/provider"]

@@ -16,39 +16,77 @@ limitations under the License.
 
 package clients
 
-// Domain represents a Mailgun domain
+import (
+	domainv1beta1 "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+)
+
+// DomainTracking mirrors the "tracking" sub-object returned by Mailgun v4
+// Domains API on GET/PUT /v4/domains/{name}.
+type DomainTracking struct {
+	Click       *bool `json:"click,omitempty"`
+	Open        *bool `json:"open,omitempty"`
+	Unsubscribe *bool `json:"unsubscribe,omitempty"`
+}
+
+// Domain represents a Mailgun domain (nested inside the response's "domain" field).
+// Per the Mailgun v4 Domains API, DNS records are NOT nested in this object; they
+// appear at the top level of the response alongside "domain". See DomainResponse.
 type Domain struct {
-	Name               string      `json:"name"`
-	Type               string      `json:"type,omitempty"`
-	State              string      `json:"state,omitempty"`
-	CreatedAt          string      `json:"created_at,omitempty"`
-	SMTPLogin          string      `json:"smtp_login,omitempty"`
-	SMTPPassword       string      `json:"smtp_password,omitempty"`
-	RequiredDNSRecords []DNSRecord `json:"required_dns_records,omitempty"`
+	Name         string          `json:"name"`
+	Type         string          `json:"type,omitempty"`
+	State        string          `json:"state,omitempty"`
+	CreatedAt    string          `json:"created_at,omitempty"`
+	SMTPLogin    string          `json:"smtp_login,omitempty"`
+	SMTPPassword string          `json:"smtp_password,omitempty"`
+	Wildcard     *bool           `json:"wildcard,omitempty"`
+	SpamAction   string          `json:"spam_action,omitempty"`
+	WebScheme    string          `json:"web_scheme,omitempty"`
+	Tracking     *DomainTracking `json:"tracking,omitempty"`
+}
+
+// DomainResponse represents the full response shape returned by Mailgun v4
+// Domains endpoints (GET /v4/domains/{name}, POST /v4/domains, PUT /v4/domains/{name},
+// and PUT /v4/domains/{name}/verify).
+type DomainResponse struct {
+	Domain              *Domain     `json:"domain"`
 	ReceivingDNSRecords []DNSRecord `json:"receiving_dns_records,omitempty"`
 	SendingDNSRecords   []DNSRecord `json:"sending_dns_records,omitempty"`
+	Message             string      `json:"message,omitempty"`
 }
 
 // DomainSpec represents the parameters for creating/updating a domain
 type DomainSpec struct {
-	Name               string  `json:"name"`
-	Type               *string `json:"type,omitempty"`
-	ForceDKIMAuthority *bool   `json:"force_dkim_authority,omitempty"`
-	DKIMKeySize        *int    `json:"dkim_key_size,omitempty"`
+	Name               string   `json:"name"`
+	Type               *string  `json:"type,omitempty"`
+	ForceDKIMAuthority *bool    `json:"force_dkim_authority,omitempty"`
+	DKIMKeySize        *int     `json:"dkim_key_size,omitempty"`
 	IPs                []string `json:"ips,omitempty"`
-	SMTPPassword       *string `json:"smtp_password,omitempty"`
-	SpamAction         *string `json:"spam_action,omitempty"`
-	WebScheme          *string `json:"web_scheme,omitempty"`
-	Wildcard           *bool   `json:"wildcard,omitempty"`
+	SMTPPassword       *string  `json:"smtp_password,omitempty"`
+	SpamAction         *string  `json:"spam_action,omitempty"`
+	WebScheme          *string  `json:"web_scheme,omitempty"`
+	Wildcard           *bool    `json:"wildcard,omitempty"`
 }
 
-// DNSRecord represents a DNS record
+// DNSRecord represents a DNS record as returned by the Mailgun v4 Domains API.
+// Mailgun returns `valid` as a string enum ("valid" or "unknown") and
+// `priority` as a string (e.g. "10") for MX records.
 type DNSRecord struct {
-	Name     string `json:"name,omitempty"`
-	Type     string `json:"record_type,omitempty"`
-	Value    string `json:"value,omitempty"`
-	Priority *int   `json:"priority,omitempty"`
-	Valid    *bool  `json:"valid,omitempty"`
+	Name     string                        `json:"name,omitempty"`
+	Type     string                        `json:"record_type,omitempty"`
+	Value    string                        `json:"value,omitempty"`
+	Priority *string                       `json:"priority,omitempty"`
+	Valid    *domainv1beta1.RecordValidity `json:"valid,omitempty"`
+}
+
+// RecordIsValid converts Mailgun's string validity into a *bool for the
+// atProvider DNSVerified field. Returns nil if v is nil (no record), true
+// when Mailgun reports "valid", false for "unknown" or any other value.
+func RecordIsValid(v *domainv1beta1.RecordValidity) *bool {
+	if v == nil {
+		return nil
+	}
+	b := *v == domainv1beta1.RecordValidityValid
+	return &b
 }
 
 // MailingList represents a Mailgun mailing list
@@ -64,12 +102,12 @@ type MailingList struct {
 
 // MailingListSpec represents the parameters for creating/updating a mailing list
 type MailingListSpec struct {
-	Address         string               `json:"address"`
-	Name            *string              `json:"name,omitempty"`
-	Description     *string              `json:"description,omitempty"`
-	AccessLevel     *string              `json:"access_level,omitempty"`
-	ReplyPreference *string              `json:"reply_preference,omitempty"`
-	Members         []MailingListMember  `json:"members,omitempty"`
+	Address         string              `json:"address"`
+	Name            *string             `json:"name,omitempty"`
+	Description     *string             `json:"description,omitempty"`
+	AccessLevel     *string             `json:"access_level,omitempty"`
+	ReplyPreference *string             `json:"reply_preference,omitempty"`
+	Members         []MailingListMember `json:"members,omitempty"`
 }
 
 // MailingListMember represents a member of a mailing list
@@ -138,12 +176,12 @@ type SMTPCredentialSpec struct {
 
 // Template represents a Mailgun email template
 type Template struct {
-	Name         string            `json:"name"`
-	Description  string            `json:"description,omitempty"`
-	CreatedAt    string            `json:"created_at,omitempty"`
-	CreatedBy    string            `json:"created_by,omitempty"`
-	Version      *TemplateVersion  `json:"version,omitempty"`
-	Versions     []TemplateVersion `json:"versions,omitempty"`
+	Name        string            `json:"name"`
+	Description string            `json:"description,omitempty"`
+	CreatedAt   string            `json:"created_at,omitempty"`
+	CreatedBy   string            `json:"created_by,omitempty"`
+	Version     *TemplateVersion  `json:"version,omitempty"`
+	Versions    []TemplateVersion `json:"versions,omitempty"`
 }
 
 // TemplateSpec represents the parameters for creating/updating a template

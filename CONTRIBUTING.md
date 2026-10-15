@@ -10,7 +10,7 @@ This project adheres to the [Crossplane Code of Conduct](https://github.com/cros
 
 ### Prerequisites
 
-- Go 1.23 or later
+- Go 1.27.1 or later
 - Docker
 - kubectl
 - A Kubernetes cluster (local or remote)

@@ -18,9 +18,24 @@ package smtpcredential
 
 import (
 	"context"
+	"net/http"
+	"time"
+
 	"testing"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
+	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
+	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
@@ -29,19 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
-	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
-	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
-	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
-	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
-	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
-	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
-	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 )
 
 // MockSMTPCredentialClient for testing
@@ -60,7 +62,7 @@ func (m *MockSMTPCredentialClient) CreateSMTPCredential(ctx context.Context, dom
 	// Note: Password handling is managed separately via connection details
 
 	result := &v1beta1.SMTPCredentialObservation{
-		Login:     credential.Login,
+		Login: credential.Login,
 		// Note: Password is not included in observation for security
 		CreatedAt: "2025-01-01T00:00:00Z",
 		State:     "active",
@@ -84,7 +86,7 @@ func (m *MockSMTPCredentialClient) GetSMTPCredential(ctx context.Context, domain
 		return cred, nil
 	}
 
-	return nil, errors.New("credential not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "credential not found"}
 }
 
 func (m *MockSMTPCredentialClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*v1beta1.SMTPCredentialObservation, error) {
@@ -98,7 +100,7 @@ func (m *MockSMTPCredentialClient) UpdateSMTPCredential(ctx context.Context, dom
 		return cred, nil
 	}
 
-	return nil, errors.New("credential not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "credential not found"}
 }
 
 func (m *MockSMTPCredentialClient) DeleteSMTPCredential(ctx context.Context, domain, login string) error {
@@ -143,6 +145,10 @@ func (m *MockSMTPCredentialClient) UpdateDomain(ctx context.Context, name string
 
 func (m *MockSMTPCredentialClient) DeleteDomain(ctx context.Context, name string) error {
 	return errors.New("not implemented")
+}
+
+func (m *MockSMTPCredentialClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (m *MockSMTPCredentialClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
@@ -232,6 +238,10 @@ func (m *MockSMTPCredentialClient) DeleteUnsubscribe(ctx context.Context, domain
 	return errors.New("not implemented")
 }
 
+func (m *MockSMTPCredentialClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
+}
+
 func TestSMTPCredentialObserve(t *testing.T) {
 	scheme := runtime.NewScheme()
 	require.NoError(t, corev1.AddToScheme(scheme))
@@ -253,11 +263,11 @@ func TestSMTPCredentialObserve(t *testing.T) {
 		want   want
 	}{
 		"CredentialExistsWithSecret": {
-			reason: "Should return ResourceExists when secret exists (rotation strategy)",
+			reason: "Should return ResourceExists when secret exists and Mailgun confirms credential",
 			args: args{
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-smtp",
+						Name: "test-smtp",
 					},
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
@@ -266,14 +276,14 @@ func TestSMTPCredentialObserve(t *testing.T) {
 						},
 						ManagedResourceSpec: xpv1.ManagedResourceSpec{
 							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
-								Name:      "test-secret",
+								Name: "test-secret",
 							},
 						},
 					},
 				},
 				secret: &corev1.Secret{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-secret",
+						Name: "test-secret",
 					},
 					Data: map[string][]byte{
 						"smtp_username": []byte("test@example.com"),
@@ -293,12 +303,88 @@ func TestSMTPCredentialObserve(t *testing.T) {
 				},
 			},
 		},
+		"CredentialDriftDetectedSecretExistsButMailgunMissing": {
+			reason: "Should return ResourceExists false when secret exists locally but Mailgun reports credential missing (drift detection)",
+			args: args{
+				mg: &v1beta1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-smtp",
+					},
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
+							Domain: "example.com",
+							Login:  "drift@example.com",
+						},
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
+								Name: "drift-secret",
+							},
+						},
+					},
+				},
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "drift-secret",
+					},
+					Data: map[string][]byte{
+						"smtp_username": []byte("drift@example.com"),
+						"smtp_password": []byte("stale-password"),
+					},
+				},
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists: false,
+				},
+			},
+		},
+		"CredentialExistsWithSecretEU": {
+			reason: "Should propagate the EU SMTP host from the ProviderConfig region into the connection secret so downstream SMTP clients authenticate against the correct relay",
+			args: args{
+				mg: &v1beta1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-smtp-eu",
+					},
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
+							Domain: "example.eu",
+							Login:  "test@example.eu",
+						},
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
+								Name: "test-secret-eu",
+							},
+						},
+					},
+				},
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-secret-eu",
+					},
+					Data: map[string][]byte{
+						"smtp_username": []byte("test@example.eu"),
+						"smtp_password": []byte("existing-password"),
+					},
+				},
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists:   true,
+					ResourceUpToDate: true,
+					ConnectionDetails: managed.ConnectionDetails{
+						"smtp_host":     []byte("smtp.eu.mailgun.org"),
+						"smtp_port":     []byte("587"),
+						"smtp_username": []byte("test@example.eu"),
+					},
+				},
+			},
+		},
 		"CredentialNotFoundNoSecret": {
 			reason: "Should return ResourceExists false when no secret exists (rotation strategy)",
 			args: args{
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-smtp",
+						Name: "test-smtp",
 					},
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
@@ -307,7 +393,7 @@ func TestSMTPCredentialObserve(t *testing.T) {
 						},
 						ManagedResourceSpec: xpv1.ManagedResourceSpec{
 							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
-								Name:      "missing-secret",
+								Name: "missing-secret",
 							},
 						},
 					},
@@ -320,12 +406,97 @@ func TestSMTPCredentialObserve(t *testing.T) {
 				},
 			},
 		},
+		"DeletionAlreadyRequestedReportsGone": {
+			reason: "Should return ResourceExists false once Delete has already run (State=deleted), even though the connection secret still exists - this is what lets the reconciler finalize instead of looping forever re-observing the still-present secret",
+			args: args{
+				mg: &v1beta1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "test-smtp",
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+						Finalizers:        []string{"finalizer.managedresource.crossplane.io"},
+					},
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
+							Domain: "example.com",
+							Login:  "test@example.com",
+						},
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
+								Name: "test-secret",
+							},
+						},
+					},
+					Status: v1beta1.SMTPCredentialStatus{
+						AtProvider: v1beta1.SMTPCredentialObservation{
+							State: smtpCredentialStateDeleted,
+						},
+					},
+				},
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-secret",
+					},
+					Data: map[string][]byte{
+						"smtp_username": []byte("test@example.com"),
+						"smtp_password": []byte("existing-password"),
+					},
+				},
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists: false,
+				},
+			},
+		},
+		"DeletionRequestedButNotYetDeletedStillTriggersDelete": {
+			reason: "Should still return ResourceExists true while being deleted if Delete hasn't run yet (State != deleted), so the reconciler actually invokes Delete",
+			args: args{
+				mg: &v1beta1.SMTPCredential{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "test-smtp",
+						DeletionTimestamp: &metav1.Time{Time: time.Now()},
+						Finalizers:        []string{"finalizer.managedresource.crossplane.io"},
+					},
+					Spec: v1beta1.SMTPCredentialSpec{
+						ForProvider: v1beta1.SMTPCredentialParameters{
+							Domain: "example.com",
+							Login:  "test@example.com",
+						},
+						ManagedResourceSpec: xpv1.ManagedResourceSpec{
+							WriteConnectionSecretToReference: &xpv1.LocalSecretReference{
+								Name: "test-secret",
+							},
+						},
+					},
+				},
+				secret: &corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "test-secret",
+					},
+					Data: map[string][]byte{
+						"smtp_username": []byte("test@example.com"),
+						"smtp_password": []byte("existing-password"),
+					},
+				},
+			},
+			want: want{
+				o: managed.ExternalObservation{
+					ResourceExists:   true,
+					ResourceUpToDate: true,
+					ConnectionDetails: managed.ConnectionDetails{
+						"smtp_host":     []byte("smtp.mailgun.org"),
+						"smtp_port":     []byte("587"),
+						"smtp_username": []byte("test@example.com"),
+					},
+				},
+			},
+		},
 		"NoSecretConfigured": {
 			reason: "Should return ResourceExists false when no secret is configured",
 			args: args{
 				mg: &v1beta1.SMTPCredential{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "test-smtp",
+						Name: "test-smtp",
 					},
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
@@ -354,12 +525,47 @@ func TestSMTPCredentialObserve(t *testing.T) {
 			}
 			kubeClient := fakeClient.Build()
 
-			// Setup mock Mailgun client
+			// Setup mock Mailgun client - pre-populate for cases where Mailgun should confirm credential exists
 			mockClient := &MockSMTPCredentialClient{}
+			switch name {
+			case "CredentialExistsWithSecret":
+				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
+					"example.com/test@example.com": {
+						Login:     "test@example.com",
+						CreatedAt: "2025-01-01T00:00:00Z",
+						State:     "active",
+					},
+				}
+			case "CredentialExistsWithSecretEU":
+				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
+					"example.eu/test@example.eu": {
+						Login:     "test@example.eu",
+						CreatedAt: "2025-01-01T00:00:00Z",
+						State:     "active",
+					},
+				}
+			case "DeletionRequestedButNotYetDeletedStillTriggersDelete":
+				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
+					"example.com/test@example.com": {
+						Login:     "test@example.com",
+						CreatedAt: "2025-01-01T00:00:00Z",
+						State:     "active",
+					},
+				}
+			}
+			// For "CredentialDriftDetectedSecretExistsButMailgunMissing", leave mockClient empty so GetSMTPCredential returns 404
+
+			// Default to US host so existing assertions don't change; the EU
+			// case below overrides this explicitly.
+			host := "smtp.mailgun.org"
+			if name == "CredentialExistsWithSecretEU" {
+				host = "smtp.eu.mailgun.org"
+			}
 
 			e := &external{
-				service: mockClient,
-				kube:    kubeClient,
+				service:  mockClient,
+				kube:     kubeClient,
+				smtpHost: host,
 			}
 			got, err := e.Observe(context.Background(), tc.args.mg)
 
@@ -454,7 +660,7 @@ func TestSMTPCredentialCreate(t *testing.T) {
 			if name == "SuccessfulCreateWithRotation" {
 				mockClient.credentials = map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/existing@example.com": {
-						Login:     "existing@example.com",
+						Login: "existing@example.com",
 						// Password:  "old-password",
 						CreatedAt: "2025-01-01T00:00:00Z",
 						State:     "active",
@@ -513,8 +719,8 @@ func TestSMTPCredentialUpdate(t *testing.T) {
 				mg: &v1beta1.SMTPCredential{
 					Spec: v1beta1.SMTPCredentialSpec{
 						ForProvider: v1beta1.SMTPCredentialParameters{
-							Domain:   "example.com",
-							Login:    "existing@example.com",
+							Domain: "example.com",
+							Login:  "existing@example.com",
 							// Password: stringPtr("new-password"),
 						},
 					},
@@ -531,7 +737,7 @@ func TestSMTPCredentialUpdate(t *testing.T) {
 			mockClient := &MockSMTPCredentialClient{
 				credentials: map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/existing@example.com": {
-						Login:     "existing@example.com",
+						Login: "existing@example.com",
 						// Password:  "old-password",
 						CreatedAt: "2025-01-01T00:00:00Z",
 						State:     "active",
@@ -589,7 +795,7 @@ func TestSMTPCredentialDelete(t *testing.T) {
 			mockClient := &MockSMTPCredentialClient{
 				credentials: map[string]*v1beta1.SMTPCredentialObservation{
 					"example.com/delete@example.com": {
-						Login:     "delete@example.com",
+						Login: "delete@example.com",
 						// Password:  "password",
 						CreatedAt: "2025-01-01T00:00:00Z",
 						State:     "active",
@@ -612,7 +818,6 @@ func TestSMTPCredentialDelete(t *testing.T) {
 		})
 	}
 }
-
 
 func TestProviderConfigUsageTracker_Track(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -649,7 +854,13 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 
 			tracker := newProviderConfigUsageTracker(fakeClient)
 
-			// Create a test SMTPCredential
+			pc := &apisv1beta1.ProviderConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test-provider-config",
+				},
+			}
+			require.NoError(t, fakeClient.Create(context.Background(), pc))
+
 			cr := &v1beta1.SMTPCredential{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "test-smtp",
@@ -666,7 +877,6 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 			}
 			cr.SetGroupVersionKind(v1beta1.SMTPCredentialGroupVersionKind)
 
-			// Track the usage
 			err := tracker.Track(context.Background(), cr)
 
 			if tt.wantErr {
@@ -691,13 +901,7 @@ func TestProviderConfigUsageTracker_Track(t *testing.T) {
 
 			assert.NoError(t, err, "ProviderConfigUsage should be created")
 			assert.Equal(t, expectedNamespace, pcu.GetNamespace(), "ProviderConfigUsage should be in the correct namespace")
-			assert.Equal(t, "test-provider-config", pcu.GetName(), "ProviderConfigUsage should reference the correct ProviderConfig")
-
-			// Verify owner reference is set correctly
-			ownerRefs := pcu.GetOwnerReferences()
-			require.Len(t, ownerRefs, 1)
-			assert.Equal(t, cr.GetName(), ownerRefs[0].Name)
-			assert.Equal(t, string(cr.GetUID()), string(ownerRefs[0].UID))
+			assert.Equal(t, "test-provider-config", pcu.GetProviderConfigReference().Name, "ProviderConfigUsage should reference the correct ProviderConfig")
 		})
 	}
 }
@@ -713,9 +917,17 @@ func TestProviderConfigUsageTracker_TrackIdempotent(t *testing.T) {
 
 	tracker := newProviderConfigUsageTracker(fakeClient)
 
+	pc := &apisv1beta1.ProviderConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-provider-config",
+		},
+	}
+	require.NoError(t, fakeClient.Create(context.Background(), pc))
+
 	cr := &v1beta1.SMTPCredential{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-smtp",
+			Namespace: "test-namespace",
 			UID:       types.UID("test-uid-123"),
 		},
 		Spec: v1beta1.SMTPCredentialSpec{
@@ -728,14 +940,12 @@ func TestProviderConfigUsageTracker_TrackIdempotent(t *testing.T) {
 	}
 	cr.SetGroupVersionKind(v1beta1.SMTPCredentialGroupVersionKind)
 
-	// Track usage twice - should not error on second attempt
 	err1 := tracker.Track(context.Background(), cr)
 	assert.NoError(t, err1)
 
 	err2 := tracker.Track(context.Background(), cr)
 	assert.NoError(t, err2, "Second track call should not error (idempotent)")
 
-	// Verify only one ProviderConfigUsage exists
 	pcuList := &apisv1beta1.ProviderConfigUsageList{}
 	err := fakeClient.List(context.Background(), pcuList, client.InNamespace("test-namespace"))
 	assert.NoError(t, err)

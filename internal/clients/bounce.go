@@ -19,6 +19,7 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
@@ -26,7 +27,7 @@ import (
 
 // CreateBounce creates a new bounce suppression entry for a domain
 func (c *mailgunClient) CreateBounce(ctx context.Context, domain string, bounce *bouncetypes.BounceParameters) (*bouncetypes.BounceObservation, error) {
-	path := fmt.Sprintf("/domains/%s/bounces", domain)
+	path := fmt.Sprintf("/domains/%s/bounces", url.PathEscape(domain))
 
 	params := map[string]interface{}{
 		"address": bounce.Address,
@@ -59,7 +60,7 @@ func (c *mailgunClient) CreateBounce(ctx context.Context, domain string, bounce 
 
 // GetBounce retrieves a bounce suppression entry
 func (c *mailgunClient) GetBounce(ctx context.Context, domain, address string) (*bouncetypes.BounceObservation, error) {
-	path := fmt.Sprintf("/domains/%s/bounces/%s", domain, address)
+	path := fmt.Sprintf("/domains/%s/bounces/%s", url.PathEscape(domain), url.PathEscape(address))
 
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
@@ -81,7 +82,7 @@ func (c *mailgunClient) GetBounce(ctx context.Context, domain, address string) (
 
 // DeleteBounce deletes a bounce suppression entry
 func (c *mailgunClient) DeleteBounce(ctx context.Context, domain, address string) error {
-	path := fmt.Sprintf("/domains/%s/bounces/%s", domain, address)
+	path := fmt.Sprintf("/domains/%s/bounces/%s", url.PathEscape(domain), url.PathEscape(address))
 
 	resp, err := c.makeRequest(ctx, "DELETE", path, nil)
 	if err != nil {

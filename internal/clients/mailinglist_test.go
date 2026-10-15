@@ -31,9 +31,9 @@ import (
 
 func TestCreateMailingList(t *testing.T) {
 	tests := []struct {
-		name         string
-		listSpec     *mailinglisttypes.MailingListParameters
-		expectedList *mailinglisttypes.MailingListObservation
+		name          string
+		listSpec      *mailinglisttypes.MailingListParameters
+		expectedList  *mailinglisttypes.MailingListObservation
 		expectedError bool
 	}{
 		{

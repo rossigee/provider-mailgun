@@ -19,22 +19,23 @@ package mailinglist
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"testing"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockMailingListClient for testing
@@ -88,7 +89,7 @@ func (m *MockMailingListClient) GetMailingList(ctx context.Context, address stri
 		return list, nil
 	}
 
-	return nil, errors.New("mailing list not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "mailing list not found"}
 }
 
 func (m *MockMailingListClient) UpdateMailingList(ctx context.Context, address string, list *v1beta1.MailingListParameters) (*v1beta1.MailingListObservation, error) {
@@ -113,7 +114,7 @@ func (m *MockMailingListClient) UpdateMailingList(ctx context.Context, address s
 		return existing, nil
 	}
 
-	return nil, errors.New("mailing list not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "mailing list not found"}
 }
 
 func (m *MockMailingListClient) DeleteMailingList(ctx context.Context, address string) error {
@@ -140,6 +141,10 @@ func (m *MockMailingListClient) UpdateDomain(ctx context.Context, name string, d
 
 func (m *MockMailingListClient) DeleteDomain(ctx context.Context, name string) error {
 	return errors.New("not implemented")
+}
+
+func (m *MockMailingListClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (m *MockMailingListClient) CreateRoute(ctx context.Context, route *routetypes.RouteParameters) (*routetypes.RouteObservation, error) {
@@ -243,6 +248,10 @@ func (m *MockMailingListClient) GetUnsubscribe(ctx context.Context, domain, addr
 
 func (m *MockMailingListClient) DeleteUnsubscribe(ctx context.Context, domain, address string) error {
 	return errors.New("not implemented")
+}
+
+func (m *MockMailingListClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
 }
 
 func TestMailingListObserve(t *testing.T) {
@@ -513,10 +522,10 @@ func TestMailingListDelete(t *testing.T) {
 // Test error handling scenarios
 func TestMailingListObserveErrors(t *testing.T) {
 	cases := map[string]struct {
-		reason     string
-		mockErr    error
-		setupMock  func(*MockMailingListClient)
-		expectErr  bool
+		reason       string
+		mockErr      error
+		setupMock    func(*MockMailingListClient)
+		expectErr    bool
 		expectExists bool
 	}{
 		"ClientError": {
@@ -620,7 +629,7 @@ func TestMailingListUpdateErrors(t *testing.T) {
 		},
 		"MailingListNotFound": {
 			reason:    "Should handle mailing list not found during update",
-			mockErr:   errors.New("mailing list not found (404)"),
+			mockErr:   &clients.APIError{StatusCode: http.StatusNotFound, Message: "mailing list not found"},
 			expectErr: true,
 		},
 	}
@@ -664,7 +673,7 @@ func TestMailingListDeleteErrors(t *testing.T) {
 		},
 		"MailingListNotFound": {
 			reason:    "Should handle mailing list not found during delete gracefully",
-			mockErr:   errors.New("mailing list not found (404)"),
+			mockErr:   &clients.APIError{StatusCode: http.StatusNotFound, Message: "mailing list not found"},
 			expectErr: false, // Should handle 404 gracefully on delete
 		},
 	}

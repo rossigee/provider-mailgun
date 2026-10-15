@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.20.0
+    controller-gen.kubebuilder.io/version: v0.21.0
   name: domains.domain.mailgun.m.crossplane.io
 spec:
   group: domain.mailgun.m.crossplane.io
@@ -25,7 +25,13 @@ spec:
     - jsonPath: .status.conditions[?(@.type=='Synced')].status
       name: SYNCED
       type: string
-    - jsonPath: .metadata.annotations.crossplane\.io/external-name
+    - jsonPath: .status.atProvider.state
+      name: STATE
+      type: string
+    - jsonPath: .status.atProvider.dnsVerified
+      name: DNS-VERIFIED
+      type: string
+    - jsonPath: .metadata.annotations.crossplane.io/external-name
       name: EXTERNAL-NAME
       type: string
     - jsonPath: .metadata.creationTimestamp
@@ -70,6 +76,66 @@ spec:
                     - 1024
                     - 2048
                     type: integer
+                  dnsProvider:
+                    description: |-
+                      DNSProvider optionally wires the Domain to a third-party DNS hosting
+                      provider so the controller can push the Mailgun DNS records directly
+                      (e.g. Cloudflare). When unset, the controller falls back to generic
+                      automation: ConfigMap output, external-dns annotation, and (opt-in)
+                      local DNS propagation probing. Only one provider can be configured per
+                      Domain.
+
+                      This field is optional and additive; existing Domains without a
+                      DNSProvider continue to behave exactly as before.
+                    properties:
+                      cloudflare:
+                        description: |-
+                          Cloudflare configures the controller to push the DNS records to
+                          Cloudflare. When set, the controller authenticates with the supplied
+                          API token and writes MX / TXT / CNAME records into the specified zone.
+                          The Domain is not deleted from Cloudflare automatically when the
+                          Crossplane resource is deleted - set cloudflare.keepOnDelete to true
+                          (the default) to preserve the records for inspection; flip to false to
+                          remove them.
+                        properties:
+                          apiTokenSecretRef:
+                            description: |-
+                              APITokenSecretRef references a Kubernetes Secret containing a single
+                              data key 'apiToken' with the Cloudflare API token. The token must
+                              have Zone.DNS edit permission for the zone identified by ZoneID.
+                            properties:
+                              key:
+                                default: apiToken
+                                description: |-
+                                  Key is the data key inside the Secret. Defaults to "apiToken" when
+                                  omitted; other consumers can reuse this type with different defaults.
+                                type: string
+                              name:
+                                description: Name is the name of the Secret in the
+                                  Domain's namespace.
+                                type: string
+                            required:
+                            - name
+                            type: object
+                          keepOnDelete:
+                            default: true
+                            description: |-
+                              KeepOnDelete, when true (default), leaves DNS records in Cloudflare
+                              when the Domain is deleted from Crossplane. Set to false to remove
+                              them. We default to true so a careless `kubectl delete` does not
+                              knock your email offline.
+                            type: boolean
+                          zoneID:
+                            description: |-
+                              ZoneID is the Cloudflare Zone ID where the records will be created.
+                              Find this in the Cloudflare dashboard under the domain overview page
+                              (lower-right API section).
+                            type: string
+                        required:
+                        - apiTokenSecretRef
+                        - zoneID
+                        type: object
+                    type: object
                   forceDkimAuthority:
                     default: false
                     description: ForceDKIMAuthority forces DKIM authority even if
@@ -83,7 +149,7 @@ spec:
                     type: array
                   name:
                     description: Name is the domain name to create
-                    pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
+                    pattern: ^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$
                     type: string
                   smtpPassword:
                     description: SMTP password for the domain (if not set, will be
@@ -202,29 +268,40 @@ spec:
                   createdAt:
                     description: CreatedAt is when the domain was created
                     type: string
+                  dnsVerified:
+                    description: DNSVerified indicates whether all required DNS records
+                      are properly configured
+                    type: boolean
                   id:
                     description: ID is the domain identifier in Mailgun
                     type: string
                   receivingDnsRecords:
                     description: Receiving DNS records for incoming mail
                     items:
-                      description: DNSRecord represents a DNS record required for
-                        domain configuration
+                      description: |-
+                        DNSRecord represents a DNS record required for domain configuration.
+                        `Valid` mirrors Mailgun's v4 API verbatim: "valid" if Mailgun confirms the
+                        record is properly configured, "unknown" if it has not yet been verified.
                       properties:
                         name:
                           description: Name is the DNS record name
                           type: string
                         priority:
-                          description: Priority is the MX record priority (for MX
-                            records)
-                          type: integer
+                          description: |-
+                            Priority is the MX record priority (for MX records), as a string per
+                            Mailgun's v4 API (e.g. "10")
+                          type: string
                         type:
-                          description: Type is the DNS record type (TXT, CNAME, MX)
+                          description: Type is the DNS record type (TXT, CNAME, MX,
+                            A)
                           type: string
                         valid:
-                          description: Valid indicates if the DNS record is properly
-                            configured
-                          type: boolean
+                          description: Valid is the verification status returned by
+                            Mailgun.
+                          enum:
+                          - valid
+                          - unknown
+                          type: string
                         value:
                           description: Value is the DNS record value
                           type: string
@@ -234,23 +311,30 @@ spec:
                     description: RequiredDNSRecords contains the DNS records that
                       need to be configured
                     items:
-                      description: DNSRecord represents a DNS record required for
-                        domain configuration
+                      description: |-
+                        DNSRecord represents a DNS record required for domain configuration.
+                        `Valid` mirrors Mailgun's v4 API verbatim: "valid" if Mailgun confirms the
+                        record is properly configured, "unknown" if it has not yet been verified.
                       properties:
                         name:
                           description: Name is the DNS record name
                           type: string
                         priority:
-                          description: Priority is the MX record priority (for MX
-                            records)
-                          type: integer
+                          description: |-
+                            Priority is the MX record priority (for MX records), as a string per
+                            Mailgun's v4 API (e.g. "10")
+                          type: string
                         type:
-                          description: Type is the DNS record type (TXT, CNAME, MX)
+                          description: Type is the DNS record type (TXT, CNAME, MX,
+                            A)
                           type: string
                         valid:
-                          description: Valid indicates if the DNS record is properly
-                            configured
-                          type: boolean
+                          description: Valid is the verification status returned by
+                            Mailgun.
+                          enum:
+                          - valid
+                          - unknown
+                          type: string
                         value:
                           description: Value is the DNS record value
                           type: string
@@ -259,23 +343,30 @@ spec:
                   sendingDnsRecords:
                     description: Sending DNS records for outgoing mail
                     items:
-                      description: DNSRecord represents a DNS record required for
-                        domain configuration
+                      description: |-
+                        DNSRecord represents a DNS record required for domain configuration.
+                        `Valid` mirrors Mailgun's v4 API verbatim: "valid" if Mailgun confirms the
+                        record is properly configured, "unknown" if it has not yet been verified.
                       properties:
                         name:
                           description: Name is the DNS record name
                           type: string
                         priority:
-                          description: Priority is the MX record priority (for MX
-                            records)
-                          type: integer
+                          description: |-
+                            Priority is the MX record priority (for MX records), as a string per
+                            Mailgun's v4 API (e.g. "10")
+                          type: string
                         type:
-                          description: Type is the DNS record type (TXT, CNAME, MX)
+                          description: Type is the DNS record type (TXT, CNAME, MX,
+                            A)
                           type: string
                         valid:
-                          description: Valid indicates if the DNS record is properly
-                            configured
-                          type: boolean
+                          description: Valid is the verification status returned by
+                            Mailgun.
+                          enum:
+                          - valid
+                          - unknown
+                          type: string
                         value:
                           description: Value is the DNS record value
                           type: string
@@ -284,13 +375,43 @@ spec:
                   smtpLogin:
                     description: SMTPLogin is the SMTP login for the domain
                     type: string
-                  smtpPassword:
-                    description: SMTPPassword is the SMTP password for the domain
+                  spamAction:
+                    description: |-
+                      SpamAction is the spam filtering action (disabled, block, tag).
+                      Mailgun returns this on GET /v4/domains/{name}.
                     type: string
                   state:
                     description: State is the current state of the domain (active,
                       unverified, disabled)
                     type: string
+                  tracking:
+                    description: |-
+                      Tracking reflects the email tracking settings read back from Mailgun.
+                      Mailgun returns this on GET /v4/domains/{name}.
+                    properties:
+                      click:
+                        default: false
+                        description: Click tracking enabled
+                        type: boolean
+                      open:
+                        default: false
+                        description: Open tracking enabled
+                        type: boolean
+                      unsubscribe:
+                        default: false
+                        description: Unsubscribe tracking enabled
+                        type: boolean
+                    type: object
+                  webScheme:
+                    description: |-
+                      WebScheme is the scheme (http or https) used for tracking URLs.
+                      Mailgun returns this on GET /v4/domains/{name}.
+                    type: string
+                  wildcard:
+                    description: |-
+                      Wildcard is whether the domain is a wildcard domain.
+                      Mailgun returns this on GET /v4/domains/{name}.
+                    type: boolean
                 type: object
               conditions:
                 description: Conditions of the resource.

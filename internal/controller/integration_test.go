@@ -1,3 +1,5 @@
+//go:build integration
+
 /*
 Copyright 2025 The Crossplane Authors.
 
@@ -14,32 +16,30 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-//go:build integration
-
 package controller
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	bouncev1beta1 "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	"github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
-	mailinglistv1beta1 "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
-	routev1beta1 "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
-	smtpv1beta1 "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
-	templatev1beta1 "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
-	webhookv1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/route/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	"github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/controller/domain"
 	"github.com/rossigee/provider-mailgun/internal/controller/mailinglist"
 	"github.com/rossigee/provider-mailgun/internal/controller/route"
 	"github.com/rossigee/provider-mailgun/internal/controller/smtpcredential"
 	"github.com/rossigee/provider-mailgun/internal/controller/template"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // stringPtr returns a pointer to a string
@@ -99,7 +99,7 @@ func (m *IntegrationMockClient) GetDomain(ctx context.Context, name string) (*v1
 	if domain, exists := m.domains[name]; exists {
 		return domain, nil
 	}
-	return nil, errors.New("domain not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 }
 
 func (m *IntegrationMockClient) UpdateDomain(ctx context.Context, name string, domain *v1beta1.DomainParameters) (*v1beta1.DomainObservation, error) {
@@ -111,7 +111,7 @@ func (m *IntegrationMockClient) UpdateDomain(ctx context.Context, name string, d
 		// Domain updates would modify state, but for simplicity we just return existing
 		return existing, nil
 	}
-	return nil, errors.New("domain not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 }
 
 func (m *IntegrationMockClient) DeleteDomain(ctx context.Context, name string) error {
@@ -120,6 +120,17 @@ func (m *IntegrationMockClient) DeleteDomain(ctx context.Context, name string) e
 	}
 	delete(m.domains, name)
 	return nil
+}
+
+func (m *IntegrationMockClient) VerifyDomain(ctx context.Context, name string) (*domainv1beta1.DomainObservation, error) {
+	if m.err != nil {
+		return nil, m.err
+	}
+	existing, ok := m.domains[name]
+	if !ok {
+		return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
+	}
+	return existing, nil
 }
 
 // MailingList operations
@@ -163,7 +174,7 @@ func (m *IntegrationMockClient) GetMailingList(ctx context.Context, address stri
 	if list, exists := m.mailingLists[address]; exists {
 		return list, nil
 	}
-	return nil, errors.New("mailing list not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "mailing list not found"}
 }
 
 func (m *IntegrationMockClient) UpdateMailingList(ctx context.Context, address string, list *mailinglistv1beta1.MailingListParameters) (*mailinglistv1beta1.MailingListObservation, error) {
@@ -186,7 +197,7 @@ func (m *IntegrationMockClient) UpdateMailingList(ctx context.Context, address s
 		}
 		return existing, nil
 	}
-	return nil, errors.New("mailing list not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "mailing list not found"}
 }
 
 func (m *IntegrationMockClient) DeleteMailingList(ctx context.Context, address string) error {
@@ -240,7 +251,7 @@ func (m *IntegrationMockClient) GetRoute(ctx context.Context, id string) (*route
 	if route, exists := m.routes[id]; exists {
 		return route, nil
 	}
-	return nil, errors.New("route not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"}
 }
 
 func (m *IntegrationMockClient) UpdateRoute(ctx context.Context, id string, route *routev1beta1.RouteParameters) (*routev1beta1.RouteObservation, error) {
@@ -267,7 +278,7 @@ func (m *IntegrationMockClient) UpdateRoute(ctx context.Context, id string, rout
 		}
 		return existing, nil
 	}
-	return nil, errors.New("route not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "route not found"}
 }
 
 func (m *IntegrationMockClient) DeleteRoute(ctx context.Context, id string) error {
@@ -286,7 +297,7 @@ func (m *IntegrationMockClient) CreateWebhook(ctx context.Context, domain string
 
 	// Check if domain exists
 	if _, exists := m.domains[domain]; !exists {
-		return nil, errors.New("domain not found (404)")
+		return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 	}
 
 	key := domain + "/" + webhook.EventType
@@ -309,7 +320,7 @@ func (m *IntegrationMockClient) GetWebhook(ctx context.Context, domain, eventTyp
 	if webhook, exists := m.webhooks[key]; exists {
 		return webhook, nil
 	}
-	return nil, errors.New("webhook not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "webhook not found"}
 }
 
 func (m *IntegrationMockClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *webhookv1beta1.WebhookParameters) (*webhookv1beta1.WebhookObservation, error) {
@@ -322,7 +333,7 @@ func (m *IntegrationMockClient) UpdateWebhook(ctx context.Context, domain, event
 		existing.URL = webhook.URL
 		return existing, nil
 	}
-	return nil, errors.New("webhook not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "webhook not found"}
 }
 
 func (m *IntegrationMockClient) DeleteWebhook(ctx context.Context, domain, eventType string) error {
@@ -342,7 +353,7 @@ func (m *IntegrationMockClient) CreateSMTPCredential(ctx context.Context, domain
 
 	// Check if domain exists
 	if _, exists := m.domains[domain]; !exists {
-		return nil, errors.New("domain not found (404)")
+		return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 	}
 
 	key := domain + "/" + credential.Login
@@ -366,7 +377,7 @@ func (m *IntegrationMockClient) GetSMTPCredential(ctx context.Context, domain, l
 	if credential, exists := m.smtpCredentials[key]; exists {
 		return credential, nil
 	}
-	return nil, errors.New("SMTP credential not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "SMTP credential not found"}
 }
 
 func (m *IntegrationMockClient) UpdateSMTPCredential(ctx context.Context, domain, login string, password string) (*smtpv1beta1.SMTPCredentialObservation, error) {
@@ -379,7 +390,7 @@ func (m *IntegrationMockClient) UpdateSMTPCredential(ctx context.Context, domain
 		existing.Password = password
 		return existing, nil
 	}
-	return nil, errors.New("SMTP credential not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "SMTP credential not found"}
 }
 
 func (m *IntegrationMockClient) DeleteSMTPCredential(ctx context.Context, domain, login string) error {
@@ -399,7 +410,7 @@ func (m *IntegrationMockClient) CreateTemplate(ctx context.Context, domain strin
 
 	// Check if domain exists
 	if _, exists := m.domains[domain]; !exists {
-		return nil, errors.New("domain not found (404)")
+		return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "domain not found"}
 	}
 
 	key := domain + "/" + template.Name
@@ -416,7 +427,7 @@ func (m *IntegrationMockClient) CreateTemplate(ctx context.Context, domain strin
 	if template.Template != nil {
 		result.Versions = []clients.TemplateVersion{
 			{
-				Tag:       "v1.0",
+				Tag:       "metav1.0",
 				Engine:    "mustache",
 				CreatedAt: "2025-01-01T00:00:00Z",
 				Comment:   "Initial version",
@@ -439,7 +450,7 @@ func (m *IntegrationMockClient) GetTemplate(ctx context.Context, domain, name st
 	if template, exists := m.templates[key]; exists {
 		return template, nil
 	}
-	return nil, errors.New("template not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "template not found"}
 }
 
 func (m *IntegrationMockClient) UpdateTemplate(ctx context.Context, domain, name string, template *templatev1beta1.TemplateParameters) (*templatev1beta1.TemplateObservation, error) {
@@ -454,7 +465,7 @@ func (m *IntegrationMockClient) UpdateTemplate(ctx context.Context, domain, name
 		}
 		return existing, nil
 	}
-	return nil, errors.New("template not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "template not found"}
 }
 
 func (m *IntegrationMockClient) DeleteTemplate(ctx context.Context, domain, name string) error {

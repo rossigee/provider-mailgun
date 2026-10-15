@@ -19,10 +19,10 @@ package clients
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/pkg/errors"
-
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 )
 
@@ -74,7 +74,7 @@ func (c *mailgunClient) CreateMailingList(ctx context.Context, list *mailinglist
 
 // GetMailingList retrieves a mailing list from Mailgun
 func (c *mailgunClient) GetMailingList(ctx context.Context, address string) (*mailinglisttypes.MailingListObservation, error) {
-	path := fmt.Sprintf("/lists/%s", address)
+	path := fmt.Sprintf("/lists/%s", url.PathEscape(address))
 	resp, err := c.makeRequest(ctx, "GET", path, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get mailing list")
@@ -119,7 +119,7 @@ func (c *mailgunClient) UpdateMailingList(ctx context.Context, address string, l
 	}
 
 	body := strings.NewReader(createFormData(params))
-	path := fmt.Sprintf("/lists/%s", address)
+	path := fmt.Sprintf("/lists/%s", url.PathEscape(address))
 	resp, err := c.makeRequest(ctx, "PUT", path, body)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to update mailing list")
@@ -148,7 +148,7 @@ func (c *mailgunClient) UpdateMailingList(ctx context.Context, address string, l
 
 // DeleteMailingList deletes a mailing list from Mailgun
 func (c *mailgunClient) DeleteMailingList(ctx context.Context, address string) error {
-	path := fmt.Sprintf("/lists/%s", address)
+	path := fmt.Sprintf("/lists/%s", url.PathEscape(address))
 	resp, err := c.makeRequest(ctx, "DELETE", path, nil)
 	if err != nil {
 		return errors.Wrap(err, "failed to delete mailing list")

@@ -18,8 +18,12 @@ package bounce
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
+	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
+	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
+	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,18 +31,15 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
-	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
-	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
-
-	"github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
-	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	apisv1beta1 "github.com/rossigee/provider-mailgun/apis/v1beta1"
 	webhooktypes "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockBounceClient for testing
@@ -75,7 +76,7 @@ func (m *MockBounceClient) GetBounce(ctx context.Context, domain, address string
 		return bounce, nil
 	}
 
-	return nil, errors.New("bounce not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "bounce not found"}
 }
 
 func (m *MockBounceClient) DeleteBounce(ctx context.Context, domain, address string) error {
@@ -105,6 +106,10 @@ func (m *MockBounceClient) UpdateDomain(ctx context.Context, name string, domain
 
 func (m *MockBounceClient) DeleteDomain(ctx context.Context, name string) error {
 	return errors.New("not implemented")
+}
+
+func (m *MockBounceClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	return nil, errors.New("not implemented")
 }
 
 // MailingList operations
@@ -214,6 +219,10 @@ func (m *MockBounceClient) GetUnsubscribe(ctx context.Context, domain, address s
 
 func (m *MockBounceClient) DeleteUnsubscribe(ctx context.Context, domain, address string) error {
 	return errors.New("not implemented")
+}
+
+func (m *MockBounceClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
 }
 
 func TestBounceObserve(t *testing.T) {
@@ -511,7 +520,6 @@ func TestBounceDelete(t *testing.T) {
 func stringPtr(s string) *string {
 	return &s
 }
-
 
 func TestResolveDomainName(t *testing.T) {
 	scheme := runtime.NewScheme()

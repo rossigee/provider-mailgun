@@ -9,7 +9,7 @@ PLATFORMS ?= linux_amd64 linux_arm64
 -include build/makelib/output.mk
 
 # Setup Go
-GO_REQUIRED_VERSION ?= 1.26.3
+GO_REQUIRED_VERSION ?= 1.27.1
 NPROCS ?= 1
 GO_TEST_PARALLEL := $(shell echo $$(( $(NPROCS) / 2 )))
 GO_STATIC_PACKAGES = $(GO_PROJECT)/cmd/provider
@@ -17,11 +17,11 @@ GO_LDFLAGS += -X $(GO_PROJECT)/internal/version.Version=$(VERSION)
 GO_SUBDIRS += cmd internal apis
 GO111MODULE = on
 # Override golangci-lint version for modern Go support
-GOLANGCILINT_VERSION ?= 2.12.2
+GOLANGCILINT_VERSION ?= 2.13.2
 -include build/makelib/golang.mk
 
 # Setup Kubernetes tools
-UP_VERSION = v0.28.0
+UP_VERSION = v0.40.3
 UP_CHANNEL = stable
 UPTEST_VERSION = v0.11.1
 -include build/makelib/k8s_tools.mk
@@ -59,11 +59,18 @@ $(foreach r,$(XPKG_REG_ORGS),$(foreach x,$(XPKGS),$(eval xpkg.release.publish.$(
 # Ensure publish only happens on release branches
 publish.artifacts:
 	@if ! echo "$(BRANCH_NAME)" | grep -qE "$(subst $(SPACE),|,main|master|release-.*)"; then \
-		$(ERR) Publishing is only allowed on branches matching: main|master|release-.* (current: $(BRANCH_NAME)); \
+		echo "FAIL: Publishing is only allowed on branches matching: main|master|release-.* current=$(BRANCH_NAME)"; \
 		exit 1; \
 	fi
 	$(foreach r,$(XPKG_REG_ORGS), $(foreach x,$(XPKGS),@$(MAKE) xpkg.release.publish.$(r).$(x)))
 	$(foreach r,$(REGISTRY_ORGS), $(foreach i,$(IMAGES),@$(MAKE) img.release.publish.$(r).$(i)))
+xpkg.release.publish.ghcr.io/rossigee.provider-mailgun:
+	@$(foreach p,$(XPKG_LINUX_PLATFORMS),$(MAKE) xpkg.build.provider-mailgun PLATFORM=$(p) || exit 1;)
+	@$(CROSSPLANE_CLI) xpkg push \
+		$(foreach p,$(XPKG_LINUX_PLATFORMS),--package-files $(XPKG_OUTPUT_DIR)/$(p)/provider-mailgun-$(VERSION).xpkg ) \
+		ghcr.io/rossigee/provider-mailgun:$(VERSION)
+	@$(OK) Pushed package ghcr.io/rossigee/provider-mailgun:$(VERSION)
+
 
 # Setup Package Metadata
 CROSSPLANE_VERSION = 2.0.2
@@ -189,3 +196,12 @@ local-dev: $(KIND) $(KUBECTL) $(CROSSPLANE_CLI) $(KUSTOMIZE) $(HELM3)
 e2e:
 	@$(INFO) Running e2e tests...
 	@go test -v ./test/e2e/... -timeout 1h
+
+# Neutralize the plain runtime image push. imagelight.mk injects
+# img.release.publish.<reg>.<img> as a publish.artifacts prerequisite on
+# release branches, and cluster/images img.publish would fail because the
+# runtime image is never built/tagged locally. The runtime binary is already
+# embedded in the xpkg, so publishing this image would only overwrite the
+# xpkg's package.yaml.
+img.release.publish.ghcr.io/rossigee.provider-mailgun:
+	@:

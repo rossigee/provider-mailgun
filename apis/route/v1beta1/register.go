@@ -19,23 +19,15 @@ package v1beta1
 import (
 	"reflect"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-// Package type metadata.
-const (
-	Group   = "route.mailgun.m.crossplane.io"
-	Version = "v1beta1"
-)
-
+// RouteAction type metadata.
 var (
-	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: Group, Version: Version}
-
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+	RouteActionKind             = reflect.TypeOf(RouteAction{}).Name()
+	RouteActionGroupKind        = schema.GroupKind{Group: Group, Kind: RouteActionKind}
+	RouteActionKindAPIVersion   = RouteActionKind + "." + SchemeGroupVersion.String()
+	RouteActionGroupVersionKind = SchemeGroupVersion.WithKind(RouteActionKind)
 )
 
 // Route type metadata.
@@ -45,12 +37,3 @@ var (
 	RouteKindAPIVersion   = RouteKind + "." + SchemeGroupVersion.String()
 	RouteGroupVersionKind = SchemeGroupVersion.WithKind(RouteKind)
 )
-
-func init() {
-	SchemeBuilder.Register(&Route{}, &RouteList{})
-}
-
-// AddToScheme adds all types of this group into the given scheme.
-func AddToScheme(s *runtime.Scheme) error {
-	return SchemeBuilder.AddToScheme(s)
-}

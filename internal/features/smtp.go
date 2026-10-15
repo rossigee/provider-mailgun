@@ -26,12 +26,10 @@ import (
 	"strings"
 	"time"
 
-	"go.opentelemetry.io/otel/attribute"
-
+	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	"github.com/rossigee/provider-mailgun/internal/clients"
 	"github.com/rossigee/provider-mailgun/internal/errors"
 	"github.com/rossigee/provider-mailgun/internal/tracing"
-	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 )
 
 // SMTPCredentialManager provides advanced SMTP credential management
@@ -125,7 +123,7 @@ type RotationPolicy struct {
 // DefaultRotationPolicy returns a default rotation policy
 func DefaultRotationPolicy() *RotationPolicy {
 	return &RotationPolicy{
-		Enabled:            false, // Disabled by default
+		Enabled:            false,               // Disabled by default
 		RotationInterval:   30 * 24 * time.Hour, // 30 days
 		OverlapPeriod:      7 * 24 * time.Hour,  // 7 days
 		MaxAge:             90 * 24 * time.Hour, // 90 days
@@ -342,8 +340,8 @@ func (m *SMTPCredentialManager) CreateCredentialWithFeatures(
 ) (*EnhancedSMTPCredential, error) {
 
 	op := tracing.StartOperation(ctx, "smtp.create_with_features",
-		tracing.AttrDomain.String(domain),
-		tracing.AttrCredentialType.String("enhanced"),
+		"mailgun.domain", domain,
+		"mailgun.credential.type", "enhanced",
 	)
 	defer op.End()
 
@@ -423,8 +421,8 @@ func (m *SMTPCredentialManager) RotateCredential(
 ) (*EnhancedSMTPCredential, error) {
 
 	op := tracing.StartOperation(ctx, "smtp.rotate_credential",
-		tracing.AttrDomain.String(domain),
-		tracing.AttrOperation.String("rotate"),
+		"mailgun.domain", domain,
+		"mailgun.operation", "rotate",
 	)
 	defer op.End()
 
@@ -466,8 +464,8 @@ func (m *SMTPCredentialManager) ValidateCredentialAccess(
 ) error {
 
 	op := tracing.StartOperation(ctx, "smtp.validate_access",
-		tracing.AttrCredentialType.String("enhanced"),
-		attribute.String("client.ip", clientIP),
+		"mailgun.credential.type", "enhanced",
+		"client.ip", clientIP,
 	)
 	defer op.End()
 
@@ -507,7 +505,7 @@ func (m *SMTPCredentialManager) ValidateCredentialAccess(
 
 // LoginValidator validates SMTP login format
 type LoginValidator struct {
-	allowedDomains   []string
+	allowedDomains    []string
 	forbiddenPatterns []*regexp.Regexp
 }
 

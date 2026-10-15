@@ -17,9 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // SMTPCredentialParameters are the configurable fields of a SMTPCredential.
@@ -30,13 +29,18 @@ type SMTPCredentialParameters struct {
 
 	// Login is the SMTP username (email address).
 	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`
+	// +kubebuilder:validation:Pattern=`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+.[a-zA-Z]{2,}$`
 	Login string `json:"login"`
 
 	// Password is the SMTP password. If not provided, Mailgun will generate one.
 	// +optional
 	// +kubebuilder:validation:MinLength=8
 	Password *string `json:"password,omitempty"`
+
+	// CredentialsSecretRef references a secret to read the password from for
+	// sync semantics: if key exists use it (preserve client), else generate.
+	// +optional
+	CredentialsSecretRef *xpv1.SecretKeySelector `json:"credentialsSecretRef,omitempty"`
 }
 
 // SMTPCredentialObservation are the observable fields of a SMTPCredential.
@@ -44,9 +48,12 @@ type SMTPCredentialObservation struct {
 	// Login is the SMTP username.
 	Login string `json:"login,omitempty"`
 
-	// Password is the SMTP password. This is only populated when credentials are
-	// created or retrieved from Mailgun.
-	Password string `json:"password,omitempty"`
+	// Password is the SMTP password Mailgun generated (or the caller
+	// supplied) when the credential was created. It is deliberately never
+	// persisted to status - status is world-readable. The value is only kept
+	// in memory long enough to populate the writeConnectionSecretToRef
+	// connection secret.
+	Password string `json:"-"`
 
 	// CreatedAt is when the credential was created.
 	CreatedAt string `json:"createdAt,omitempty"`
@@ -58,13 +65,13 @@ type SMTPCredentialObservation struct {
 // A SMTPCredentialSpec defines the desired state of a SMTPCredential.
 type SMTPCredentialSpec struct {
 	xpv1.ManagedResourceSpec `json:",inline"`
-	ForProvider       SMTPCredentialParameters `json:"forProvider"`
+	ForProvider              SMTPCredentialParameters `json:"forProvider"`
 }
 
 // A SMTPCredentialStatus represents the observed state of a SMTPCredential.
 type SMTPCredentialStatus struct {
 	xpv1.ConditionedStatus `json:",inline"`
-	AtProvider          SMTPCredentialObservation `json:"atProvider,omitempty"`
+	AtProvider             SMTPCredentialObservation `json:"atProvider,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -95,3 +102,11 @@ type SMTPCredentialList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SMTPCredential `json:"items"`
 }
+
+// Annotation keys for SMTPCredential
+const (
+	// AnnotationTestEmailTo is the email address to send a test email to.
+	// Set this annotation on an SMTPCredential to trigger a test email.
+	// The annotation will be cleared after the test email is sent successfully.
+	AnnotationTestEmailTo = "mailgun.crossplane.io/test-email-to"
+)

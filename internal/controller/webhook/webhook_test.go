@@ -18,23 +18,24 @@ package webhook
 
 import (
 	"context"
+	"net/http"
 	"testing"
-
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/crossplane/crossplane-runtime/v2/pkg/reconciler/managed"
 	"github.com/crossplane/crossplane-runtime/v2/pkg/resource"
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
-	"github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
 	bouncetypes "github.com/rossigee/provider-mailgun/apis/bounce/v1beta1"
 	domaintypes "github.com/rossigee/provider-mailgun/apis/domain/v1beta1"
 	mailinglisttypes "github.com/rossigee/provider-mailgun/apis/mailinglist/v1beta1"
 	routetypes "github.com/rossigee/provider-mailgun/apis/route/v1beta1"
 	smtpcredentialtypes "github.com/rossigee/provider-mailgun/apis/smtpcredential/v1beta1"
 	templatetypes "github.com/rossigee/provider-mailgun/apis/template/v1beta1"
+	v1beta1 "github.com/rossigee/provider-mailgun/apis/webhook/v1beta1"
+	"github.com/rossigee/provider-mailgun/internal/clients"
 )
 
 // MockWebhookClient for testing
@@ -78,7 +79,7 @@ func (m *MockWebhookClient) GetWebhook(ctx context.Context, domain, eventType st
 		return webhook, nil
 	}
 
-	return nil, errors.New("webhook not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "webhook not found"}
 }
 
 func (m *MockWebhookClient) UpdateWebhook(ctx context.Context, domain, eventType string, webhook *v1beta1.WebhookParameters) (*v1beta1.WebhookObservation, error) {
@@ -96,7 +97,7 @@ func (m *MockWebhookClient) UpdateWebhook(ctx context.Context, domain, eventType
 		return existing, nil
 	}
 
-	return nil, errors.New("webhook not found (404)")
+	return nil, &clients.APIError{StatusCode: http.StatusNotFound, Message: "webhook not found"}
 }
 
 func (m *MockWebhookClient) DeleteWebhook(ctx context.Context, domain, eventType string) error {
@@ -124,6 +125,10 @@ func (m *MockWebhookClient) UpdateDomain(ctx context.Context, name string, domai
 
 func (m *MockWebhookClient) DeleteDomain(ctx context.Context, name string) error {
 	return errors.New("not implemented")
+}
+
+func (m *MockWebhookClient) VerifyDomain(ctx context.Context, name string) (*domaintypes.DomainObservation, error) {
+	return nil, errors.New("not implemented")
 }
 
 func (m *MockWebhookClient) CreateMailingList(ctx context.Context, list *mailinglisttypes.MailingListParameters) (*mailinglisttypes.MailingListObservation, error) {
@@ -227,6 +232,10 @@ func (m *MockWebhookClient) GetUnsubscribe(ctx context.Context, domain, address 
 
 func (m *MockWebhookClient) DeleteUnsubscribe(ctx context.Context, domain, address string) error {
 	return errors.New("not implemented")
+}
+
+func (m *MockWebhookClient) SendEmail(ctx context.Context, domain, from, to, subject, body string) error {
+	return nil
 }
 
 func TestWebhookObserve(t *testing.T) {

@@ -1,165 +1,262 @@
 # Provider Mailgun
 
-A Crossplane v2 provider for managing Mailgun resources with complete namespace isolation for multi-tenancy. All resources are namespace-scoped for enhanced security and team isolation.
+[![CI](https://img.shields.io/github/actions/workflow/status/rossigee/provider-mailgun/ci.yml?branch=master)][build]
+[![Version](https://img.shields.io/github/v/release/rossigee/provider-mailgun)][releases]
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
+[build]: https://github.com/rossigee/provider-mailgun/actions/workflows/ci.yml
+[releases]: https://github.com/rossigee/provider-mailgun/releases
+
+A Crossplane v2 provider for managing Mailgun resources with complete namespace isolation for multi-tenancy.
+
+## Container Registry
+
+- **Primary**: `ghcr.io/rossigee/provider-mailgun:v0.22.0`
+
+## Overview
+
+A Crossplane v2 provider for managing Mailgun resources including domains, mailing lists, routes, webhooks, templates, and SMTP credentials.
 
 ## Features
 
 - **Crossplane v2 Architecture**: Complete namespace-scoped resource management
 - **Multi-tenancy**: All resources isolated by namespace for team separation
-- **Complete Mailgun API Coverage**: Domains, routing, templates, credentials, suppressions
+- **Comprehensive Mailgun API Coverage**: Domains, routing, templates, credentials, webhooks, mailing lists, and suppression lists (bounce, complaint, unsubscribe)
 - **Credential Rotation Strategy**: Handles write-only SMTP credentials with automatic rotation
 - **Unified Regional Support**: Single API key works across US and EU regions
 - **Health Monitoring**: Built-in health probes for Kubernetes liveness and readiness checks
-- **Breaking Change v0.11.0**: Removed all v1alpha1 cluster-scoped APIs
-- **Runtime Update v0.12.0**: Updated crossplane-runtime to v1.21.0-rc.0 for improved stability
-- **Go 1.26.3 & golangci-lint 2.5.0 v0.14.3**: Modern toolchain with clean lint compliance
-- **crossplane-runtime v2.3.0 & ModernManaged v0.15.0**: Upgraded to latest runtime with ModernManaged interface
+- **Secure by Default**: URL-encoded path parameters, removed sensitive data logging
 
-## Supported Resources
+## Getting Started
 
-### All Namespace-scoped (v1beta1)
-- **Domain** - Namespace-isolated sending/receiving domains
-- **MailingList** - Team-managed subscriber lists
-- **Route** - Team-specific email routing rules
-- **Webhook** - Team-specific event notifications
-- **Template** - Team-specific email templates
-- **SMTPCredential** - Team-isolated SMTP credentials
-- **Bounce** - Team-managed bounce suppressions
+### Prerequisites
 
-## Quick Start
+- Kubernetes cluster with Crossplane installed
+- Mailgun account with API access
+- Mailgun API key (unified key works for both US and EU regions)
 
-1. Install the provider:
+### Installation
+
 ```bash
-kubectl apply -f examples/provider/config.yaml
+kubectl crossplane install provider ghcr.io/rossigee/provider-mailgun:v0.22.0
 ```
 
-2. Create a secret with your unified Mailgun API key:
+### Configuration
+
+Create a secret with your Mailgun API key:
+
 ```bash
 kubectl create secret generic mailgun-credentials \
   --from-literal=credentials=your-unified-api-key-here \
   -n crossplane-system
 ```
 
-3. Configure the provider (single ProviderConfig for all regions):
+Create the ProviderConfig:
+
 ```yaml
 apiVersion: mailgun.m.crossplane.io/v1beta1
 kind: ProviderConfig
 metadata:
-  name: mailgun
+  name: default
   namespace: crossplane-system
 spec:
-  region: US  # Works for both US and EU with unified API key
-  apiBaseURL: https://api.mailgun.net/v3
+  region: US  # Required: US or EU
   credentials:
     source: Secret
     secretRef:
-      namespace: crossplane-system
       name: mailgun-credentials
+      namespace: crossplane-system
       key: credentials
 ```
 
-4. Create your first domain (v1beta1 namespaced):
-```bash
-kubectl apply -f examples/domain/domain-v1beta1.yaml
+## Usage
+
+### Create a Domain
+
+```yaml
+apiVersion: domain.mailgun.m.crossplane.io/v1beta1
+kind: Domain
+metadata:
+  name: example-com
+  namespace: production
+spec:
+  forProvider:
+    name: example.com
+    spamAction: tag
+  providerConfigRef:
+    name: default
 ```
 
-5. Create SMTP credentials for sending emails:
-```bash
-kubectl apply -f examples/smtpcredential.yaml
+### Create SMTP Credentials
+
+```yaml
+apiVersion: smtpcredential.mailgun.m.crossplane.io/v1beta1
+kind: SMTPCredential
+metadata:
+  name: mailer
+  namespace: production
+spec:
+  forProvider:
+    parentDomainRef:
+      name: example-com
+    passwordSecretRef:
+      key: password
+      secretName: smtp-password
+      namespace: production
+  writeConnectionSecretToRef:
+    name: mailer-credentials
+    namespace: production
+  providerConfigRef:
+    name: default
 ```
 
-6. Create email templates for consistent messaging:
+#### Test Email
+
+To verify SMTP credentials are working, set an annotation on the SMTPCredential:
+
 ```bash
-kubectl apply -f examples/template.yaml
+kubectl annotate smtpcredential mailer mailgun.crossplane.io/test-email-to=you@example.com --overwrite
 ```
 
-## Configuration
+On the next reconcile, the provider will send a test email to that address using the credential's login as the sender. On success, the annotation is automatically cleared. On failure, a warning event is emitted and the annotation is retained for retry.
 
-### Simplified Regional Configuration
+## DNS Verification Flow
 
-The provider uses a unified API key that works across both US and EU regions:
+When you create a `Domain` resource, Mailgun responds with a list of
+DNS records you must configure for the domain to be `active` and able to
+send/receive mail. The provider surfaces these records in three ways so
+you can choose the workflow that fits your team:
 
-- **Unified ProviderConfig**: Single configuration handles all domains regardless of region
-- **API Key**: Works interchangeably between US (`https://api.mailgun.net/v3`) and EU (`https://api.eu.mailgun.net/v3`) endpoints
-- **Automatic Routing**: Provider determines appropriate endpoint based on domain configuration
+### 1. Diagnostic events and status fields (always on)
 
-### Health Monitoring
+Every `Domain` has `.status.atProvider.requiredDnsRecords` populated with
+the exact list Mailgun is waiting on, plus a `STATE` column in
+`kubectl get domain` and a `DNS-VERIFIED` column. While records are
+unverified, the controller emits a Normal `DNSRecordsRequired` event on
+each reconcile with the full per-record manifest embedded in the message
+so `kubectl describe domain <name>` is enough to copy/paste into your DNS
+provider:
 
-The provider exposes monitoring endpoints on port 8080:
+```bash
+$ kubectl describe domain example-domain -n mailgun-resources
+Events:
+  Type    Reason              Age   From             Message
+  ----    ------              ----  ----             -------
+  Normal  DNSRecordsRequired  2m    provider-mailgun Mailgun requires 3 DNS record(s) to verify this domain.
+                                              Each record below appears as `<type>-<hash>=<expected value>`:
+                                                txt-1a2b3c4d=v=spf1 include:mailgun.org ~all
+                                                txt-5d6e7f80=k=rsa; p=MIGfMA0GCSqGSIb3DQEBA...
+                                                cname-9f0c2b71=eu.mailgun.org
+```
 
-- **Liveness Probe**: `GET /healthz` - Simple process health check
-- **Readiness Probe**: `GET /readyz` - Verifies Kubernetes API and Mailgun API connectivity
-- **Metrics**: `GET /metrics` - Prometheus metrics for monitoring and alerting
-- **Kubernetes Integration**: Configure liveness and readiness probes in your deployment manifests
+Only the records Mailgun actually requires for the domain's type are
+listed: `example-domain` is a `sending` domain, so its MX (receiving)
+records are omitted. A `receiving` domain instead requires its MX
+records, and the state of any non-required records is ignored when
+computing `.status.atProvider.dnsVerified`.
 
-### SMTP Credential Rotation Strategy
+The controller also calls Mailgun's `/v4/domains/{name}/verify`
+endpoint on the slow path (DNS unverified) and sets
+`crossplane.io/poll-interval=5m` so the next reconcile runs on a
+Mailgun-friendly cadence rather than controller-runtime's default, which
+would burn API quota. Explicit re-verification is throttled to once per
+30 minutes per Domain (tracked by the
+`mailgun.crossplane.io/last-reverify` annotation) so a stale DNS record
+cannot trigger Mailgun's asynchronous re-check and its "domain is now
+verified" notification emails on every reconcile.
 
-Due to Mailgun's write-only SMTP credentials API, the provider implements an intelligent rotation strategy:
+### 2. Opt-in: DNS-records ConfigMap output
 
-- **Initial Creation**: Creates new SMTP credentials and stores in Kubernetes Secret
-- **Subsequent Operations**: Checks for existing secrets to determine credential status
-- **Rotation**: Automatically deletes and recreates credentials when needed
-- **Secret Management**: Maintains connection details in writeConnectionSecretToRef
+Set the annotation `mailgun.crossplane.io/dns-configmap: "true"` on the
+Domain. The controller will create/update a ConfigMap named
+`<domain>-dns-records` in the Domain's namespace, containing three keys
+you can consume from any external automation:
 
-## Examples
+| Key              | Format                          | Use case                          |
+|------------------|---------------------------------|-----------------------------------|
+| `records.yaml`   | YAML list of records            | `kubectl apply`, generic scripts  |
+| `terraform.tf`   | HCL for `hashicorp/dns` provider| Terraform-based DNS automation    |
+| `bind-zone.txt`  | BIND master-file fragment       | `nsupdate`, manual zone includes  |
 
-See the `examples/` directory for complete usage examples of all supported resources.
+The ConfigMap is owned by the Domain (OwnerReference) so it is
+garbage-collected when the Domain is deleted. To grant the provider
+permission to write ConfigMaps, apply `examples/provider/configmap-rbac.yaml`.
+The RBAC is opt-in: without the annotation, the controller never calls
+the apiserver for ConfigMaps.
+
+### 3. Opt-in: external-dns integration
+
+The controller writes the
+`external-dns.alpha.kubernetes.io/hostname` annotation onto every
+Domain that does not have `mailgun.crossplane.io/disable-external-dns:
+"true"`. With `external-dns` installed in the cluster and a Mailgun
+provider configured, the records will be pushed to Mailgun's DNS
+automatically. See `examples/domain/with-external-dns.yaml` for a
+complete Deployment + RBAC + Secret setup.
+
+### 4. Opt-in: live DNS propagation probe
+
+Set `mailgun.crossplane.io/dns-probe: "true"` on the Domain. The
+controller will query 8.8.8.8, 1.1.1.1, and 9.9.9.9 for each record
+and emit one of these events per record:
+
+| Event                  | Meaning                                              |
+|------------------------|------------------------------------------------------|
+| `DNSRecordMatches`     | Record is propagated and value matches Mailgun       |
+| `DNSValueMismatch`     | Record is propagated but value differs               |
+| `DNSNotPropagated`     | Record is not yet visible in DNS                     |
+| `SPFNeedsMerge`        | Existing SPF detected, manual merge required        |
+| `DNSProbeError`        | Resolver timeout or unexpected RCODE                 |
+
+This requires outbound UDP/TCP 53 from the provider Pod to the public
+internet. Disable egress controls accordingly.
+
+## Resource Types
+
+| Resource | API Version | Description |
+|----------|-------------|-------------|
+| Domain | `domain.mailgun.m.crossplane.io/v1beta1` | Sending/receiving domains |
+| MailingList | `mailinglist.mailgun.m.crossplane.io/v1beta1` | Subscriber lists |
+| Route | `route.mailgun.m.crossplane.io/v1beta1` | Email routing rules |
+| Webhook | `webhook.mailgun.m.crossplane.io/v1beta1` | Event notifications |
+| Template | `template.mailgun.m.crossplane.io/v1beta1` | Email templates |
+| SMTPCredential | `smtpcredential.mailgun.m.crossplane.io/v1beta1` | SMTP credentials |
+| Bounce | `bounce.mailgun.m.crossplane.io/v1beta1` | Bounce suppressions |
+| Complaint | `complaint.mailgun.m.crossplane.io/v1beta1` | Complaint suppressions |
+| Unsubscribe | `unsubscribe.mailgun.m.crossplane.io/v1beta1` | Unsubscribe suppressions |
+
+All resources are namespaced `v1beta1` (`.m.` groups) for Crossplane v2 multi-tenancy.
+
+## Unsupported Mailgun APIs
+
+The following Mailgun APIs are not yet supported by this provider:
+
+- IP address management and warmup
+- Click and open tracking configuration
+- Email validation and recipient verification
+- Message metadata and acceptance inspection
+- List validation services
 
 ## Development
 
-This provider is built using the standard Crossplane provider framework with enhanced SMTP credential management.
-
-### Build Requirements
-- Go 1.26.3+ (specified in go.mod)
-- Docker with buildx support
-- Recommended Docker context: `ulta-docker-engine-1`
-
-### Quick Build
 ```bash
-# Build provider binary
-go build -o provider cmd/provider/main.go
+# Build the provider
+make build
 
-# Run tests with rotation strategy coverage
+# Run tests
 make test
 
-# Build Crossplane package (.xpkg)
-crossplane xpkg build -f package/ --embed-runtime-image=ghcr.io/rossigee/provider-mailgun:v0.14.3
+# Lint code
+make lint
 
-# Build and push to registries
-VERSION=v0.14.3 ./build-and-push.sh
-```
-
-### Development Setup
-```bash
-# Clone and setup
-git clone <repository>
-cd provider-mailgun
-
-# Install dependencies
-go mod download
-
-# Generate code
+# Generate CRDs
 make generate
-
-# Run out-of-cluster for development
-make run
 ```
 
-### Testing
+## Contributing
 
-The provider includes comprehensive test coverage for:
-- **SMTP Credential Rotation**: Tests write-only credential handling
-- **Secret Management**: Kubernetes secret integration testing
-- **ProviderConfig Usage**: Namespace-scoped usage tracking
-- **Mock Client**: Complete Mailgun API simulation
-- **Integration Scenarios**: Multi-resource workflow testing
-- **Error Handling**: Network failures, malformed responses, context cancellation
-- **Controller Coverage**: Enhanced test coverage across all 6 controllers
-
-Current test coverage: **36.3%** (133 test functions) with focus on critical paths and HTTP client reliability (55.7%).
-
-See `CLAUDE.md` for comprehensive development guidance.
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
 ## License
 
-This project is licensed under the Apache License 2.0. See LICENSE for details.
+provider-mailgun is under the Apache 2.0 license.

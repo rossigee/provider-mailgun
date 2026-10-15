@@ -17,9 +17,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	xpv1 "github.com/crossplane/crossplane/apis/v2/core/v2"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // A ProviderConfigSpec defines the desired state of a ProviderConfig.
@@ -35,8 +34,8 @@ type ProviderConfigSpec struct {
 
 	// Region specifies the Mailgun region (US or EU).
 	// +kubebuilder:validation:Enum=US;EU
-	// +kubebuilder:default="US"
-	Region *string `json:"region,omitempty"`
+	// +kubebuilder:validation:Required
+	Region string `json:"region"`
 }
 
 // ProviderCredentials required to authenticate.

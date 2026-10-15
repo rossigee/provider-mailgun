@@ -19,23 +19,15 @@ package v1beta1
 import (
 	"reflect"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
-// Package type metadata.
-const (
-	Group   = "template.mailgun.m.crossplane.io"
-	Version = "v1beta1"
-)
-
+// TemplateVersion type metadata.
 var (
-	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: Group, Version: Version}
-
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
-	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
+	TemplateVersionKind             = reflect.TypeOf(TemplateVersion{}).Name()
+	TemplateVersionGroupKind        = schema.GroupKind{Group: Group, Kind: TemplateVersionKind}
+	TemplateVersionKindAPIVersion   = TemplateVersionKind + "." + SchemeGroupVersion.String()
+	TemplateVersionGroupVersionKind = SchemeGroupVersion.WithKind(TemplateVersionKind)
 )
 
 // Template type metadata.
@@ -45,12 +37,3 @@ var (
 	TemplateKindAPIVersion   = TemplateKind + "." + SchemeGroupVersion.String()
 	TemplateGroupVersionKind = SchemeGroupVersion.WithKind(TemplateKind)
 )
-
-func init() {
-	SchemeBuilder.Register(&Template{}, &TemplateList{})
-}
-
-// AddToScheme adds all types of this group into the given scheme.
-func AddToScheme(s *runtime.Scheme) error {
-	return SchemeBuilder.AddToScheme(s)
-}

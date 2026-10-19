@@ -129,7 +129,7 @@ type DomainObservation struct {
 - ✅ HTTP client reliability improvements with retry logic and proper body handling
 - ✅ Test performance optimizations (sub-second execution)
 - ✅ Docker build infrastructure and CI/CD workflows
-- ✅ Docker image build process (Go 1.27.1 compatible)
+- ✅ Docker image build process (Go 1.27.2 compatible)
 - ✅ Health probe endpoints (/healthz and /readyz on port 8080)
 - ✅ Improved logging configuration for production deployments
 - ✅ ManagementPolicies support (Observe-only enforcement)
@@ -148,9 +148,9 @@ type DomainObservation struct {
 ## Build and Deployment Process
 
 ### ⚠️ Critical Build Requirements
-- **Go Version**: Go 1.27.1+ required (specified in go.mod)
+- **Go Version**: Go 1.27.2+ required (specified in go.mod)
 - **Dockerfile**: Builds the provider binary via `make build` and copies `bin/${TARGETOS}_${TARGETARCH}/provider` into `gcr.io/distroless/static:nonroot`
-- **golangci-lint**: Use v2.13.2 for Go 1.27.1 compatibility
+- **golangci-lint**: Use v2.13.2 for Go 1.27.2 compatibility
 
 ### Standard Build Commands
 ```bash
@@ -163,7 +163,7 @@ make test
 # Generate code (DeepCopy, managed resources, CRDs)
 make generate
 
-# Docker build (requires Go 1.27.1 compatible Dockerfile)
+# Docker build (requires Go 1.27.2 compatible Dockerfile)
 docker build -t provider-mailgun:latest -f cluster/images/provider-mailgun/Dockerfile .
 
 # Build and push to multiple registries
@@ -211,7 +211,7 @@ VERSION=v0.23.1 BUILD_PACKAGE=true ./build-and-push.sh
 - **ManagementPolicies support (Observe)**: controllers honour Crossplane `managementPolicies`, including Observe-only enforcement.
 - **State metrics**: `MRStateMetrics` reports Ready/Synced counts per managed resource kind.
 - **Required region**: the `ProviderConfig` `region` field is required (US or EU) with no implicit default; explicit `apiBaseURL` still derives the v4 base URL by replacing the `/v3` suffix.
-- **Toolchain**: Go 1.27.1, golangci-lint 2.13.2, crossplane-runtime v2.5.0, GitHub Actions brought up to current major versions.
+- **Toolchain**: Go 1.27.2, golangci-lint 2.13.2, crossplane-runtime v2.5.0, GitHub Actions brought up to current major versions.
 
 ## Recent Improvements (2026-07-30)
 

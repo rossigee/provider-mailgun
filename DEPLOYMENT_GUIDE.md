@@ -24,7 +24,7 @@ git push origin master
 
 Pushing a version tag (for example `v0.22.0`) triggers the Release
 workflow, which:
-- Builds with Go 1.27.1
+- Builds with Go 1.27.2
 - Runs the comprehensive test suite (35.8% coverage)
 - Creates a new container image with the correct package format
 - Pushes to `ghcr.io/rossigee/provider-mailgun:<version>`

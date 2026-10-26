@@ -3,7 +3,7 @@ module github.com/rossigee/provider-mailgun
 go 1.27.3
 
 require (
-	github.com/crossplane/crossplane-runtime/v2 v2.5.0
+	github.com/crossplane/crossplane-runtime/v2 v2.5.1
 	github.com/crossplane/crossplane-tools v0.0.0-20260719180100-659f1dc036c5
 	github.com/crossplane/crossplane/apis/v2 v2.5.0-rc.0
 	github.com/go-logr/logr v1.4.4
@@ -115,7 +115,7 @@ require (
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
 
-replace github.com/crossplane/crossplane-runtime/v2 => github.com/rossigee/crossplane-runtime/v2 v2.5.0
+replace github.com/crossplane/crossplane-runtime/v2 => github.com/rossigee/crossplane-runtime/v2 v2.5.1
 
 replace github.com/crossplane/crossplane/apis/v2 => github.com/rossigee/crossplane/apis/v2 v2.5.0-rc.0.0.20260923113947-5fc6b7aa10a3
 
